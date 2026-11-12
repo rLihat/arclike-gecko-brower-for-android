@@ -237,6 +237,10 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
                     .width(w)
                     .height(h)
                     .clip(RoundedCornerShape(topR, topR, bottomR, bottomR))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { /* keep taps on the panel from dismissing it */ }
                     .background(if (closing) Color.Transparent else c.surface),
             ) {
                 Box(Modifier.fillMaxSize().alpha(contentAlpha)) {

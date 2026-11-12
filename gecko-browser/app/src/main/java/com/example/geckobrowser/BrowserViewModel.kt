@@ -336,9 +336,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun installExtension(uri: Uri) {
+        val app = getApplication<Application>()
         try {
-            runtime.webExtensionController.install(uri.toString())
-            showToast("Installing add-on…")
+            // GeckoView installs from a URL/file path, so stage the picked XPI in cache.
+            val staged = java.io.File(app.cacheDir, "addon-${System.currentTimeMillis()}.xpi")
+            app.contentResolver.openInputStream(uri)?.use { input ->
+                staged.outputStream().use { output -> input.copyTo(output) }
+            } ?: throw IllegalStateException("Cannot read the chosen file")
+            installFromUri(Uri.fromFile(staged))
         } catch (t: Throwable) {
             showToast("Add-on install failed")
         }
@@ -346,9 +351,16 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun installExtensionFromUrl(url: String) {
         if (url.isBlank()) return
+        installFromUri(Uri.parse(url))
+    }
+
+    private fun installFromUri(uri: Uri) {
         try {
-            runtime.webExtensionController.install(url)
-            showToast("Downloading add-on…")
+            runtime.webExtensionController.install(uri.toString()).accept(
+                { showToast("Add-on installed") },
+                { showToast("Add-on install failed") },
+            )
+            showToast("Installing add-on…")
         } catch (t: Throwable) {
             showToast("Add-on install failed")
         }
