@@ -5,14 +5,16 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
-        maven { url "https://maven.mozilla.org/maven2/" }
+        // GeckoView is published by Mozilla here.
+        maven { url 'https://maven.mozilla.org/maven2/' }
     }
 }
 
-rootProject.name = "GeckoBrowser"
-include(":app")
+rootProject.name = "ArcBrowser"
+include ':app'

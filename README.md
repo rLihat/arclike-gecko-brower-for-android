@@ -11,7 +11,7 @@ system rather than shipping its own store.
 | Path | What it is |
 | --- | --- |
 | `mockup/index.html` | Single-file, interactive UI mockup — the design reference. Open it in any browser. |
-| `gecko-browser/` | Android starter: GeckoView session, extension install hook and minimal layout. |
+| `gecko-browser/` | The Android app: native Jetpack Compose chrome over a real GeckoView engine. |
 
 ## Mockup
 
@@ -23,5 +23,14 @@ scroll indicator.
 
 ## Android app
 
-See [`gecko-browser/README.md`](gecko-browser/README.md) for setup notes and the
+Native Kotlin reimplementation of the mockup chrome with real GeckoView content:
+
+- No status bar / no address bar; web content runs behind the floating pill.
+- Pill condenses to a domain chip on scroll down and restores its icons on scroll up.
+- Search + menu sheets morph out of the pill; settings, site settings and account are
+  full-height pages. Dark mode is a persisted chrome theme.
+- Tabs are a horizontal recents carousel; each `GeckoSession` keeps its own history.
+- Signed XPI installation through `WebExtensionController`.
+
+See [`gecko-browser/README.md`](gecko-browser/README.md) for build instructions and the
 extension-signing caveats.
