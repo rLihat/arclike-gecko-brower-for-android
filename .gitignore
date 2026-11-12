@@ -1,0 +1,20 @@
+# Unrelated project: ace-60-switcher has its own repository
+/ace-60-switcher/
+
+# Android / Gradle
+.gradle/
+build/
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+*.iml
+.idea/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Tooling
+node_modules/

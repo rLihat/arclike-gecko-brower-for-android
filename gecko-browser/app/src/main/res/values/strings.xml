@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">GeckoBrowser</string>
+    <string name="hint_url">Enter URL</string>
+    <string name="go">Go</string>
+    <string name="install_extension">Install extension</string>
+</resources>

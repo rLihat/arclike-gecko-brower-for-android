@@ -1,0 +1,2170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Arc-inspired Gecko Browser Mockup</title>
+  <style>
+    :root {
+      --bg1: #dfe7ea;
+      --bg2: #cfd8d3;
+      --page-top: #f4f7f6;
+      --text: #101314;
+      --muted: rgba(16,19,20,0.55);
+      --surface: #f4f4f2;
+      --surface-strong: #ebebea;
+      --nav-surface: #f2f2f0;
+      --field: #ffffff;
+      --sheet-bg: #f3f3f1;
+      --settings-bg: #f6f6f4;
+      --switcher-bg: #ffffff;
+      --site-bg: #ffffff;
+      --row-hover: #f0f0ee;
+      --press: rgba(16,19,20,0.06);
+      --hairline: rgba(0,0,0,0.06);
+      --chip: #e9e9e6;
+      --chip-strong: #dededb;
+      --icon-bg: #f0f0ee;
+      --icon-bg2: #e3e3e0;
+      --tabs-wrap: #e7e7e4;
+      --icon-ink: #2f5c69;
+      --web-text: #334;
+      --skeleton: rgba(0,0,0,0.06);
+      --switch-off: #dcdcd9;
+      --knob: #ffffff;
+      --accent: #2f5c69;
+      --menu-ico: #5d5d59;
+      --row-ico: #8b8b86;
+      --handle: rgba(0,0,0,0.18);
+      --glow: rgba(79,147,168,0.55);
+      --scroll-thumb: rgba(16,19,20,0.28);
+      --stroke: rgba(16,19,20,0.08);
+      --shadow: 0 12px 40px rgba(20,30,35,0.12);
+    }
+    /* Dark theme: only the phone (and any flying clone tagged .dark) is themed,
+       so the notes panel outside stays readable */
+    .dark {
+      color: var(--text);
+      --bg1: #111a20;
+      --bg2: #090d10;
+      --page-top: #1b2831;
+      --text: #eef3f2;
+      --muted: rgba(238,243,242,0.58);
+      --surface: #1a2024;
+      --surface-strong: #232a2e;
+      --nav-surface: #1c2226;
+      --field: #232a2e;
+      --sheet-bg: #1a2024;
+      --settings-bg: #12171a;
+      --switcher-bg: #0d1114;
+      --site-bg: #0e1317;
+      --row-hover: #2b3237;
+      --press: rgba(255,255,255,0.08);
+      --hairline: rgba(255,255,255,0.08);
+      --chip: #232a2e;
+      --chip-strong: #2e363b;
+      --icon-bg: #232a2e;
+      --icon-bg2: #2a3136;
+      --tabs-wrap: #2a3136;
+      --icon-ink: #9fd0df;
+      --web-text: #cfd8d7;
+      --skeleton: rgba(255,255,255,0.10);
+      --switch-off: #394248;
+      --knob: #eef3f2;
+      --accent: #4f93a8;
+      --menu-ico: #aeb7b6;
+      --row-ico: #8b9593;
+      --handle: rgba(255,255,255,0.22);
+      --glow: rgba(120,200,225,0.5);
+      --scroll-thumb: rgba(255,255,255,0.34);
+      --stroke: rgba(255,255,255,0.10);
+      --shadow: 0 12px 40px rgba(0,0,0,0.5);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+      background: #aeb8b8; color: var(--text); display: flex; min-height: 100vh;
+    }
+    .app { display: flex; width: 100%; gap: 20px; padding: 20px; align-items: flex-start; justify-content: center; }
+    .phone-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+    .phone {
+      width: 390px; height: 844px; border-radius: 44px; overflow: hidden; position: relative;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.3); border: 8px solid #111;
+      background: radial-gradient(120% 80% at 10% 0%, var(--page-top) 0%, var(--bg1) 40%, var(--bg2) 100%);
+    }
+    .screen { position: absolute; inset: 0; display: none; flex-direction: column; }
+    .screen.active { display: flex; }
+    .content { flex: 1; overflow: auto; padding: 56px 20px 120px; }
+    h1 { font-size: 34px; line-height: 1.05; margin: 4px 2px 8px; letter-spacing: -0.03em; }
+    .sub { margin: 0 2px 22px; color: var(--muted); font-size: 15px; }
+    .glass {
+      background: var(--surface); backdrop-filter: none; -webkit-backdrop-filter: none;
+      border: 1px solid var(--stroke); box-shadow: var(--shadow);
+    }
+    .search-hint {
+      border-radius: 22px; padding: 16px 18px; display: flex; align-items: center; gap: 12px;
+      color: var(--muted); cursor: pointer; margin-bottom: 26px;
+    }
+    .plus-badge { width: 28px; height: 28px; border-radius: 9px; display:flex; align-items:center; justify-content:center; background: var(--icon-bg2); color: var(--text); font-size: 18px; }
+    .section-title { font-size: 12px; font-weight: 700; color: var(--muted); margin: 6px 4px 10px; text-transform: uppercase; letter-spacing: .08em; }
+    .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 10px; margin-bottom: 22px; }
+    .pin { display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; }
+    .icon {
+      width: 58px; height: 58px; border-radius: 18px; background: var(--icon-bg);
+      border: 1px solid var(--stroke); display: flex; align-items: center; justify-content: center; font-weight: 700; color: var(--icon-ink);
+    }
+    .pin span { font-size: 12px; color: var(--muted); }
+    .card {
+      border-radius: 20px; padding: 14px 16px; cursor: pointer; margin-bottom: 10px;
+    }
+    .card b { display: block; margin-bottom: 4px; font-size: 15px; }
+    .card small { color: var(--muted); }
+    .bottom-bar {
+      position: absolute; left: 50%; transform: translateX(-50%); bottom: 18px; height: 58px; border-radius: 29px;
+      z-index: 50; width: 70%; overflow: hidden; background: var(--nav-surface); padding: 0;
+      transition: width .35s cubic-bezier(0.4, 0, 1, 1), height .35s cubic-bezier(0.4, 0, 1, 1),
+                  bottom .35s cubic-bezier(0.4, 0, 1, 1), border-radius .35s cubic-bezier(0.4, 0, 1, 1),
+                  transform .35s cubic-bezier(0.4, 0, 1, 1), background .3s ease, border-color .3s ease, box-shadow .3s ease, opacity .3s ease;
+    }
+    /* While a sheet is open the pill surface is handed over to the expanding panel */
+    .bottom-bar.blend,
+    .bottom-bar.menu-open {
+      background: transparent; border-color: transparent; box-shadow: none;
+    }
+    /* Hand the surface over quickly so the pill outline never lingers over the panel */
+    .bottom-bar.menu-open,
+    .bottom-bar.search-open {
+      transition: width .35s cubic-bezier(0.4, 0, 1, 1), transform .35s cubic-bezier(0.4, 0, 1, 1) .08s,
+                  background .14s ease, border-color .14s ease, box-shadow .14s ease, opacity .3s ease;
+    }
+    /* Stay surface-free while a panel shrinks back into the pill, so the two
+       shapes never show as a doubled outline mid-collapse. */
+    .bottom-bar.sheet-closing {
+      background: transparent; border-color: transparent; box-shadow: none;
+      transition: background .12s ease, border-color .12s ease, box-shadow .12s ease;
+    }
+    /* Two fixed, centered sets crossfade instead of reflowing, so icons never drift. */
+    .nav-set {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-evenly;
+      padding: 0 8px; transition: opacity .12s ease, visibility .12s;
+    }
+    #nav-menu-set { opacity: 0; visibility: hidden; pointer-events: none; }
+    /* The outgoing set clears before the incoming one appears, so the two icon
+       rows never sit on top of each other mid-swap. */
+    #nav-main { transition: opacity .1s ease .12s, visibility .1s .12s; }
+    .bottom-bar.menu-open #nav-main { opacity: 0; visibility: hidden; pointer-events: none; transition-delay: 0s; }
+    .bottom-bar.menu-open #nav-menu-set { opacity: 1; visibility: visible; pointer-events: auto; transition-delay: .12s; }
+    .bottom-bar .nav-btn { transition: transform .3s cubic-bezier(0.4, 0, 1, 1), opacity .25s ease, width .35s cubic-bezier(0.4, 0, 1, 1), margin .35s cubic-bezier(0.4, 0, 1, 1); }
+    .nav-menu-btn svg { transition: transform .35s cubic-bezier(0.4, 0, 1, 1); }
+    .bottom-bar.menu-open .nav-menu-btn svg { transform: rotate(540deg); }
+    /* The + cross spins back into view when the menu closes, same direction as the arrow */
+    .bottom-bar.menu-open #nav-search svg { transform: rotate(315deg); }
+    #nav-search svg { transition: transform .35s cubic-bezier(0.4, 0, 1, 1); }
+    .bottom-bar.search-open {
+      width: 58px; background: transparent; border-color: transparent; box-shadow: none;
+      transform: translate(calc(-50% + var(--sx, 0px)), var(--sy, 0px));
+    }
+    .bottom-bar.search-open .nav-set { padding: 0; }
+    .bottom-bar.search-open #nav-tabs,
+    .bottom-bar.search-open .nav-menu-btn {
+      opacity: 0; width: 0; margin: 0; pointer-events: none; overflow: hidden;
+    }
+    .bottom-bar.search-open #nav-search svg { transform: rotate(315deg); }
+    .nav-btn {
+      width: 46px; height: 46px; border: none; background: transparent; color: var(--text); border-radius: 23px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; padding: 0;
+    }
+    .nav-btn:active { background: var(--press); }
+    .nav-btn svg { width: 24px; height: 24px; stroke: var(--text); stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+
+    .fav-in-nav {
+      width: 22px; height: 22px; border-radius: 7px; background: #fff; display:flex; align-items:center; justify-content:center;
+      font-size: 11px; font-weight: 700; color: #2f5c69; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+    .fav-in-nav img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .tabs-icon-wrap { width: 28px; height: 28px; border-radius: 9px; background: var(--tabs-wrap); border: none; display:flex; align-items:center; justify-content:center; }
+    .url-row { display:flex; align-items:center; gap: 8px; margin: 4px 0 10px; }
+    .url-box { flex:1; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,0.4); font-size: 14px; color: #234; word-break: break-all; text-align: center; }
+    .copy-btn { width: 42px; height: 42px; border: 1px solid var(--stroke); border-radius: 14px; background: rgba(255,255,255,0.45); cursor: pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .copy-btn svg { width: 18px; height: 18px; stroke: var(--text); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .copy-btn.copied { background: rgba(120,200,150,0.45); }
+    /* Compact menu: address bar with integrated nav, quick actions, page controls */
+    .address-bar {
+      position: relative; display: flex; align-items: center; gap: 2px; padding: 4px 6px;
+      background: var(--field); border: 1px solid var(--stroke); border-radius: 18px;
+    }
+    .addr-btn {
+      width: 30px; height: 30px; border: 0; background: transparent; border-radius: 9px; padding: 0;
+      display: flex; align-items: center; justify-content: center; cursor: pointer; flex: 0 0 30px;
+      transition: background .15s ease;
+    }
+    .addr-btn:hover { background: var(--row-hover); }
+    .addr-btn svg { width: 16px; height: 16px; stroke: var(--text); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .addr-btn.copied { background: rgba(120,200,150,0.45); }
+    .addr-url {
+      flex: 1; min-width: 0; padding: 0 4px; text-align: center; font-size: 13px; color: var(--text);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    /* Copy feedback floats over the URL so it never shifts the layout */
+    .copy-toast {
+      position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+      max-width: 62%; padding: 5px 10px; border-radius: 10px; background: #e7f3ea;
+      color: #2f6b3f; font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      opacity: 0; pointer-events: none; transition: opacity .2s ease;
+    }
+    .copy-toast:not(:empty) { opacity: 1; }
+
+    .action-box {
+      display: flex; gap: 4px; padding: 6px; margin-top: 8px;
+      background: var(--chip); border-radius: 18px;
+    }
+    .action {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px;
+      padding: 7px 4px 6px; border: 0; background: transparent; border-radius: 13px; cursor: pointer;
+      font-size: 11px; color: var(--text); line-height: 1;
+    }
+    .action:hover { background: var(--chip-strong); }
+    .action-ico { position: relative; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
+    .action-ico svg { width: 20px; height: 20px; stroke: var(--text); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .action-badge {
+      position: absolute; top: -5px; right: -8px; min-width: 14px; height: 14px; padding: 0 3px;
+      border-radius: 7px; background: #de5833; color: #fff; font-size: 9px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .menu-label { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 8px 6px 4px; }
+    .menu-group { background: var(--field); border: 1px solid var(--stroke); border-radius: 18px; overflow: hidden; }
+    .menu-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 14px; cursor: pointer; }
+    .menu-row + .menu-row { border-top: 1px solid var(--hairline); }
+    .menu-row .label { font-size: 14px; }
+    .menu-left { display: flex; align-items: center; gap: 11px; min-width: 0; }
+    .menu-ico { width: 22px; height: 22px; flex: 0 0 22px; display: flex; align-items: center; justify-content: center; }
+    .menu-ico svg { width: 19px; height: 19px; stroke: var(--menu-ico); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    /* Site-mode icon flips between phone and monitor instead of swapping instantly */
+    .site-ico { position: relative; }
+    .site-ico svg {
+      position: absolute; inset: 0; margin: auto; width: 19px; height: 19px;
+      transition: transform .34s cubic-bezier(0.4, 0, 1, 1), opacity .22s ease;
+    }
+    #ico-desktop { transform: rotate(90deg) scale(.55); opacity: 0; }
+    .site-ico.is-desktop #ico-mobile { transform: rotate(-90deg) scale(.55); opacity: 0; }
+    .site-ico.is-desktop #ico-desktop { transform: rotate(0) scale(1); opacity: 1; }
+    .zoom { display: flex; align-items: center; gap: 8px; }
+    .zoom-btn {
+      width: 26px; height: 26px; border-radius: 9px; border: 0; background: var(--nav-surface);
+      cursor: pointer; font-size: 15px; line-height: 1; display: flex; align-items: center; justify-content: center; padding: 0;
+      color: var(--text);
+    }
+    .zoom-value { width: 42px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; }
+    /* Trailing glyphs share the zoom buttons' 26px box so they align on the same column */
+    .row-ico { width: 26px; height: 26px; flex: 0 0 26px; display: flex; align-items: center; justify-content: center; }
+    .row-ico svg { width: 16px; height: 16px; stroke: var(--row-ico); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .switch { width: 42px; height: 25px; border-radius: 13px; background: var(--switch-off); position: relative; transition: background .2s ease; flex: 0 0 auto; }
+    .switch span { position: absolute; top: 2px; left: 2px; width: 21px; height: 21px; border-radius: 50%; background: var(--knob); box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .2s ease; }
+    .switch.on { background: var(--accent); }
+    .switch.on span { transform: translateX(17px); }
+    .chev { color: var(--muted); font-size: 20px; line-height: 1; }
+
+    /* ---------- Firefox-style settings (expands out of the menu sheet) ---------- */
+    #menu-overlay.settings-mode .menu-view { opacity: 0; pointer-events: none; transition-delay: 0s; }
+    .settings-view {
+      position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column;
+      background: var(--settings-bg); overflow: hidden; visibility: hidden;
+      opacity: 0; pointer-events: none; transform: translateY(14px);
+      transition: opacity .22s ease, transform .35s cubic-bezier(0.32, 0.72, 0, 1), visibility .22s;
+    }
+    #menu-overlay.settings-mode .settings-view { opacity: 1; pointer-events: auto; transform: translateY(0); visibility: visible; }
+    body:has(#menu-overlay.settings-mode) .bottom-bar,
+    body:has(#menu-overlay.settings-mode) .bottom-bar .nav-set,
+    body:has(#menu-overlay.settings-mode) .bottom-bar .nav-btn { opacity: 0; pointer-events: none; }
+    .settings-header {
+      flex: 0 0 auto; display: flex; align-items: center; gap: 4px; padding: 20px 14px 12px;
+      background: var(--settings-bg); border-bottom: 1px solid var(--stroke);
+    }
+    .settings-gear { width: 30px; height: 30px; flex: 0 0 30px; display: flex; align-items: center; justify-content: center; font-size: 21px; line-height: 1; color: var(--text); }
+    .settings-back {
+      width: 38px; height: 38px; border: 0; background: transparent; border-radius: 12px; padding: 0;
+      display: flex; align-items: center; justify-content: center; cursor: pointer; flex: 0 0 38px;
+    }
+    .settings-back:hover { background: var(--row-hover); }
+    .settings-back svg { width: 22px; height: 22px; stroke: var(--text); stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .settings-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
+    .settings-scroll { flex: 1; overflow-y: auto; padding: 12px 16px 96px; scrollbar-width: none; }
+    .settings-scroll::-webkit-scrollbar { display: none; }
+    /* Settings search floats at the bottom, shaped like the nav pill */
+    .settings-search {
+      position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 3;
+      width: 70%; height: 58px; padding: 0 20px; margin: 0;
+      display: flex; align-items: center; gap: 10px;
+      background: var(--nav-surface); border: 1px solid var(--stroke); border-radius: 29px;
+      box-shadow: var(--shadow);
+    }
+    .settings-search svg { width: 18px; height: 18px; flex: 0 0 18px; stroke: var(--muted); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .settings-search input {
+      flex: 1; min-width: 0; border: 0; background: transparent; outline: none; font-family: inherit;
+      font-size: 15px; color: var(--text);
+    }
+    .settings-search input::placeholder { color: var(--muted); }
+    .settings-account {
+      display: flex; align-items: center; gap: 12px; padding: 13px 14px; margin-bottom: 4px;
+      background: var(--field); border: 1px solid var(--stroke); border-radius: 18px; cursor: pointer;
+    }
+    .settings-account:active { background: var(--row-hover); }
+    .settings-account .pfp { width: 40px; height: 40px; border-radius: 20px; font-size: 15px; flex: 0 0 40px; }
+    .settings-account-text { flex: 1; min-width: 0; }
+    .settings-account-text b { display: block; font-size: 14px; margin-bottom: 2px; }
+    .settings-account-text span { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .settings-group-label {
+      font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--muted); margin: 16px 6px 6px;
+    }
+    .settings-group { background: var(--field); border: 1px solid var(--stroke); border-radius: 18px; overflow: hidden; }
+    .settings-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; cursor: pointer; }
+    .settings-row + .settings-row { border-top: 1px solid var(--hairline); }
+    .settings-row:active { background: var(--surface); }
+    .settings-ico { width: 22px; height: 22px; flex: 0 0 22px; display: flex; align-items: center; justify-content: center; }
+    .settings-ico svg { width: 19px; height: 19px; stroke: var(--menu-ico); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .settings-row .label { flex: 1; min-width: 0; font-size: 14px; }
+    .settings-row .value { font-size: 13px; color: var(--muted); max-width: 40%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .settings-row .row-ico { width: 22px; height: 22px; flex: 0 0 22px; }
+    .settings-row .row-ico svg { width: 15px; height: 15px; }
+    .settings-footer { text-align: center; font-size: 11px; color: var(--muted); margin: 20px 0 4px; }
+
+    /* ---------- Sub-pages (site settings, account) off the menu sheet ---------- */
+    #menu-overlay.site-mode .menu-view,
+    #menu-overlay.account-mode .menu-view { opacity: 0; pointer-events: none; transition-delay: 0s; }
+    .site-view, .acct-view {
+      position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column;
+      background: var(--settings-bg); overflow: hidden; visibility: hidden;
+      opacity: 0; pointer-events: none; transform: translateY(14px);
+      transition: opacity .22s ease, transform .35s cubic-bezier(0.32, 0.72, 0, 1), visibility .22s;
+    }
+    #menu-overlay.site-mode .site-view,
+    #menu-overlay.account-mode .acct-view { opacity: 1; pointer-events: auto; transform: translateY(0); visibility: visible; }
+    body:has(#menu-overlay.site-mode) .bottom-bar,
+    body:has(#menu-overlay.site-mode) .bottom-bar .nav-set,
+    body:has(#menu-overlay.site-mode) .bottom-bar .nav-btn,
+    body:has(#menu-overlay.account-mode) .bottom-bar,
+    body:has(#menu-overlay.account-mode) .bottom-bar .nav-set,
+    body:has(#menu-overlay.account-mode) .bottom-bar .nav-btn { opacity: 0; pointer-events: none; }
+    .site-globe { width: 30px; height: 30px; flex: 0 0 30px; display: flex; align-items: center; justify-content: center; }
+    .site-globe svg { width: 21px; height: 21px; stroke: var(--text); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .site-host { font-size: 12px; color: var(--muted); margin: -2px 0 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .site-scroll, .acct-scroll { flex: 1; overflow-y: auto; padding: 12px 16px 40px; scrollbar-width: none; }
+    .site-scroll::-webkit-scrollbar, .acct-scroll::-webkit-scrollbar { display: none; }
+
+    /* ---------- Mozilla account / sync ---------- */
+    .acct-avatar {
+      width: 30px; height: 30px; flex: 0 0 30px; border-radius: 15px; font-size: 12px; font-weight: 700;
+      background: linear-gradient(135deg,#ff7a59,#ffbd59); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .acct-hero {
+      background: var(--field); border: 1px solid var(--stroke); border-radius: 18px;
+      padding: 14px; margin-bottom: 4px;
+    }
+    .acct-hero-top { display: flex; align-items: center; gap: 12px; }
+    .acct-hero .pfp { width: 44px; height: 44px; border-radius: 22px; font-size: 15px; flex: 0 0 44px; }
+    .acct-id { min-width: 0; }
+    .acct-id b { display: block; font-size: 14px; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .acct-id span { display: block; font-size: 12px; color: var(--muted); }
+    .acct-cta {
+      width: 100%; height: 42px; margin-top: 13px; border: 0; border-radius: 14px;
+      background: var(--accent); color: #fff; font-family: inherit; font-size: 14px; font-weight: 600;
+      cursor: pointer; transition: filter .18s ease, transform .12s ease;
+    }
+    .acct-cta:hover { filter: brightness(1.06); }
+    .acct-cta:active { transform: scale(.985); }
+    .acct-sync-state { margin-top: 9px; text-align: center; font-size: 12px; color: var(--muted); }
+    .acct-foot { text-align: center; font-size: 11px; color: var(--muted); margin: 20px 0 4px; }
+    .settings-row.danger .label { color: #b4372b; }
+    .dark .settings-row.danger .label { color: #ff9388; }
+    .web-mock { position: absolute; inset: 0; padding: 0; display: flex; flex-direction: column; background: transparent; }
+    .web-canvas { flex: 1; margin: 0; border-radius: 0; overflow: auto; background: transparent; backdrop-filter: none; border: none; }
+    /* Page scrollbars: the shell draws its own hairline indicator. */
+    .web-canvas { scrollbar-width: none; }
+    .web-canvas::-webkit-scrollbar { display: none; }
+    .sb-thumb {
+      position: absolute; right: 2px; top: 0; width: 3px; height: 0;
+      border-radius: 2px; background: var(--scroll-thumb);
+      opacity: 0; pointer-events: none; z-index: 45;
+      transition: opacity .3s ease;
+    }
+    .sb-thumb.show { opacity: 1; }
+    /* Sheets and the switcher own the screen: tuck the indicator away. */
+    #phone:has(#menu-overlay.open) .sb-thumb,
+    #phone:has(#search-overlay.open) .sb-thumb,
+    #phone:has(#tab-overlay.open) .sb-thumb { opacity: 0 !important; }
+    /* Miniatures are not interactive, so they never show one. */
+    .tp-shot .sb-thumb { display: none; }
+    .web-body { padding: 0; }
+    /* Page content physically runs to the screen edge (behind the pill); the
+       extra bottom padding keeps the last item clear once you reach the end. */
+    .web-body > div { padding-bottom: 96px; }
+    .web-body h2 { margin: 0 0 10px; font-size: 28px; letter-spacing: -0.02em; }
+    .web-body p { color: var(--web-text); line-height: 1.55; }
+    .skeleton { height: 12px; background: var(--skeleton); border-radius: 8px; margin: 10px 0; }
+    /* Generic article page (the fallback) */
+    .page-pad { padding: 34px 22px 40px; }
+    .page-pad p { margin: 0 0 14px; }
+    /* --- YouTube clone --- */
+    .yt { padding-bottom: 24px; }
+    .yt, .gh, .gm, .amo, .ddg { background: var(--site-bg); min-height: 100%; }
+    .yt-top { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 10px; }
+    .yt-brand { display: flex; align-items: center; gap: 7px; font-size: 19px; font-weight: 700; letter-spacing: -0.03em; }
+    .yt-logo { width: 26px; height: 18px; border-radius: 5px; background: #ff0033; display: flex; align-items: center; justify-content: center; }
+    .yt-logo::after { content: ''; border-left: 7px solid #fff; border-top: 4.5px solid transparent; border-bottom: 4.5px solid transparent; margin-left: 2px; }
+    .yt-tools { display: flex; align-items: center; gap: 14px; color: var(--muted); font-size: 16px; }
+    .yt-avatar { width: 26px; height: 26px; border-radius: 13px; background: linear-gradient(135deg,#ff7a59,#ffbd59); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .yt-chips { display: flex; gap: 8px; padding: 2px 14px 12px; overflow-x: auto; scrollbar-width: none; }
+    .yt-chips::-webkit-scrollbar { display: none; }
+    .yt-chips span { flex: 0 0 auto; padding: 7px 12px; border-radius: 9px; background: var(--chip); font-size: 12px; font-weight: 500; }
+    .yt-chips span.on { background: var(--text); color: var(--surface); }
+    .yt-grid { display: flex; flex-direction: column; gap: 18px; padding: 0 12px; }
+    .yt-card { cursor: pointer; }
+    .yt-card:active { opacity: .8; }
+    .yt-thumb { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; }
+    .yt-thumb span.yt-time { position: absolute; right: 8px; bottom: 8px; padding: 2px 5px; border-radius: 4px; background: rgba(0,0,0,.78); color: #fff; font-size: 10px; font-weight: 600; }
+    .yt-thumb .yt-live { position: absolute; left: 8px; bottom: 8px; padding: 2px 6px; border-radius: 4px; background: #f00; color: #fff; font-size: 9px; font-weight: 700; letter-spacing: .04em; }
+    .yt-meta { display: flex; gap: 10px; padding: 9px 2px 0; }
+    .yt-ava { width: 30px; height: 30px; flex: 0 0 30px; border-radius: 15px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-weight: 700; }
+    .yt-meta b { display: block; font-size: 13px; line-height: 1.3; margin-bottom: 3px; }
+    .yt-meta small { color: var(--muted); font-size: 11px; }
+    /* --- GitHub clone --- */
+    .gh { padding-bottom: 30px; }
+    .gh-top { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; }
+    .gh-burger { font-size: 17px; color: var(--muted); letter-spacing: -1px; }
+    .gh-brand { font-size: 16px; font-weight: 700; letter-spacing: -0.02em; }
+    .gh-avatar { width: 26px; height: 26px; border-radius: 13px; background: linear-gradient(135deg,#4f93a8,#7bd0c0); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .gh-tabs { display: flex; gap: 16px; padding: 0 14px 10px; border-bottom: 1px solid var(--hairline); font-size: 12px; color: var(--muted); }
+    .gh-tabs span.on { color: var(--text); font-weight: 600; border-bottom: 2px solid #e8734a; padding-bottom: 8px; margin-bottom: -10px; }
+    .gh-tabs em { font-style: normal; padding: 0 5px; border-radius: 8px; background: var(--chip); font-size: 10px; }
+    .gh-head { padding: 14px 14px 10px; }
+    .gh-path { font-size: 16px; letter-spacing: -0.01em; }
+    .gh-path b { font-weight: 700; color: #3f7fd6; }
+    .gh-vis { display: inline-block; margin-left: 6px; padding: 1px 6px; border: 1px solid var(--stroke); border-radius: 8px; font-size: 9px; color: var(--muted); vertical-align: 2px; }
+    .gh-desc { font-size: 12px; color: var(--muted); margin: 6px 0 10px; }
+    .gh-stats { display: flex; gap: 14px; font-size: 11px; color: var(--muted); }
+    .gh-stats b { color: var(--text); }
+    .gh-branch { display: flex; align-items: center; justify-content: space-between; margin: 12px 14px; padding: 8px 10px; border: 1px solid var(--stroke); border-radius: 10px; font-size: 12px; font-weight: 600; background: var(--field); }
+    .gh-branch span:last-child { color: var(--muted); font-weight: 400; }
+    .gh-files { border: 1px solid var(--stroke); border-radius: 12px; margin: 0 14px; overflow: hidden; background: var(--field); }
+    .gh-file { display: flex; align-items: center; gap: 9px; padding: 10px 11px; font-size: 12px; }
+    .gh-file + .gh-file { border-top: 1px solid var(--hairline); }
+    .gh-file .gh-fico { width: 15px; height: 15px; flex: 0 0 15px; color: var(--muted); }
+    .gh-file small { margin-left: auto; color: var(--muted); font-size: 10px; }
+    .gh-readme { margin: 14px; border: 1px solid var(--stroke); border-radius: 12px; background: var(--field); padding: 12px; }
+    .gh-readme h3 { margin: 0 0 6px; font-size: 13px; }
+    .gh-readme p { margin: 0 0 8px; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+    .gh-readme ul { margin: 0; padding-left: 16px; font-size: 11.5px; color: var(--muted); line-height: 1.7; }
+    .gh-commits { margin: 14px; }
+    .gh-commits h3 { margin: 0 0 8px; font-size: 13px; }
+    .gh-commit { display: flex; gap: 9px; padding: 8px 0; border-top: 1px solid var(--hairline); font-size: 11.5px; }
+    .gh-commit .gh-dot { width: 7px; height: 7px; border-radius: 4px; background: #3f9d63; margin-top: 5px; flex: 0 0 7px; }
+    .gh-commit small { display: block; color: var(--muted); margin-top: 2px; font-size: 10px; }
+    /* --- Gmail clone --- */
+    .gm { padding-bottom: 28px; }
+    .gm-top { display: flex; align-items: center; gap: 10px; padding: 12px 14px 10px; }
+    .gm-burger { font-size: 17px; color: var(--muted); letter-spacing: -1px; }
+    .gm-brand { font-size: 16px; font-weight: 600; letter-spacing: -0.02em; }
+    .gm-brand b { color: #d93b30; }
+    .gm-search { flex: 1; height: 32px; border-radius: 16px; background: var(--chip); display: flex; align-items: center; padding: 0 11px; font-size: 11.5px; color: var(--muted); }
+    .gm-avatar { width: 26px; height: 26px; border-radius: 13px; background: linear-gradient(135deg,#ff7a59,#ffbd59); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .gm-tabs { display: flex; padding: 0 14px 8px; border-bottom: 1px solid var(--hairline); font-size: 12px; color: var(--muted); }
+    .gm-tabs span { padding: 4px 14px 9px; }
+    .gm-tabs span.on { color: #d93b30; font-weight: 600; border-bottom: 2px solid #d93b30; margin-bottom: -9px; }
+    .gm-group { padding: 14px 14px 4px; font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+    .gm-row { display: flex; gap: 11px; padding: 10px 14px; cursor: pointer; align-items: flex-start; }
+    .gm-row:active { background: var(--chip); }
+    .gm-row + .gm-row { border-top: 1px solid var(--hairline); }
+    .gm-dot { width: 6px; height: 6px; border-radius: 3px; background: #d93b30; margin-top: 16px; flex: 0 0 6px; opacity: 0; }
+    .gm-row.unread .gm-dot { opacity: 1; }
+    .gm-ava { width: 32px; height: 32px; flex: 0 0 32px; border-radius: 16px; color: #fff; font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .gm-txt { flex: 1; min-width: 0; }
+    .gm-line { display: flex; justify-content: space-between; gap: 8px; font-size: 12.5px; }
+    .gm-line b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gm-line time { font-size: 10.5px; color: var(--muted); flex: 0 0 auto; }
+    .gm-sub { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .gm-row.unread .gm-sub, .gm-row.unread .gm-line b { color: var(--text); font-weight: 700; }
+    .gm-fab { position: absolute; right: 16px; bottom: 118px; width: 46px; height: 46px; border-radius: 14px; background: #d93b30; color: #fff; font-size: 22px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(217,59,48,.35); cursor: pointer; }
+    /* --- Add-ons (AMO) clone --- */
+    .amo { padding: 20px 16px 30px; }
+    .amo-top { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; color: #ff7a59; margin-bottom: 14px; }
+    .amo-hero { border-radius: 14px; padding: 16px; background: linear-gradient(135deg,#3d2a5c,#6a4f9e); color: #fff; margin-bottom: 16px; }
+    .amo-hero b { display: block; font-size: 17px; margin-bottom: 4px; }
+    .amo-hero span { font-size: 11.5px; opacity: .82; }
+    .amo-row { display: flex; align-items: center; gap: 11px; padding: 10px 0; border-bottom: 1px solid var(--hairline); }
+    .amo-ico { width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 12px; flex: 0 0 34px; }
+    .amo-row b { display: block; font-size: 12.5px; }
+    .amo-row small { color: var(--muted); font-size: 10.5px; }
+    .amo-install { margin-left: auto; padding: 5px 10px; border-radius: 9px; border: 1px solid var(--stroke); font-size: 10.5px; font-weight: 600; color: var(--text); }
+    /* --- DuckDuckGo results clone --- */
+    .ddg { padding: 14px 14px 26px; }
+    .ddg-top { display: flex; align-items: center; gap: 9px; }
+    .ddg-logo { width: 28px; height: 28px; flex: 0 0 28px; border-radius: 9px; background: #de5833; color: #fff; font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; }
+    .ddg-field { flex: 1; min-width: 0; height: 36px; border-radius: 18px; background: var(--chip); display: flex; align-items: center; gap: 8px; padding: 0 12px; font-size: 12.5px; }
+    .ddg-field .q { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+    .ddg-field .x { color: var(--muted); font-size: 15px; }
+    .ddg-tabs { display: flex; gap: 16px; padding: 12px 2px 10px; border-bottom: 1px solid var(--hairline); font-size: 12px; color: var(--muted); }
+    .ddg-tabs span.on { color: var(--text); font-weight: 600; border-bottom: 2px solid #de5833; padding-bottom: 9px; margin-bottom: -10px; }
+    .ddg-answer { margin: 12px 0 0; padding: 12px; border-radius: 14px; background: var(--field); border: 1px solid var(--stroke); }
+    .ddg-answer b { display: block; font-size: 13px; margin-bottom: 4px; }
+    .ddg-answer p { margin: 0; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+    .ddg-count { font-size: 10.5px; color: var(--muted); margin: 12px 0 2px; }
+    .ddg-res { padding: 11px 0; border-bottom: 1px solid var(--hairline); cursor: pointer; }
+    .ddg-res:active { opacity: .75; }
+    .ddg-src { display: flex; align-items: center; gap: 7px; font-size: 10.5px; color: var(--muted); }
+    .ddg-fav { width: 15px; height: 15px; flex: 0 0 15px; border-radius: 5px; display: flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: #fff; }
+    .ddg-src .host { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .ddg-title { display: block; margin: 5px 0 4px; font-size: 14px; font-weight: 600; color: #2f6fd0; line-height: 1.3; }
+    .dark .ddg-title { color: #8ab7f5; }
+    .ddg-snip { margin: 0; font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+    .ddg-more { margin: 16px auto 4px; width: 62%; text-align: center; padding: 10px; border-radius: 12px; background: var(--chip); font-size: 12px; font-weight: 600; }
+    .ddg-related { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 16px; }
+    .ddg-related span { padding: 7px 11px; border-radius: 9px; background: var(--chip); font-size: 11.5px; }
+
+    /* --- Nav pill: loading glow + condensed domain chip --- */
+    .bottom-bar.loading { animation: pill-glow 1.15s ease-in-out infinite; }
+    @keyframes pill-glow {
+      0%, 100% { box-shadow: 0 0 0 1px rgba(79,147,168,.45), 0 0 12px 1px var(--glow); }
+      50% { box-shadow: 0 0 0 2px rgba(79,147,168,.75), 0 0 26px 6px var(--glow); }
+    }
+    .nav-domain {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      padding: 0 12px; font-size: 11.5px; font-weight: 600; letter-spacing: -0.005em;
+      white-space: nowrap; overflow: hidden;
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transition: opacity .16s ease, visibility .16s;
+    }
+    #nd-text { overflow: hidden; text-overflow: ellipsis; }
+    /* Domain-only mode: a slim chip that sits closer to the screen edge. */
+    .bottom-bar.scrolled:not(.search-open):not(.menu-open) {
+      width: var(--chip-w, 104px); height: 34px; bottom: 9px; border-radius: 17px;
+      max-width: 58%; min-width: 84px; padding: 0; cursor: pointer;
+      display: flex; align-items: center;
+    }
+    .bottom-bar.scrolled .nav-set { opacity: 0; visibility: hidden; pointer-events: none; transition-delay: 0s; }
+    .bottom-bar.scrolled .nav-domain {
+      position: relative; inset: auto; flex: 0 1 auto; min-width: 0; height: 100%;
+      padding: 0 12px; opacity: 1; visibility: visible; pointer-events: auto; transition-delay: .1s;
+    }
+    .bottom-bar.scrolled #nd-text { min-width: 0; }
+    .overlay { position: absolute; inset: 0; display: none; z-index: 40; }
+    /* Tab view zooms in/out from the center; the page recedes slightly behind it */
+    #tab-overlay {
+      display: block; visibility: hidden; pointer-events: none; background: var(--switcher-bg);
+      transform: scale(.9); opacity: 0; transform-origin: 50% 50%;
+      transition: transform .35s cubic-bezier(0.32, 0.72, 0, 1), opacity .28s ease, visibility .35s;
+    }
+    #tab-overlay.open { visibility: visible; pointer-events: auto; transform: scale(1); opacity: 1; }
+    #screen-browse { transition: transform .35s cubic-bezier(0.32, 0.72, 0, 1), opacity .28s ease; transform-origin: 50% 50%; }
+    body:has(#tab-overlay.open) #screen-browse { transform: scale(.96); opacity: .4; }
+    .overlay.open { display: block; }
+    .sheet {
+      position: absolute; left: 0; right: 0; bottom: 0; border-top-left-radius: 30px; border-top-right-radius: 30px;
+      padding: 12px 16px 22px; max-height: 88%; overflow: auto; background: var(--sheet-bg);
+      scrollbar-width: none;
+    }
+    .sheet::-webkit-scrollbar { display: none; }
+    /* Sheets used to slide up; now the nav pill itself grows into the panel. */
+    #menu-overlay,
+    #search-overlay {
+      display: block; visibility: hidden; pointer-events: none;
+      transition: visibility .42s;
+    }
+    #menu-overlay.open,
+    #search-overlay.open { visibility: visible; pointer-events: auto; }
+    /* Collapsed, a sheet is exactly the pill's box: same width, height, bottom
+       offset and radius. It expands into the bottom half of the screen. */
+    #menu-overlay .sheet,
+    #search-overlay .sheet {
+      right: auto; left: 15%; width: 70%; bottom: 18px; height: 58px;
+      max-height: none; overflow: hidden; padding: 12px 16px 24px;
+      border-radius: 29px; background: var(--surface);
+      transition: left .42s cubic-bezier(0.32, 0.72, 0, 1),
+                  width .42s cubic-bezier(0.32, 0.72, 0, 1),
+                  height .42s cubic-bezier(0.32, 0.72, 0, 1),
+                  bottom .42s cubic-bezier(0.32, 0.72, 0, 1),
+                  border-radius .42s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    #menu-overlay.open .sheet,
+    #search-overlay.open .sheet {
+      left: 0; width: 100%; bottom: 0; height: 47%;
+      border-radius: 30px 30px 0 0; overflow: auto;
+    }
+    /* Panel content fades in only once the surface has mostly grown */
+    .menu-view { opacity: 0; transition: opacity .12s ease; }
+    #menu-overlay.open .menu-view { opacity: 1; transition: opacity .2s ease .16s; }
+    #search-overlay .sheet > * { opacity: 0; transition: opacity .12s ease; }
+    #search-overlay.open .sheet > * { opacity: 1; transition: opacity .2s ease .16s; }
+    /* The menu sheet itself grows into the full-height settings page */
+    #menu-overlay.settings-mode .sheet,
+    #menu-overlay.site-mode .sheet,
+    #menu-overlay.account-mode .sheet {
+      height: 100%; max-height: none; overflow: hidden;
+      border-radius: 0;
+    }
+    .handle { width: 42px; height: 5px; border-radius: 99px; background: var(--handle); margin: 4px auto 14px; }
+    .input-wrap { position: relative; margin-bottom: 8px; }
+    .input {
+      width: 100%; padding: 16px 50px; border-radius: 18px; border: 0; font-size: 16px; outline: none;
+      background: transparent; color: var(--text); margin-bottom: 0; text-align: center;
+      -webkit-appearance: none; appearance: none; box-shadow: none;
+    }
+    .input:focus { border: 0; outline: none; box-shadow: none; background: transparent; }
+    .input::placeholder { text-align: center; }
+    /* Search-engine badge (DuckDuckGo) pinned inside the left of the field */
+    .engine-ico {
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+      width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; pointer-events: none;
+    }
+    .engine-ico svg { width: 22px; height: 22px; display: block; }
+    .suggestions { padding: 4px 0 2px; }
+    .sug-row {
+      display: flex; align-items: center; gap: 12px; padding: 13px 12px; border-radius: 14px;
+      cursor: pointer; font-size: 15px; color: var(--text);
+    }
+    .sug-row:hover, .sug-row:active { background: var(--chip); }
+    .sug-ico { width: 20px; height: 20px; flex: 0 0 20px; display: flex; align-items: center; justify-content: center; }
+    .sug-ico svg { width: 20px; height: 20px; display: block; }
+    .sug-ico svg.stroke { stroke: var(--muted); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .sug-text { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sug-kind { font-size: 12px; color: var(--muted); flex: 0 0 auto; }
+    .row { display:flex; align-items:center; justify-content:space-between; padding: 14px 6px; border-bottom: 1px solid rgba(0,0,0,0.06); cursor: pointer; }
+    .row:last-child { border-bottom: none; }
+    .row-left { display:flex; align-items:center; gap: 12px; }
+    .ico { width: 34px; height: 34px; border-radius: 10px; background: rgba(255,255,255,0.5); display:flex; align-items:center; justify-content:center; font-size: 16px; }
+    .muted { color: var(--muted); font-size: 13px; }
+
+    .ext-pill { display:inline-flex; align-items:center; gap:6px; padding: 8px 10px; border-radius: 999px; background: var(--chip); margin: 4px 6px 0 0; font-size: 13px; }
+    .pfp { width: 46px; height: 46px; border-radius: 23px; background: linear-gradient(135deg,#ff7a59,#ffbd59); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; }
+    .pfp.pfp-small { width: 30px; height: 30px; border-radius: 15px; font-size: 12px; }
+    .pill-ico { width: 24px; height: 24px; border-radius: 0; background: transparent; display:flex; align-items:center; justify-content:center; font-size: 22px; }
+    .tab-switcher { position:absolute; inset:0; padding: 24px 0 24px; overflow: hidden; display: flex; flex-direction: column; background: var(--switcher-bg); backdrop-filter: none; -webkit-backdrop-filter: none; border: none; box-shadow: none; max-height: none; }
+    .stack {
+      flex: 1; display: flex; flex-direction: row; gap: 16px; overflow-x: auto; overflow-y: hidden;
+      padding: 12px 32px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; align-items: center;
+      scrollbar-width: none;
+    }
+    .stack::-webkit-scrollbar { display: none; }
+    .tab-preview {
+      flex: 0 0 88%; height: 604px; border-radius: 30px; padding: 14px; cursor: pointer; position: relative;
+      scroll-snap-align: center; transition: transform .2s ease;
+      /* The card is just a frame for the miniature: no surface of its own. */
+      background: transparent; border: none; box-shadow: none;
+    }
+    .tab-preview .tp-top { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom: 10px; font-size: 14px; color: var(--muted); font-weight: 600; }
+    /* A real miniature of the tab's webview, cropped to the card */
+    .tab-preview .tp-page { position: relative; overflow: hidden; border-radius: 20px; height: calc(100% - 34px); background: var(--bg1); box-shadow: inset 0 0 0 1px var(--stroke); }
+    .tp-shot { position: absolute; inset: 0; overflow: hidden; background: var(--bg1); }
+    .tp-shot .screen {
+      position: absolute; top: 0; left: 0; display: flex;
+      transform-origin: top left; pointer-events: none;
+      background: radial-gradient(120% 80% at 10% 0%, var(--page-top) 0%, var(--bg1) 40%, var(--bg2) 100%);
+    }
+    .tab-preview.active { outline: none; }
+    .tab-preview.active .tp-page { box-shadow: inset 0 0 0 1px var(--stroke), 0 16px 40px rgba(20,30,35,0.22); }
+    .tab-preview.new-tab-card {
+      flex: 0 0 88%; display:flex; align-items:center; justify-content:center; font-size: 34px; color: var(--muted);
+      background: var(--surface); border: 1px solid var(--stroke); box-shadow: var(--shadow);
+    }
+    .panel {
+      width: 340px; background: #fff; border-radius: 20px; padding: 18px 18px 8px; box-shadow: var(--shadow);
+      position: sticky; top: 20px;
+    }
+    .panel h2 { margin: 0 0 6px; font-size: 18px; }
+    .panel p { margin: 0 0 14px; color: #666; font-size: 14px; }
+    .note { font-size: 13px; color: #666; background: #f6f4ef; padding: 10px 12px; border-radius: 12px; margin-bottom: 10px; }
+    .log { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px; color: #333; background: #faf9f7; border-radius: 12px; padding: 10px; min-height: 80px; max-height: 220px; overflow: auto; }
+    .hint { font-size: 12px; color: #445; text-align: center; }
+    .debug-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 10px 12px; margin-bottom: 14px; font-size: 14px;
+      background: #fff; border: 1px solid rgba(16,19,20,0.1); border-radius: 12px;
+    }
+    .debug-row .switch { cursor: pointer; }
+    @media (max-width: 800px) { .app { flex-direction: column; align-items: center; } .panel { width: 390px; position: static; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="phone-wrap">
+      <div class="phone" id="phone">
+        <div class="screen active" id="screen-home">
+          <div class="content">
+            <h1>Where to?</h1>
+            <p class="sub">Search-first, edge to edge. No persistent address bar.</p>
+            <div class="search-hint glass" onclick="openSearch()">
+              <div class="plus-badge">+</div><div style="flex:1;text-align:center">Search or enter a site</div>
+            </div>
+            <div class="section-title">Pinned</div>
+            <div class="grid">
+              <div class="pin" onclick="visit('youtube.com','YouTube','▶','#ff0033')"><div class="icon" style="color:#fff;background:#ff0033">▶</div><span>YouTube</span></div>
+              <div class="pin" onclick="visit('github.com','GitHub','G','#24292f')"><div class="icon" style="color:#fff;background:#24292f">G</div><span>GitHub</span></div>
+              <div class="pin" onclick="visit('mail.google.com','Gmail','M','#d93b30')"><div class="icon" style="color:#fff;background:#d93b30">M</div><span>Gmail</span></div>
+              <div class="pin" onclick="visit('calendar.example','Calendar','C','#f6a04d')"><div class="icon">C</div><span>Calendar</span></div>
+              <div class="pin" onclick="visit('news.example','News','N','#7bc96f')"><div class="icon">N</div><span>News</span></div>
+              <div class="pin" onclick="visit('music.example','Music','♪','#e66a8b')"><div class="icon">♪</div><span>Music</span></div>
+            </div>
+            <div class="section-title">Recent</div>
+            <div class="card glass" onclick="visit('example.com','Example','E','#7aa2b8')"><b>Example</b><small style="display:block;text-align:center">example.com</small></div>
+            <div class="card glass" onclick="visit('github.com','GitHub','G','#24292f')"><b>GitHub</b><small style="display:block;text-align:center">github.com</small></div>
+            <div class="card glass" onclick="visit('addons.mozilla.org','Add-ons','A','#ff7a59')"><b>Add-ons</b><small style="display:block;text-align:center">addons.mozilla.org</small></div>
+          </div>
+        </div>
+
+        <div class="screen" id="screen-browse">
+          <div class="web-mock">
+            <div class="web-canvas" id="web-canvas">
+              <div class="web-body" id="web-body"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="sb-thumb" id="sb-thumb" aria-hidden="true"></div>
+        <div class="bottom-bar glass" id="bottom-bar">
+          <div class="nav-domain" id="nav-domain" onclick="expandNavPill()" title="Expand"
+               role="button" aria-label="Site domain, tap to expand navigation">
+            <span id="nd-text">example.com</span>
+          </div>
+          <div class="nav-set" id="nav-main">
+            <button class="nav-btn" id="nav-tabs" onclick="toggleTabs()" title="Tabs" aria-label="Tabs">
+              <div class="tabs-icon-wrap"><div class="fav-in-nav" id="nav-favicon">E</div></div>
+            </button>
+            <button class="nav-btn" id="nav-search" onclick="toggleSearch()" title="Search" aria-label="Search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <button class="nav-btn nav-menu-btn" onclick="toggleMenu()" title="Menu" aria-label="Menu">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg>
+            </button>
+          </div>
+          <div class="nav-set" id="nav-menu-set">
+            <button class="nav-btn" id="nav-account" onclick="openAccount()" title="Mozilla account" aria-label="Mozilla account">
+              <div class="pfp pfp-small">M</div>
+            </button>
+            <button class="nav-btn" id="nav-settings" onclick="openSettings()" title="Settings" aria-label="Settings">
+              <div class="pill-ico">⚙</div>
+            </button>
+            <button class="nav-btn nav-menu-btn" onclick="toggleMenu()" title="Menu" aria-label="Menu">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <div class="overlay" id="tab-overlay">
+          <div class="sheet tab-switcher" onclick="if(event.target===this || event.target.id==='tab-stack') closeOverlays()">
+            <div class="stack" id="tab-stack"></div>
+          </div>
+        </div>
+
+        <div class="overlay" id="search-overlay" onclick="if(event.target.id==='search-overlay') closeSearch()">
+          <div class="sheet glass" onclick="event.stopPropagation()">
+            <div class="handle"></div>
+            <div class="input-wrap">
+              <span class="engine-ico" title="Search engine: DuckDuckGo" aria-label="Search engine: DuckDuckGo">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="12" r="11" fill="#DE5833"/>
+                  <path fill="#fff" d="M12.6 5.4a4.9 4.9 0 0 0-4.1 7.6l-.9 3.4c-.1.5.4.9.9.7l2.9-1.2a4.9 4.9 0 1 0 1.2-10.5z"/>
+                  <circle cx="14.6" cy="9.7" r="1" fill="#1F3B43"/>
+                  <path fill="#F5A623" d="M16.8 11.4l2.9 1.2-3 1.1z"/>
+                </svg>
+              </span>
+              <input id="search-input" class="input" type="text" placeholder="Search or enter a site" autocomplete="off" spellcheck="false"
+                oninput="renderSuggestions()" onkeydown="if(event.key==='Enter'){event.preventDefault();runSearch(this.value);}" />
+            </div>
+            <div class="suggestions" id="search-suggestions" onclick="pickSuggestion(event)"></div>
+          </div>
+        </div>
+
+        <div class="overlay" id="menu-overlay" onclick="overlayBackdrop(event,'menu-overlay')">
+          <div class="sheet glass" onclick="event.stopPropagation()">
+            <div class="menu-view">
+            <div class="handle"></div>
+            <div class="address-bar">
+              <button class="addr-btn" onclick="log('Back')" title="Back" aria-label="Back">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+              </button>
+              <button class="addr-btn" onclick="log('Forward')" title="Forward" aria-label="Forward">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
+              </button>
+              <span class="addr-url" id="menu-url">example.com</span>
+              <span class="copy-toast" id="copy-toast"></span>
+              <button class="addr-btn" onclick="refreshPage()" title="Refresh" aria-label="Refresh">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>
+              </button>
+              <button class="addr-btn" id="copy-url-btn" onclick="copyCurrentUrl()" title="Copy URL" aria-label="Copy URL">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 13.5a4.5 4.5 0 0 0 6.36 0l2.12-2.12a4.5 4.5 0 1 0-6.36-6.36L11.2 6.44"/><path d="M13.5 10.5a4.5 4.5 0 0 0-6.36 0L5.02 12.62a4.5 4.5 0 1 0 6.36 6.36l1.42-1.42"/></svg>
+              </button>
+            </div>
+
+            <div class="action-box">
+              <button class="action" onclick="log('Translate page')">
+                <span class="action-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h9"/><path d="M8.5 3v2"/><path d="M6 5c0 3.8-1.5 7-3.6 8.8"/><path d="M10.2 5c0 3.4 1.8 6.3 4.4 7.9"/><path d="M13 20l3.4-8 3.4 8"/><path d="M14.2 17.2h4.4"/></svg></span>
+                Translate
+              </button>
+              <button class="action" onclick="log('Find in page')">
+                <span class="action-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.4-4.4"/></svg></span>
+                Find
+              </button>
+              <button class="action" onclick="log('Share')">
+                <span class="action-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M5 13v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6"/></svg></span>
+                Share
+              </button>
+              <button class="action" onclick="log('Extensions: uBlock Origin (1 active)')">
+                <span class="action-ico">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4.5a2 2 0 1 1 4 0V6h3.5a.5.5 0 0 1 .5.5V10h-1.5a2 2 0 1 0 0 4H18v3.5a.5.5 0 0 1-.5.5H14v-1.5a2 2 0 1 0-4 0V18H6.5a.5.5 0 0 1-.5-.5V14H4.5a2 2 0 1 1 0-4H6V6.5a.5.5 0 0 1 .5-.5H10z"/></svg>
+                  <span class="action-badge">1</span>
+                </span>
+                Extensions
+              </button>
+            </div>
+
+            <div class="menu-label">Page</div>
+            <div class="menu-group">
+              <div class="menu-row">
+                <div class="menu-left">
+                  <span class="menu-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-3.6-3.6"/><path d="M11 8.5v5"/><path d="M8.5 11h5"/></svg></span>
+                  <span class="label">Zoom</span>
+                </div>
+                <div class="zoom">
+                  <button class="zoom-btn" onclick="setZoom(-10)" title="Zoom out" aria-label="Zoom out">&minus;</button>
+                  <span class="zoom-value" id="zoom-value">100%</span>
+                  <button class="zoom-btn" onclick="setZoom(10)" title="Zoom in" aria-label="Zoom in">+</button>
+                </div>
+              </div>
+              <div class="menu-row" onclick="toggleDesktopSite()">
+                <div class="menu-left">
+                  <span class="menu-ico site-ico" id="site-mode-ico">
+                    <svg id="ico-mobile" viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2.5"/><path d="M10.5 18.5h3"/></svg>
+                    <svg id="ico-desktop" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M9 20h6"/><path d="M12 16.5V20"/></svg>
+                  </span>
+                  <span class="label" id="site-mode-label">Mobile site</span>
+                </div>
+                <span class="switch" id="desktop-switch" role="switch" aria-checked="false"><span></span></span>
+              </div>
+              <div class="menu-row" onclick="openSiteSettings()">
+                <div class="menu-left">
+                  <span class="menu-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h5.5"/><path d="M15.5 7H20"/><circle cx="12.5" cy="7" r="2.2"/><path d="M4 12h8.5"/><path d="M18.5 12H20"/><circle cx="15.5" cy="12" r="2.2"/><path d="M4 17h1.5"/><path d="M11.5 17H20"/><circle cx="8.5" cy="17" r="2.2"/></svg></span>
+                  <span class="label">Site settings</span>
+                </div>
+                <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+            </div>
+            </div><!-- /menu-view -->
+
+            <!-- Firefox-style settings, expands out of this sheet -->
+            <div class="settings-view" aria-label="Settings">
+              <div class="settings-header">
+                <button class="settings-back" onclick="closeSettings()" title="Back" aria-label="Back">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+                </button>
+                <span class="settings-gear" id="settings-gear" aria-hidden="true">⚙</span>
+                <div class="settings-title">Settings</div>
+              </div>
+          <div class="settings-scroll">
+            <div class="settings-account" onclick="openAccount()">
+              <div class="pfp">M</div>
+              <div class="settings-account-text"><b>Mozilla account</b><span>Sync tabs, history &amp; passwords</span></div>
+              <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+            </div>
+
+            <div class="settings-group-label">Appearance</div>
+            <div class="settings-group">
+              <div class="settings-row" onclick="toggleTheme()">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg></span>
+                <span class="label">Dark mode</span>
+                <span class="switch theme-switch" role="switch" aria-checked="false"><span></span></span>
+              </div>
+              <div class="settings-row" onclick="settingTap('Text size')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19l5.5-14L15 19"/><path d="M6.2 14.5h6.6"/><path d="M16 19l3-8 3 8"/><path d="M16.9 16.6h4.2"/></svg></span>
+                <span class="label">Text size</span>
+                <span class="value">100%</span>
+                <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+            </div>
+
+            <div class="settings-group-label">General</div>
+            <div class="settings-group">
+              <div class="settings-row" onclick="settingTap('Search engine')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.4-4.4"/></svg></span>
+                <span class="label">Search engine</span>
+                <span class="value">DuckDuckGo</span>
+                <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+              <div class="settings-row" onclick="settingTap('Language')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16"/><path d="M12 4c2.2 2.2 3.4 5 3.4 8s-1.2 5.8-3.4 8c-2.2-2.2-3.4-5-3.4-8s1.2-5.8 3.4-8z"/></svg></span>
+                <span class="label">Language</span>
+                <span class="value">English (US)</span>
+                <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+              <div class="settings-row" onclick="toggleSetting(this,'Open links in apps')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-8 8"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></span>
+                <span class="label">Open links in apps</span>
+                <span class="switch on" role="switch" aria-checked="true"><span></span></span>
+              </div>
+              <div class="settings-row" onclick="settingTap('Downloads')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/><path d="M4 19h16"/></svg></span>
+                <span class="label">Downloads</span>
+                <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+            </div>
+
+            <div class="settings-group-label">Tabs</div>
+            <div class="settings-group">
+              <div class="settings-row" onclick="settingTap('Tab view')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></span>
+                <span class="label">Tab view</span>
+                <span class="value">List</span>
+                <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+              <div class="settings-row" onclick="settingTap('New tabs')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M12 8v8"/><path d="M8 12h8"/></svg></span>
+                <span class="label">New tabs</span>
+                <span class="value">Homepage</span>
+                <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+              <div class="settings-row" onclick="toggleSetting(this,'Close tabs on exit')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M9.5 9.5l5 5"/><path d="M14.5 9.5l-5 5"/></svg></span>
+                <span class="label">Close tabs on exit</span>
+                <span class="switch" role="switch" aria-checked="false"><span></span></span>
+              </div>
+            </div>
+
+            <div class="settings-group-label">Privacy &amp; security</div>
+            <div class="settings-group">
+              <div class="settings-row" onclick="settingTap('Enhanced Tracking Protection')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.4-2.9 7.9-7 9-4.1-1.1-7-4.6-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+                <span class="label">Tracking protection</span>
+                <span class="value">Strict</span>
+                <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+              <div class="settings-row" onclick="toggleSetting(this,'HTTPS-Only Mode')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>
+                <span class="label">HTTPS-Only Mode</span>
+                <span class="switch on" role="switch" aria-checked="true"><span></span></span>
+              </div>
+              <div class="settings-row" onclick="settingTap('Site permissions')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h5.5"/><path d="M15.5 7H20"/><circle cx="12.5" cy="7" r="2.2"/><path d="M4 12h8.5"/><path d="M18.5 12H20"/><circle cx="15.5" cy="12" r="2.2"/><path d="M4 17h1.5"/><path d="M11.5 17H20"/><circle cx="8.5" cy="17" r="2.2"/></svg></span>
+                <span class="label">Site permissions</span>
+                <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+              <div class="settings-row" onclick="settingTap('Autofill and passwords')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="8" r="3.5"/><path d="M10.6 10.6L20 20"/><path d="M16 16l2-2"/><path d="M18.2 18.2l1.8-1.8"/></svg></span>
+                <span class="label">Autofill &amp; passwords</span>
+                <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+              <div class="settings-row" onclick="settingTap('Delete browsing data')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/></svg></span>
+                <span class="label">Delete browsing data</span>
+                <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+            </div>
+
+            <div class="settings-group-label">Extensions</div>
+            <div class="settings-group">
+              <div class="settings-row" onclick="settingTap('Installed extensions')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4.5a2 2 0 1 1 4 0V6h3.5a.5.5 0 0 1 .5.5V10h-1.5a2 2 0 1 0 0 4H18v3.5a.5.5 0 0 1-.5.5H14v-1.5a2 2 0 1 0-4 0V18H6.5a.5.5 0 0 1-.5-.5V14H4.5a2 2 0 1 1 0-4H6V6.5a.5.5 0 0 1 .5-.5H10z"/></svg></span>
+                <span class="label">Installed extensions</span>
+                <span class="value">1 active</span>
+                <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+            </div>
+
+            <div class="settings-group-label">Notifications</div>
+            <div class="settings-group">
+              <div class="settings-row" onclick="toggleSetting(this,'Notifications')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15V10a6 6 0 0 1 12 0v5l1.5 2.5H4.5z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></span>
+                <span class="label">Notifications</span>
+                <span class="switch on" role="switch" aria-checked="true"><span></span></span>
+              </div>
+            </div>
+
+            <div class="settings-group-label">About</div>
+            <div class="settings-group">
+              <div class="settings-row" onclick="settingTap('About Firefox')">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 11v5"/><circle cx="12" cy="8.2" r=".9" fill="currentColor" stroke="none"/></svg></span>
+                <span class="label">About Firefox</span>
+                <span class="value">GeckoView 133</span>
+                <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+            </div>
+
+            <div class="settings-footer">Firefox for Android · GeckoView 133.0</div>
+          </div>
+            <div class="settings-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.4-4.4"/></svg>
+              <input id="settings-search" type="text" placeholder="Search settings" autocomplete="off" spellcheck="false" oninput="filterSettings(this.value)" />
+            </div>
+            </div><!-- /settings-view -->
+
+            <!-- Per-site settings: the theme toggle lives here instead of the menu -->
+            <div class="site-view" id="site-view" aria-label="Site settings">
+              <div class="settings-header">
+                <button class="settings-back" onclick="closeSiteSettings()" title="Back" aria-label="Back">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+                </button>
+                <span class="site-globe" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.6 2.4 3.9 5.4 3.9 8.5s-1.3 6.1-3.9 8.5c-2.6-2.4-3.9-5.4-3.9-8.5S9.4 5.9 12 3.5z"/></svg>
+                </span>
+                <div class="settings-title">Site settings</div>
+              </div>
+              <div class="site-scroll">
+                <div class="site-host" id="site-host">example.com</div>
+
+                <div class="settings-group-label">Appearance</div>
+                <div class="settings-group">
+                  <div class="settings-row" onclick="toggleTheme()">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg></span>
+                    <span class="label">Dark mode</span>
+                    <span class="switch theme-switch" role="switch" aria-checked="false"><span></span></span>
+                  </div>
+                </div>
+
+                <div class="settings-group-label">Permissions</div>
+                <div class="settings-group">
+                  <div class="settings-row" onclick="toggleSetting(this,'Camera')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="13" height="10" rx="2.5"/><path d="M16 10.5l4-2v7l-4-2z"/></svg></span>
+                    <span class="label">Camera</span>
+                    <span class="switch on" role="switch" aria-checked="true"><span></span></span>
+                  </div>
+                  <div class="settings-row" onclick="toggleSetting(this,'Microphone')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18v3"/></svg></span>
+                    <span class="label">Microphone</span>
+                    <span class="switch on" role="switch" aria-checked="true"><span></span></span>
+                  </div>
+                  <div class="settings-row" onclick="toggleSetting(this,'Location')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s6.5-6 6.5-10.5a6.5 6.5 0 1 0-13 0C5.5 15 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.4"/></svg></span>
+                    <span class="label">Location</span>
+                    <span class="switch on" role="switch" aria-checked="true"><span></span></span>
+                  </div>
+                  <div class="settings-row" onclick="toggleSetting(this,'Notifications')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15V10a6 6 0 0 1 12 0v5l1.5 2.5H4.5z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></span>
+                    <span class="label">Notifications</span>
+                    <span class="switch" role="switch" aria-checked="false"><span></span></span>
+                  </div>
+                </div>
+
+                <div class="settings-group-label">Content</div>
+                <div class="settings-group">
+                  <div class="settings-row" onclick="toggleSetting(this,'Autoplay')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M10 8.5l6 3.5-6 3.5z"/></svg></span>
+                    <span class="label">Autoplay</span>
+                    <span class="switch on" role="switch" aria-checked="true"><span></span></span>
+                  </div>
+                  <div class="settings-row" onclick="toggleSetting(this,'Pop-ups')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 9h18"/></svg></span>
+                    <span class="label">Pop-ups</span>
+                    <span class="switch" role="switch" aria-checked="false"><span></span></span>
+                  </div>
+                </div>
+
+                <div class="settings-group-label">Data</div>
+                <div class="settings-group">
+                  <div class="settings-row" onclick="log('Clear site data')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6.5 7l1 12h9l1-12"/></svg></span>
+                    <span class="label">Clear site data</span>
+                    <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+                  </div>
+                </div>
+              </div>
+            </div><!-- /site-view -->
+
+            <!-- Mozilla account: sync status, synced data, device, sign out -->
+            <div class="acct-view" id="account-view" aria-label="Mozilla account">
+              <div class="settings-header">
+                <button class="settings-back" onclick="closeAccount()" title="Back" aria-label="Back">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+                </button>
+                <span class="acct-avatar" aria-hidden="true">M</span>
+                <div class="settings-title">Mozilla account</div>
+              </div>
+              <div class="acct-scroll">
+                <div class="acct-hero">
+                  <div class="acct-hero-top">
+                    <div class="pfp">M</div>
+                    <div class="acct-id">
+                      <b id="acct-email">tahil@example.com</b>
+                      <span id="acct-sub">Sync on · Firefox for Android</span>
+                    </div>
+                  </div>
+                  <button class="acct-cta" id="acct-cta" onclick="accountAction()"><span id="acct-cta-label">Sync now</span></button>
+                  <div class="acct-sync-state" id="acct-sync-state">Last synced 2 minutes ago</div>
+                </div>
+
+                <div class="settings-group-label">Synced data</div>
+                <div class="settings-group">
+                  <div class="settings-row" onclick="toggleSetting(this,'Bookmarks')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h11v17l-5.5-4-5.5 4z"/></svg></span>
+                    <span class="label">Bookmarks</span>
+                    <span class="switch on" role="switch" aria-checked="true"><span></span></span>
+                  </div>
+                  <div class="settings-row" onclick="toggleSetting(this,'History')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/></svg></span>
+                    <span class="label">History</span>
+                    <span class="switch on" role="switch" aria-checked="true"><span></span></span>
+                  </div>
+                  <div class="settings-row" onclick="toggleSetting(this,'Logins and passwords')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="3.5"/><path d="M11.5 12H21"/><path d="M18 12v3"/><path d="M15 12v2.2"/></svg></span>
+                    <span class="label">Logins &amp; passwords</span>
+                    <span class="switch on" role="switch" aria-checked="true"><span></span></span>
+                  </div>
+                  <div class="settings-row" onclick="toggleSetting(this,'Open tabs')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="7" height="14" rx="1.8"/><rect x="14" y="5" width="7" height="14" rx="1.8"/></svg></span>
+                    <span class="label">Open tabs</span>
+                    <span class="switch on" role="switch" aria-checked="true"><span></span></span>
+                  </div>
+                  <div class="settings-row" onclick="toggleSetting(this,'Add-ons')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6v3.5a1.8 1.8 0 1 0 0 3.6V20H9v-8.9a1.8 1.8 0 1 1 0-3.6z"/></svg></span>
+                    <span class="label">Add-ons</span>
+                    <span class="switch on" role="switch" aria-checked="true"><span></span></span>
+                  </div>
+                </div>
+
+                <div class="settings-group-label">Sync</div>
+                <div class="settings-group">
+                  <div class="settings-row" onclick="toggleSetting(this,'Sync over mobile data')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20v-4"/><path d="M9 20v-8"/><path d="M14 20V8"/><path d="M19 20V4"/></svg></span>
+                    <span class="label">Sync over mobile data</span>
+                    <span class="switch" role="switch" aria-checked="false"><span></span></span>
+                  </div>
+                  <div class="settings-row" onclick="settingTap('Sync frequency')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3.4 2"/></svg></span>
+                    <span class="label">Sync frequency</span>
+                    <span class="value">Automatic</span>
+                    <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+                  </div>
+                  <div class="settings-row" onclick="settingTap('Device name')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="3" width="11" height="18" rx="2.5"/><path d="M10.5 18.5h3"/></svg></span>
+                    <span class="label">Device name</span>
+                    <span class="value">Pixel 8 · Arc</span>
+                    <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+                  </div>
+                </div>
+
+                <div class="settings-group-label">Account</div>
+                <div class="settings-group">
+                  <div class="settings-row" onclick="log('Manage account: accounts.firefox.com')">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-8 8"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></span>
+                    <span class="label">Manage account</span>
+                    <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+                  </div>
+                  <div class="settings-row danger" onclick="signOutAccount()">
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8"/><path d="M17 8l4 4-4 4"/><path d="M21 12H10"/></svg></span>
+                    <span class="label">Sign out</span>
+                  </div>
+                </div>
+
+                <div class="acct-foot">Mozilla account · end-to-end encrypted sync</div>
+              </div>
+            </div><!-- /account-view -->
+          </div><!-- /sheet -->
+        </div><!-- /menu-overlay -->
+      <div class="hint">Tabs (favicon) → iOS-like tab previews · + → search input · ⌃ → menu · ⚙ → settings. Edge-to-edge, no status/address bar.</div>
+    </div>
+
+    <div class="panel">
+      <h2>Mockup notes</h2>
+      <p>Arc-inspired GeckoView concept. Click around, then tell me what to change.</p>
+      <div class="note"><b>Tabs:</b> favicon in navbar; tap for horizontal recents-style previews. <b>Search (+):</b> expands input only; queries open a DuckDuckGo results page. <b>Menu (⌃):</b> URL with copy, back/forward/refresh, share, extensions, settings + Mozilla pfp.</div>
+      <div class="note"><b>Sites:</b> YouTube, GitHub, Gmail and Add-ons clones are long enough to scroll — page content runs edge-to-edge behind the pill, which glows while loading, condenses to a bare domain chip as you scroll down, and hands the icons back the moment you scroll up. A 3px scroll indicator fades in on the page edge.</div>
+      <div class="section-title">Debug</div>
+      <div class="debug-row">
+        <span>Dark mode</span>
+        <span class="switch" id="debug-theme-switch" role="switch" aria-checked="false" onclick="toggleTheme()" title="Toggle dark mode"><span></span></span>
+      </div>
+      <div class="section-title">Interaction log</div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+
+  <script>
+    const tabs = [
+      { title: 'Home', url: 'home', favicon: 'H', color: '#8fb3c2' },
+      { title: 'YouTube', url: 'youtube.com', favicon: '▶', color: '#ff0033' },
+      { title: 'GitHub', url: 'github.com', favicon: 'G', color: '#24292f' },
+      { title: 'Gmail', url: 'mail.google.com', favicon: 'M', color: '#d93b30' },
+      { title: 'Example', url: 'example.com', favicon: 'E', color: '#7aa2b8' },
+      { title: 'Add-ons', url: 'addons.mozilla.org', favicon: 'A', color: '#ff7a59' }
+    ];
+    let currentTab = 4;
+
+    /* ---------- Theme ---------- */
+    let darkMode = false;
+    function syncThemeToggles() {
+      const phone = document.getElementById('phone');
+      phone.classList.toggle('dark', darkMode);
+      document.querySelectorAll('.theme-switch').forEach(sw => {
+        sw.classList.toggle('on', darkMode);
+        sw.setAttribute('aria-checked', String(darkMode));
+      });
+      const dbg = document.getElementById('debug-theme-switch');
+      if (dbg) {
+        dbg.classList.toggle('on', darkMode);
+        dbg.setAttribute('aria-checked', String(darkMode));
+      }
+    }
+    function setDark(on) {
+      darkMode = !!on;
+      syncThemeToggles();
+      log('Theme: ' + (darkMode ? 'Dark' : 'Light'));
+    }
+    function toggleTheme() { setDark(!darkMode); }
+
+    function log(msg) {
+      const el = document.getElementById('log');
+      if (!el) return;
+      const time = new Date().toLocaleTimeString();
+      el.innerHTML = `[${time}] ${msg}<br>` + el.innerHTML;
+    }
+    function setScreen(name) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      document.getElementById('screen-' + name).classList.add('active');
+    }
+    function hostOf(url) {
+      if (!url || url === 'home') return 'New Tab';
+      return url.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    }
+    /* ---------- Site clones (each page is longer than the screen) ---------- */
+    function sitePageHTML(t) {
+      const host = hostOf(t.url);
+      if (host === 'youtube.com') return youtubeHTML();
+      if (host === 'github.com') return githubHTML();
+      if (host === 'mail.google.com') return gmailHTML();
+      if (host === 'addons.mozilla.org') return amoHTML();
+      if (host === 'duckduckgo.com') return duckduckgoHTML(t);
+      return genericHTML(t);
+    }
+    function duckduckgoHTML(t) {
+      const m = /[?&]q=([^&]*)/.exec(t.url || '');
+      const q = m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : '';
+      const topic = (q || 'firefox android').replace(/[<>&]/g, '');
+      const cap = topic.charAt(0).toUpperCase() + topic.slice(1);
+      const results = [
+        { host: 'en.wikipedia.org', fav: 'W', c: '#4a4a4a', url: 'https://en.wikipedia.org › wiki › ' + topic.replace(/\s+/g, '_'),
+          title: cap + ' - Wikipedia',
+          snip: cap + ' is a topic covered in the free encyclopedia, with history, references and related articles.' },
+        { host: 'developer.mozilla.org', fav: 'M', c: '#000000', url: 'developer.mozilla.org › en-US › docs › ' + topic.replace(/\s+/g, '_'),
+          title: cap + ' — MDN Web Docs',
+          snip: 'Reference documentation, guides and runnable examples, including browser compatibility tables for ' + topic + '.' },
+        { host: 'github.com', fav: 'G', c: '#24292f', url: 'github.com › topics › ' + topic.replace(/\s+/g, '-'),
+          title: 'Build software better, together · GitHub',
+          snip: 'Explore open-source projects, issues and pull requests related to ' + topic + '. Over 400 repositories.' },
+        { host: 'support.mozilla.org', fav: 'F', c: '#de5833', url: 'support.mozilla.org › en-US › ' + topic.replace(/\s+/g, '-'),
+          title: 'Firefox for Android help — ' + cap,
+          snip: 'Answers from Mozilla support: set up sync, manage tabs and install extensions on Android.' },
+        { host: 'news.ycombinator.com', fav: 'Y', c: '#ff6600', url: 'news.ycombinator.com › item',
+          title: 'Show HN: ' + cap + ' — a content-first browser shell',
+          snip: '412 points · 138 comments. Discussion of edge-to-edge browsing and custom chrome on GeckoView.' },
+        { host: 'www.reddit.com', fav: 'R', c: '#ff4500', url: 'reddit.com › r › firefox › comments',
+          title: 'Anyone else using ' + topic + ' on Android? : r/firefox',
+          snip: 'I switched last month and the pill navigation is the part I miss when I go back. Worth trying.' },
+        { host: 'www.youtube.com', fav: '▶', c: '#ff0033', url: 'youtube.com › watch',
+          title: cap + ' explained in 8 minutes',
+          snip: 'A short walkthrough covering the setup, the extension flow and the bits that usually break.' },
+        { host: 'addons.mozilla.org', fav: 'A', c: '#ff7a59', url: 'addons.mozilla.org › android',
+          title: 'Extensions for Firefox Android — ' + cap,
+          snip: 'Signed, reviewed add-ons that install directly in the browser, no store round trip.' }
+      ];
+      return `<div class="ddg">
+        <div class="ddg-top">
+          <div class="ddg-logo">D</div>
+          <div class="ddg-field"><span class="q">${topic}</span><span class="x">×</span></div>
+        </div>
+        <div class="ddg-tabs"><span class="on">All</span><span>Images</span><span>Videos</span><span>News</span><span>Maps</span></div>
+        <div class="ddg-answer">
+          <b>${cap}</b>
+          <p>A quick answer card stands in for the instant-answer module: definitions, dates and links appear here when DuckDuckGo can resolve the query directly.</p>
+        </div>
+        <div class="ddg-count">About 1,240,000 results (0.32 seconds)</div>
+        ${results.map(r => `<div class="ddg-res" onclick="log('Result: ${r.host.replace(/'/g, '')}')">
+          <div class="ddg-src">
+            <span class="ddg-fav" style="background:${r.c}">${r.fav}</span>
+            <span class="host">${r.url}</span>
+          </div>
+          <span class="ddg-title">${r.title}</span>
+          <p class="ddg-snip">${r.snip}</p>
+        </div>`).join('')}
+        <div class="ddg-related">
+          <span>${topic} download</span><span>${topic} vs geckoview</span><span>best android browser 2026</span><span>${topic} privacy</span>
+        </div>
+        <div class="ddg-more">More results</div>
+      </div>`;
+    }
+    function genericHTML(t) {
+      const paras = [
+        'A content-first surface with no address bar: the page itself is the interface, and the floating pill is the only chrome.',
+        'GeckoView renders the document while the custom shell handles navigation, sheets and gestures. Nothing is drawn twice, so scrolling stays on the compositor.',
+        'This placeholder stands in for real web content. It is intentionally long so the navigation pill can condense while you scroll and return when you stop.',
+        'Typography tracks the system font, with a generous measure and comfortable line height. Inline links use the accent colour so they read as interactive.',
+        'Extensions installed from addons.mozilla.org are signed XPIs, verified by Mozilla and loaded into the same engine session as any other page.',
+        'Dark mode swaps a single set of custom properties, so the page, the sheets and the pill all move together without a repaint flash.',
+        'Scroll further and the chrome recedes: the pill shrinks to the bare domain, then expands back to the tab, search and menu controls once you settle.',
+        'That is the whole idea: content first, chrome on demand, and a navigation surface that never competes with the page.'
+      ];
+      return `<div class="page-pad">
+        <h2 data-page-title>${t.title}</h2>
+        <p data-page-desc>Seamless, content-first view. (${t.url})</p>
+        ${paras.map(p => `<p>${p}</p>`).join('')}
+        <div class="skeleton" style="width:100%; margin-top:26px"></div>
+        <div class="skeleton" style="width:92%"></div>
+        <div class="skeleton" style="width:96%"></div>
+        <div class="skeleton" style="width:60%"></div>
+        <div class="skeleton" style="width:88%; margin-top:26px"></div>
+        <div class="skeleton" style="width:94%"></div>
+        <div class="skeleton" style="width:70%"></div>
+      </div>`;
+    }
+    function youtubeHTML() {
+      const vids = [
+        { t: 'GeckoView in 100 seconds', c: 'Fireship', m: '1.2M views · 3 days ago', len: '2:14', g: 'linear-gradient(135deg,#ff5a5f,#ffb36b)', a: 'F', ac: '#ff5a5f' },
+        { t: 'Designing Arc-style navigation for Android', c: 'Build UI', m: '184K views · 1 week ago', len: '18:42', g: 'linear-gradient(135deg,#3a4f63,#7aa2b8)', a: 'B', ac: '#3a4f63' },
+        { t: 'Custom View + GeckoView: the whole setup', c: 'Android Devs', m: '92K views · 2 days ago', len: '24:07', g: 'linear-gradient(135deg,#2f5c69,#8fd0c6)', a: 'A', ac: '#2f5c69' },
+        { t: 'LIVE: Signing an XPI for AMO', c: 'Mozilla Add-ons', m: '3.4K watching', len: '', g: 'linear-gradient(135deg,#7a2b3a,#de5833)', a: 'M', ac: '#de5833', live: true },
+        { t: 'Smooth sheet transitions with CSS clip paths', c: 'Motion Weekly', m: '47K views · 5 days ago', len: '11:19', g: 'linear-gradient(135deg,#4b3f72,#a58cd8)', a: 'M', ac: '#6c5aa8' },
+        { t: 'Dark mode that does not flash', c: 'Pixel Perfect', m: '66K views · 3 weeks ago', len: '8:53', g: 'linear-gradient(135deg,#1c2630,#4e6a7a)', a: 'P', ac: '#1c2630' }
+      ];
+      return `<div class="yt">
+        <div class="yt-top">
+          <div class="yt-brand"><span class="yt-logo"></span>YouTube</div>
+          <div class="yt-tools"><span>⌕</span><span>⧉</span><span class="yt-avatar">T</span></div>
+        </div>
+        <div class="yt-chips"><span class="on">All</span><span>Music</span><span>Gaming</span><span>News</span><span>Live</span><span>Podcasts</span></div>
+        <div class="yt-grid">
+          ${vids.map(v => `<div class="yt-card" onclick="log('YouTube: ${v.t.replace(/'/g, '')}')">
+            <div class="yt-thumb" style="background:${v.g}">
+              ${v.live ? '<span class="yt-live">LIVE</span>' : `<span class="yt-time">${v.len}</span>`}
+            </div>
+            <div class="yt-meta">
+              <div class="yt-ava" style="background:${v.ac}">${v.a}</div>
+              <div><b>${v.t}</b><small>${v.c} · ${v.m}</small></div>
+            </div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }
+    function githubHTML() {
+      const files = [
+        ['src', 'folder', '2 weeks ago'],
+        ['app', 'folder', '3 days ago'],
+        ['mockup', 'folder', 'yesterday'],
+        ['README.md', 'file', 'yesterday'],
+        ['build.gradle', 'file', '4 days ago'],
+        ['settings.gradle', 'file', '1 month ago'],
+        ['LICENSE', 'file', '1 month ago']
+      ];
+      const commits = [
+        ['Add scroll-condensing nav pill', 'tahil', '2 hours ago'],
+        ['Glow the pill while a page loads', 'tahil', '5 hours ago'],
+        ['Long-form site clones for previews', 'tahil', 'yesterday'],
+        ['Fix sheet morph on close', 'tahil', '2 days ago'],
+        ['Mozilla account page + sync state', 'tahil', '3 days ago']
+      ];
+      const folderIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7h6l2 3h10v9H3z"/></svg>';
+      const fileIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>';
+      return `<div class="gh">
+        <div class="gh-top">
+          <span class="gh-burger">☰</span>
+          <span class="gh-brand">GitHub</span>
+          <span class="gh-avatar">T</span>
+        </div>
+        <div class="gh-head">
+          <div class="gh-path"><span>tahil</span> / <b>arc-browser</b><span class="gh-vis">Public</span></div>
+          <div class="gh-desc">Arc-inspired GeckoView browser with an AMO-compatible extension flow.</div>
+          <div class="gh-stats"><span><b>★ 2.4k</b> stars</span><span><b>⑂ 182</b> forks</span><span><b>◉ 24</b> watching</span></div>
+        </div>
+        <div class="gh-tabs"><span class="on">Code</span><span>Issues <em>12</em></span><span>Pull requests <em>3</em></span></div>
+        <div class="gh-branch"><span>⌥ main</span><span>7 branches · 42 tags</span></div>
+        <div class="gh-files">
+          ${files.map(([n, k, ago]) => `<div class="gh-file" onclick="log('GitHub: open ${n}')">
+            <span class="gh-fico" style="${k === 'folder' ? 'color:#8fb3c2' : ''}">${k === 'folder' ? folderIco : fileIco}</span>
+            <span>${n}</span><small>${ago}</small>
+          </div>`).join('')}
+        </div>
+        <div class="gh-readme">
+          <h3>README.md</h3>
+          <p>An Android browser shell built on GeckoView: custom chrome, edge-to-edge, no address bar, and signed XPIs installed straight from addons.mozilla.org.</p>
+          <h3>Features</h3>
+          <ul>
+            <li>Pill navigation that morphs into every panel</li>
+            <li>Condenses to the domain while scrolling</li>
+            <li>Loading glow tied to navigation state</li>
+            <li>Light and dark themes from one token set</li>
+          </ul>
+        </div>
+        <div class="gh-commits">
+          <h3>Recent commits</h3>
+          ${commits.map(([m, who, ago]) => `<div class="gh-commit">
+            <span class="gh-dot"></span>
+            <div><span>${m}</span><small>${who} · ${ago}</small></div>
+          </div>`).join('')}
+        </div>
+      </div>`;
+    }
+    function gmailHTML() {
+      const today = [
+        ['Mozilla Accounts', 'Verify your new sign-in', 'A new device signed in to your account. If this was you, no action is needed.', '9:41 AM', '#5a7fd6', 'M', true],
+        ['GitHub', '[arc-browser] 3 new pull requests', 'Review requested: scroll-condense pill, loading glow, site clones.', '9:12 AM', '#24292f', 'G', true],
+        ['Linear', 'ARC-142 moved to In Review', 'The navigation pill now condenses while the page is scrolling.', '8:58 AM', '#5e6ad2', 'L', true],
+        ['Stripe', 'Your payout is on the way', 'A payout of $412.00 will arrive in your bank account in 2 business days.', '8:20 AM', '#635bff', 'S', false],
+        ['Figma', 'Tahil commented on Nav pill / condensed', '"Should the domain chip keep the favicon dot?"', 'Yesterday', '#f24e1e', 'F', false],
+        ['Spotify', 'Your weekly discovery is ready', 'Six new tracks picked for your Monday commute.', 'Yesterday', '#1db954', 'S', false],
+        ['Notion', 'Weekly review template shared with you', 'A teammate shared a page with your workspace.', 'Yesterday', '#111111', 'N', false]
+      ];
+      const yesterday = [
+        ['Vercel', 'Deployment ready for arc-browser', 'Production build finished in 42s. Preview available.', 'Tue', '#111111', 'V', false],
+        ['Apple', 'Your receipt from the App Store', 'Order MG7X2L9 · Arc Browser Monthly · $2.99.', 'Tue', '#555555', 'A', false],
+        ['Slack', 'You have 4 unread messages', 'Catch up in #browser-shell and #design-review.', 'Mon', '#4a154b', 'S', false],
+        ['Dribbble', 'New shots from designers you follow', '12 new shots in your feed this week.', 'Mon', '#ea4c89', 'D', false]
+      ];
+      const row = ([from, sub, snip, time, ac, letter, unread]) => `<div class="gm-row${unread ? ' unread' : ''}" onclick="log('Gmail: open ${sub.replace(/'/g, '')}')">
+        <span class="gm-dot"></span>
+        <div class="gm-ava" style="background:${ac}">${letter}</div>
+        <div class="gm-txt">
+          <div class="gm-line"><b>${from}</b><time>${time}</time></div>
+          <div class="gm-sub">${sub}</div>
+          <div class="gm-sub" style="font-weight:400;opacity:.85">${snip}</div>
+        </div>
+      </div>`;
+      return `<div class="gm">
+        <div class="gm-top">
+          <span class="gm-burger">☰</span>
+          <span class="gm-brand"><b>M</b> Gmail</span>
+        </div>
+        <div class="gm-search">⌕&nbsp; Search in mail</div>
+        <div class="gm-top" style="padding-top:10px">
+          <span class="gm-avatar">T</span>
+          <span style="font-size:11.5px;color:var(--muted)">tahil@example.com</span>
+        </div>
+        <div class="gm-tabs"><span class="on">Primary</span><span>Social</span><span>Promotions</span></div>
+        <div class="gm-group">Today</div>
+        ${today.map(row).join('')}
+        <div class="gm-group">Yesterday</div>
+        ${yesterday.map(row).join('')}
+        <div class="gm-fab" onclick="log('Gmail: compose')">✎</div>
+      </div>`;
+    }
+    function amoHTML() {
+      const addons = [
+        ['uBlock Origin', 'Efficient wide-spectrum blocker', '#7a3fb8', 'U'],
+        ['Dark Reader', 'Dark mode for every website', '#1f3b43', 'D'],
+        ['Bitwarden', 'Open source password manager', '#175ddc', 'B'],
+        ['SponsorBlock', 'Skip sponsor segments on video', '#e8a33d', 'S'],
+        ['Privacy Badger', 'Automatically learns to block trackers', '#4a9e5c', 'P'],
+        ['Tampermonkey', 'The world\'s most popular userscript manager', '#333333', 'T'],
+        ['ClearURLs', 'Removes tracking from URLs', '#2f5c69', 'C'],
+        ['Stylus', 'Redesign the web with user styles', '#8e44ad', 'S']
+      ];
+      return `<div class="amo">
+        <div class="amo-top"><span>🦊</span> addons.mozilla.org</div>
+        <div class="amo-hero"><b>Extensions for Firefox</b><span>Signed and reviewed by Mozilla. Install without leaving the browser.</span></div>
+        ${addons.map(([n, d, c, l]) => `<div class="amo-row">
+          <div class="amo-ico" style="background:${c}">${l}</div>
+          <div><b>${n}</b><small>${d}</small></div>
+          <span class="amo-install" onclick="log('Install extension: ${n}')">Add</span>
+        </div>`).join('')}
+      </div>`;
+    }
+    /* ---------- Loading glow + condensed pill ---------- */
+    let loadTimer = null;
+    function startLoading(ms) {
+      const bar = document.getElementById('bottom-bar');
+      if (!bar) return;
+      bar.classList.add('loading');
+      clearTimeout(loadTimer);
+      loadTimer = setTimeout(() => bar.classList.remove('loading'), ms || 1000);
+    }
+    let chipMetrics = null;
+    function syncDomainChip() {
+      const t = tabs[currentTab];
+      const text = document.getElementById('nd-text');
+      const bar = document.getElementById('bottom-bar');
+      const label = hostOf(t.url);
+      if (text) text.textContent = label;
+      if (!text || !bar) return;
+      // Size the condensing chip to the domain itself so its width can animate
+      // (auto widths snap, which made the shrink look like a hard cut).
+      if (!chipMetrics) chipMetrics = document.createElement('canvas').getContext('2d');
+      const cs = getComputedStyle(document.getElementById('nav-domain'));
+      chipMetrics.font = cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily;
+      const w = Math.ceil(chipMetrics.measureText(label).width) + 28;
+      bar.style.setProperty('--chip-w', Math.max(84, Math.min(178, w)) + 'px');
+    }
+    let sbTimer = null;
+    function updateScrollThumb() {
+      const canvas = document.getElementById('web-canvas');
+      const thumb = document.getElementById('sb-thumb');
+      if (!canvas || !thumb) return;
+      const max = canvas.scrollHeight - canvas.clientHeight;
+      const t = tabs[currentTab];
+      if (t.url === 'home' || max <= 4) { thumb.classList.remove('show'); return; }
+      const cr = canvas.getBoundingClientRect();
+      const pr = document.getElementById('phone').getBoundingClientRect();
+      const h = Math.max(26, Math.round(cr.height * (canvas.clientHeight / canvas.scrollHeight)));
+      const top = (cr.top - pr.top) + (canvas.scrollTop / max) * (cr.height - h);
+      thumb.style.height = h + 'px';
+      thumb.style.transform = 'translateY(' + top.toFixed(1) + 'px)';
+      thumb.classList.add('show');
+      clearTimeout(sbTimer);
+      sbTimer = setTimeout(() => thumb.classList.remove('show'), 850);
+    }
+    /* Direction-aware chrome: scrolling down tucks the pill into its bare
+       domain, scrolling up hands the icons straight back. */
+    let lastScrollTop = 0;
+    function onCanvasScroll() {
+      const canvas = document.getElementById('web-canvas');
+      const bar = document.getElementById('bottom-bar');
+      const t = tabs[currentTab];
+      if (!canvas || !bar) return;
+      if (bar.classList.contains('menu-open') || bar.classList.contains('search-open')) return;
+      const y = canvas.scrollTop;
+      const delta = y - lastScrollTop;
+      lastScrollTop = y;
+      updateScrollThumb();
+      if (t.url === 'home' || y <= 6) { bar.classList.remove('scrolled'); return; }
+      if (delta > 1.5) {
+        if (!bar.classList.contains('scrolled')) { syncDomainChip(); bar.classList.add('scrolled'); }
+      } else if (delta < -1.5) {
+        bar.classList.remove('scrolled');
+      }
+    }
+    function expandNavPill() {
+      const canvas = document.getElementById('web-canvas');
+      document.getElementById('bottom-bar').classList.remove('scrolled');
+      lastScrollTop = canvas ? canvas.scrollTop : 0;
+    }
+    function refreshPage() {
+      const t = tabs[currentTab];
+      startLoading(1100);
+      log('Reload: ' + t.url);
+      if (t.url !== 'home') {
+        renderSite(t);
+        document.getElementById('web-canvas').scrollTop = 0;
+        lastScrollTop = 0;
+      }
+    }
+    function renderSite(t) {
+      const body = document.getElementById('web-body');
+      if (body) body.innerHTML = sitePageHTML(t);
+    }
+    function updateChrome() {
+      const t = tabs[currentTab];
+      const fav = document.getElementById('nav-favicon');
+      fav.textContent = t.favicon;
+      fav.style.background = t.color;
+      fav.style.color = '#fff';
+      document.getElementById('menu-url').textContent = t.url === 'home' ? 'New Tab' : t.url;
+      if (t.url === 'home') setScreen('home');
+      else { setScreen('browse'); renderSite(t); }
+      syncDomainChip();
+      const thumb = document.getElementById('sb-thumb');
+      if (thumb) thumb.classList.remove('show');
+    }
+    function visit(url, title, favicon, color) {
+      closeOverlays();
+      const idx = tabs.findIndex(x => x.url === url);
+      const t = { title: title || url, url, favicon: favicon || (title||url)[0], color: color || '#7aa2b8' };
+      if (idx >= 0) currentTab = idx; else { tabs.push(t); currentTab = tabs.length - 1; }
+      updateChrome();
+      const canvas = document.getElementById('web-canvas');
+      if (canvas) canvas.scrollTop = 0;
+      lastScrollTop = 0;
+      expandNavPill();
+      startLoading(1000);
+      log('Navigate: ' + url);
+    }
+    function toggleTabs() {
+      if (document.getElementById('tab-overlay').classList.contains('open')) closeOverlays();
+      else openTabSwitcher();
+    }
+    /* Drop the tab switcher without the sheet-close choreography (the pill was
+       never morphed into a panel), so search/menu can take over immediately. */
+    function dismissTabOverlay() {
+      const ov = document.getElementById('tab-overlay');
+      if (!ov.classList.contains('open')) return;
+      ov.classList.remove('open');
+      document.getElementById('bottom-bar').classList.remove('blend');
+    }
+    function toggleMenu() {
+      if (document.getElementById('menu-overlay').classList.contains('open')) closeMenuOnly();
+      else openMenu();
+    }
+    function openTabSwitcher() {
+      if (document.getElementById('search-overlay').classList.contains('open')) closeSearch();
+      closeMenuOnly();
+      renderTabStack();
+      document.getElementById('tab-overlay').classList.add('open');
+      document.getElementById('bottom-bar').classList.remove('scrolled', 'loading');
+      document.getElementById('bottom-bar').classList.add('blend');
+      layoutTabThumbs();
+      setTimeout(shrinkPageIntoPreview, 30);
+      log('Opened tab switcher (swipe horizontally)');
+    }
+    /* FLIP between the live page and the miniature in its tab card. A moving
+       clip box crops a full-size page snapshot exactly the way the card crops
+       its miniature, so the two are pixel-identical when the flight lands. */
+    const FLIP_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';
+    function pageSnapshot(screenEl) {
+      const phone = document.getElementById('phone');
+      const shot = document.createElement('div');
+      shot.className = 'tp-shot';
+      const screen = screenEl.cloneNode(true);
+      screen.removeAttribute('id');
+      screen.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+      screen.classList.add('active');
+      // Keep the snapshot at the same scroll offset as the live page it replaces.
+      const liveScroll = screenEl.querySelector('.web-canvas, .content');
+      const shotScroll = screen.querySelector('.web-canvas, .content');
+      if (liveScroll && shotScroll) {
+        shotScroll.scrollTop = liveScroll.scrollTop;
+        shotScroll.style.overflow = 'hidden';
+      }
+      screen.style.width = (phone.clientWidth || 374) + 'px';
+      screen.style.height = (phone.clientHeight || 828) + 'px';
+      shot.appendChild(screen);
+      return shot;
+    }
+    function flipSnapshot(shot, from, to, scaleFrom, scaleTo, radiusFrom, radiusTo) {
+      const inner = shot.querySelector('.screen');
+      const clip = document.createElement('div');
+      const ease = FLIP_EASE;
+      clip.className = darkMode ? 'dark' : '';
+      clip.style.cssText = 'position:fixed;margin:0;pointer-events:none;z-index:60;overflow:hidden;background:var(--bg1);' +
+        `left:${from.left}px;top:${from.top}px;width:${from.width}px;height:${from.height}px;` +
+        `border-radius:${radiusFrom}px;` +
+        `transition:left .42s ${ease},top .42s ${ease},width .42s ${ease},height .42s ${ease},border-radius .42s ${ease};`;
+      inner.style.transform = `scale(${scaleFrom})`;
+      inner.style.transition = `transform .42s ${ease}`;
+      clip.appendChild(shot);
+      document.body.appendChild(clip);
+      clip.getBoundingClientRect(); // force layout
+      clip.style.left = to.left + 'px';
+      clip.style.top = to.top + 'px';
+      clip.style.width = to.width + 'px';
+      clip.style.height = to.height + 'px';
+      clip.style.borderRadius = radiusTo + 'px';
+      inner.style.transform = `scale(${scaleTo})`;
+      setTimeout(() => clip.remove(), 470);
+      return clip;
+    }
+    /* The focused screen shrinks into its tab-preview miniature. */
+    function shrinkPageIntoPreview() {
+      const page = document.querySelector('.screen.active');
+      if (!page) return;
+      const card = document.querySelector('#tab-stack .tab-preview.active');
+      const pageBox = card && card.querySelector('.tp-page');
+      if (!pageBox) return;
+      const from = page.getBoundingClientRect();
+      const to = pageBox.getBoundingClientRect();
+      if (!from.width || !to.width) return;
+      // The overlay is mid zoom; convert the card's current rect to its final (scale 1) rect.
+      const overlayEl = document.getElementById('tab-overlay');
+      const ovRect = overlayEl.getBoundingClientRect();
+      const mtx = new DOMMatrixReadOnly(getComputedStyle(overlayEl).transform);
+      const s = mtx.a || 1;
+      const cx = ovRect.left + ovRect.width / 2;
+      const cy = ovRect.top + ovRect.height / 2;
+      const target = {
+        left: cx + (to.left - cx) / s,
+        top: cy + (to.top - cy) / s,
+        width: to.width / s,
+        height: to.height / s
+      };
+      // Match the miniature's own scale exactly so the swap is invisible.
+      const thumb = pageBox.querySelector('.tp-shot');
+      const thumbScreen = thumb && thumb.querySelector('.screen');
+      const thumbScale = thumbScreen
+        ? (new DOMMatrixReadOnly(getComputedStyle(thumbScreen).transform)).a
+        : 0;
+      const scaleTo = thumbScale || Math.max(target.width / from.width, target.height / from.height);
+      // The card already shows this frame; keep it hidden until the (identical)
+      // flying snapshot takes its place.
+      if (thumb) thumb.style.visibility = 'hidden';
+      flipSnapshot(pageSnapshot(page), from, target, 1, scaleTo, 0, 20);
+      if (thumb) setTimeout(() => { thumb.style.visibility = ''; }, 430);    }
+    /* Each card holds a scaled-down copy of the tab's own page. */
+    function miniWebview(t) {
+      const shot = document.createElement('div');
+      shot.className = 'tp-shot';
+      if (t.url === 'home') {
+        const clone = document.getElementById('screen-home').cloneNode(true);
+        clone.removeAttribute('id');
+        clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+        clone.classList.add('active');
+        shot.appendChild(clone);
+        return shot;
+      }
+      // Render the tab's own site clone instead of reusing the live page, so
+      // every preview matches its tab even when they show different sites.
+      const screen = document.createElement('div');
+      screen.className = 'screen active';
+      screen.innerHTML = '<div class="web-mock"><div class="web-canvas"><div class="web-body">' +
+        sitePageHTML(t) + '</div></div></div>';
+      shot.appendChild(screen);
+      return shot;
+    }
+    /* Fit each miniature to its card once the switcher is laid out. */
+    function layoutTabThumbs() {
+      const phone = document.getElementById('phone');
+      const w = phone.clientWidth || 374;
+      const h = phone.clientHeight || 828;
+      document.querySelectorAll('#tab-stack .tp-page').forEach(page => {
+        const shot = page.querySelector('.tp-shot .screen');
+        if (!shot) return;
+        const pw = page.clientWidth, ph = page.clientHeight;
+        if (!pw || !ph) return;
+        shot.style.width = w + 'px';
+        shot.style.height = h + 'px';
+        shot.style.transform = `scale(${Math.max(pw / w, ph / h)})`;
+      });
+    }
+    function renderTabStack() {
+      const stack = document.getElementById('tab-stack');
+      stack.innerHTML = '';
+      tabs.forEach((t, i) => {
+        const card = document.createElement('div');
+        card.className = 'tab-preview glass' + (i === currentTab ? ' active' : '');
+        card.dataset.index = i;
+        card.onclick = () => openTab(i);
+        const top = document.createElement('div');
+        top.className = 'tp-top';
+        top.innerHTML = `<span class="fav-in-nav" style="background:${t.color};color:#fff">${t.favicon}</span><span>${t.title}</span>`;
+        const page = document.createElement('div');
+        page.className = 'tp-page';
+        page.appendChild(miniWebview(t));
+        card.appendChild(top);
+        card.appendChild(page);
+        stack.appendChild(card);
+      });
+      const plus = document.createElement('div');
+      plus.className = 'tab-preview glass new-tab-card';
+      plus.textContent = '+';
+      plus.onclick = newTab;
+      stack.appendChild(plus);
+      setTimeout(() => {
+        const active = stack.querySelector('.tab-preview.active');
+        if (active) active.scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' });
+      }, 0);
+      layoutTabThumbs();
+    }
+    function openTab(i) {
+      const card = document.querySelector(`#tab-stack .tab-preview[data-index="${i}"]`);
+      const pageBox = card && card.querySelector('.tp-page');
+      const from = pageBox ? pageBox.getBoundingClientRect() : null;
+      currentTab = i;
+      closeOverlays();
+      updateChrome();
+      expandNavPill();
+      const canvas = document.getElementById('web-canvas');
+      if (canvas) canvas.scrollTop = 0;
+      lastScrollTop = 0;
+      if (card && from && from.width) expandCardIntoPage(card, from);
+      log('Switched tab: ' + tabs[i].title);
+    }
+    /* Reverse FLIP: the chosen card's miniature expands into the focused page. */
+    function expandCardIntoPage(card, from) {
+      const activeScreen = document.querySelector('.screen.active');
+      const thumb = card.querySelector('.tp-page .tp-shot');
+      if (!activeScreen || !thumb) return;
+      const to = activeScreen.getBoundingClientRect();
+      if (!to.width) return;
+      const shot = thumb.cloneNode(true);
+      const inner = shot.querySelector('.screen');
+      const scaleFrom = (new DOMMatrixReadOnly(getComputedStyle(inner).transform)).a || 1;
+      // Hide the live page while the snapshot grows over it, so the two copies
+      // never show at once at different scales; it matches exactly on landing.
+      activeScreen.style.visibility = 'hidden';
+      flipSnapshot(shot, from, to, scaleFrom, 1, 20, 0);
+      setTimeout(() => { activeScreen.style.visibility = ''; }, 430);
+    }
+    function newTab() {
+      closeOverlays();
+      tabs.push({ title: 'Home', url: 'home', favicon: 'H', color: '#8fb3c2' });
+      currentTab = tabs.length - 1;
+      updateChrome();
+      expandNavPill();
+      openSearch();
+      log('New tab');
+    }
+    const SUG_ICONS = {
+      search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#DE5833"/><path fill="#fff" d="M12.6 5.4a4.9 4.9 0 0 0-4.1 7.6l-.9 3.4c-.1.5.4.9.9.7l2.9-1.2a4.9 4.9 0 1 0 1.2-10.5z"/><circle cx="14.6" cy="9.7" r="1" fill="#1F3B43"/><path fill="#F5A623" d="M16.8 11.4l2.9 1.2-3 1.1z"/></svg>',
+      url: '<svg class="stroke" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>',
+      history: '<svg class="stroke" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+    };
+    function suggestionItems(q) {
+      if (!q) return [
+        { type: 'history', value: 'arc browser', label: 'arc browser', kind: 'Recent' },
+        { type: 'url', value: 'geckoview.dev', label: 'geckoview.dev', kind: 'Site' },
+        { type: 'history', value: 'firefox android extensions', label: 'firefox android extensions', kind: 'Recent' },
+        { type: 'url', value: 'addons.mozilla.org', label: 'addons.mozilla.org', kind: 'Site' }
+      ];
+      const items = [{ type: 'search', value: q, label: 'Search \u201c' + q + '\u201d', kind: 'DuckDuckGo' }];
+      if (/^[^\s.]+\.[^\s]{2,}$/.test(q)) {
+        items.push({ type: 'url', value: q, label: q, kind: 'Open site' });
+      } else {
+        items.push({ type: 'history', value: q + ' browser', label: q + ' browser', kind: 'Suggestion' });
+        items.push({ type: 'history', value: q + ' android', label: q + ' android', kind: 'Suggestion' });
+      }
+      return items;
+    }
+    function renderSuggestions() {
+      const input = document.getElementById('search-input');
+      const box = document.getElementById('search-suggestions');
+      if (!input || !box) return;
+      const q = (input.value || '').trim();
+      box.replaceChildren(...suggestionItems(q).map(it => {
+        const row = document.createElement('div');
+        row.className = 'sug-row';
+        row.dataset.value = it.value;
+        row.dataset.type = it.type;
+        const ico = document.createElement('span');
+        ico.className = 'sug-ico';
+        ico.innerHTML = SUG_ICONS[it.type] || SUG_ICONS.search;
+        const text = document.createElement('span');
+        text.className = 'sug-text';
+        text.textContent = it.label;
+        const kind = document.createElement('span');
+        kind.className = 'sug-kind';
+        kind.textContent = it.kind;
+        row.append(ico, text, kind);
+        return row;
+      }));
+    }
+    function pickSuggestion(e) {
+      const row = e.target.closest('.sug-row');
+      if (!row) return;
+      const value = row.dataset.value;
+      if (row.dataset.type === 'url') visitAsSite(value);
+      else runSearch(value);
+    }
+    function runSearch(q) {
+      q = (q || '').trim();
+      if (!q) return;
+      log('Search: ' + q);
+      const url = 'duckduckgo.com/?q=' + encodeURIComponent(q);
+      const existing = tabs.findIndex(t => t.url.indexOf('duckduckgo.com') === 0);
+      if (existing < 0) { visit(url, q, 'D', '#de5833'); return; }
+      // Reuse the search tab so repeated queries do not pile up in the switcher.
+      closeOverlays();
+      tabs[existing] = { title: q, url, favicon: 'D', color: '#de5833' };
+      currentTab = existing;
+      updateChrome();
+      const canvas = document.getElementById('web-canvas');
+      if (canvas) canvas.scrollTop = 0;
+      lastScrollTop = 0;
+      expandNavPill();
+      startLoading(1000);
+    }
+    function visitAsSite(v) {
+      v = (v || '').trim();
+      if (!v) return;
+      let url = v.includes('://') ? v : 'https://' + v;
+      const host = hostOf(url);
+      const known = {
+        'youtube.com': ['YouTube', '▶', '#ff0033'],
+        'github.com': ['GitHub', 'G', '#24292f'],
+        'mail.google.com': ['Gmail', 'M', '#d93b30'],
+        'addons.mozilla.org': ['Add-ons', 'A', '#ff7a59'],
+        'duckduckgo.com': ['DuckDuckGo', 'D', '#de5833'],
+        'example.com': ['Example', 'E', '#7aa2b8']
+      };
+      const k = known[host];
+      if (k) { visit(host, k[0], k[1], k[2]); return; }
+      log('Navigate: ' + url);
+      visit(url, v, (v[0] || 'G').toUpperCase(), '#7aa2b8');
+    }
+    function positionSearchPill() {
+      // Morph the shrunken pill up into the search field, just inside its right edge,
+      // so the × sits on the field's own background instead of floating below it.
+      const bar = document.getElementById('bottom-bar');
+      const phone = document.getElementById('phone').getBoundingClientRect();
+      const input = document.getElementById('search-input').getBoundingClientRect();
+      const overlay = document.getElementById('search-overlay').getBoundingClientRect();
+      const sheet = document.querySelector('#search-overlay .sheet');
+      if (!phone.width || !input.width || !sheet) return;
+      // While the sheet grows out of the pill its content is anchored to the
+      // sheet's top-left, so the field's offset inside the panel stays fixed.
+      const sheetRect = sheet.getBoundingClientRect();
+      const offX = input.left - sheetRect.left;
+      const offY = input.top - sheetRect.top;
+      const size = 58;
+      const phoneCenterX = phone.left + phone.width / 2;
+      const borderBottom = parseFloat(getComputedStyle(document.getElementById('phone')).borderBottomWidth) || 0;
+      // Settled panel: full width, flush to the screen bottom, 47% tall.
+      const finalLeft = overlay.left;
+      const finalTop = overlay.top + overlay.height * 0.53;
+      const finalInputWidth = overlay.width - 32;
+      const targetX = finalLeft + offX + finalInputWidth - 36;
+      const targetY = finalTop + offY + input.height / 2;
+      const closedY = phone.bottom - borderBottom - 18 - size / 2;
+      bar.style.setProperty('--sx', (targetX - phoneCenterX) + 'px');
+      bar.style.setProperty('--sy', (targetY - closedY) + 'px');
+    }
+    function openSearch() {
+      // Search can be opened from the tab switcher too: dismissing the previews
+      // first lets the pill grow straight into the field.
+      dismissTabOverlay();
+      closeMenuOnly();
+      const bar = document.getElementById('bottom-bar');
+      bar.classList.remove('sheet-closing', 'scrolled', 'loading');
+      document.getElementById('search-input').value = '';
+      renderSuggestions();
+      document.getElementById('search-overlay').classList.add('open');
+      positionSearchPill();
+      document.getElementById('bottom-bar').classList.add('search-open');
+      setTimeout(() => document.getElementById('search-input').focus({ preventScroll: true }), 50);
+      log('Search opened (+ → ×)');
+    }
+    let sheetCloseTimer = null;
+    /* Keep the pill surface hidden until a shrinking panel has fully collapsed
+       into the pill's box, so no doubled outline is visible on the way down. */
+    function markSheetClosing() {
+      const bar = document.getElementById('bottom-bar');
+      bar.classList.add('sheet-closing');
+      clearTimeout(sheetCloseTimer);
+      sheetCloseTimer = setTimeout(() => {
+        // Swap the two surfaces in a single frame, while the collapsed panel still
+        // covers the pill's box, so the pill never fades in after the panel is gone.
+        bar.style.transition = 'none';
+        bar.classList.remove('sheet-closing');
+        void bar.offsetWidth;
+        bar.style.transition = '';
+      }, 395);
+    }
+    function closeSearch() {
+      const wasOpen = document.getElementById('search-overlay').classList.contains('open');
+      document.getElementById('search-overlay').classList.remove('open');
+      document.getElementById('bottom-bar').classList.remove('search-open');
+      if (wasOpen) markSheetClosing();
+      log('Search closed (× → +)');
+    }
+    function toggleSearch() {
+      const isOpen = document.getElementById('search-overlay').classList.contains('open');
+      if (isOpen) closeSearch(); else openSearch();
+    }
+    function closeMenuOnly() {
+      const menu = document.getElementById('menu-overlay');
+      const wasOpen = menu.classList.contains('open');
+      menu.classList.remove('open', 'settings-mode', 'site-mode', 'account-mode');
+      document.getElementById('bottom-bar').classList.remove('menu-open');
+      if (wasOpen) markSheetClosing();
+    }
+    function openMenu() {
+      dismissTabOverlay();
+      if (document.getElementById('search-overlay').classList.contains('open')) closeSearch();
+      document.getElementById('bottom-bar').classList.remove('sheet-closing', 'scrolled', 'loading');
+      const menu = document.getElementById('menu-overlay');
+      menu.classList.remove('settings-mode', 'site-mode', 'account-mode');
+      menu.classList.add('open');
+      document.getElementById('bottom-bar').classList.add('menu-open');
+      const toast = document.getElementById('copy-toast');
+      const btn = document.getElementById('copy-url-btn');
+      if (toast) toast.textContent = '';
+      if (btn) btn.classList.remove('copied');
+      log('Menu opened');
+    }
+    /* ---------- Settings screen (grows out of the menu sheet) ---------- */
+    function openSettings() {
+      const menu = document.getElementById('menu-overlay');
+      if (!menu.classList.contains('open')) openMenu();
+      menu.classList.remove('site-mode', 'account-mode');
+      menu.classList.add('settings-mode');
+      document.getElementById('bottom-bar').classList.add('menu-open');
+      const search = document.getElementById('settings-search');
+      if (search) { search.value = ''; filterSettings(''); }
+      const sc = document.querySelector('.settings-scroll');
+      if (sc) sc.scrollTop = 0;
+      log('Settings opened (menu expanded)');
+    }
+    function closeSettings() {
+      const menu = document.getElementById('menu-overlay');
+      if (!menu.classList.contains('settings-mode')) return;
+      menu.classList.remove('settings-mode');
+      log('Settings closed (collapsed back to menu)');
+    }
+    /* ---------- Site settings (sibling page of the menu sheet) ---------- */
+    function siteHostname() {
+      const t = tabs[currentTab];
+      if (!t || !t.url || t.url === 'home') return 'New Tab';
+      return t.url.replace(/^https?:\/\//, '').replace(/\/.*$/, '');
+    }
+    function openSiteSettings() {
+      const menu = document.getElementById('menu-overlay');
+      if (!menu.classList.contains('open')) openMenu();
+      menu.classList.remove('settings-mode', 'account-mode');
+      menu.classList.add('site-mode');
+      document.getElementById('bottom-bar').classList.add('menu-open');
+      const host = document.getElementById('site-host');
+      if (host) host.textContent = siteHostname();
+      const sc = document.querySelector('.site-scroll');
+      if (sc) sc.scrollTop = 0;
+      log('Site settings opened');
+    }
+    function closeSiteSettings() {
+      const menu = document.getElementById('menu-overlay');
+      if (!menu.classList.contains('site-mode')) return;
+      menu.classList.remove('site-mode');
+      log('Site settings closed (back to menu)');
+    }
+    /* ---------- Mozilla account / sync ---------- */
+    let acctSignedIn = true;
+    let acctBusy = false;
+    function renderAccount() {
+      const email = document.getElementById('acct-email');
+      if (!email) return;
+      document.getElementById('acct-email').textContent = acctSignedIn ? 'tahil@example.com' : 'Not signed in';
+      document.getElementById('acct-sub').textContent = acctSignedIn
+        ? 'Sync on · Firefox for Android'
+        : 'Sign in to sync tabs, logins & bookmarks';
+      document.getElementById('acct-cta-label').textContent = acctSignedIn ? 'Sync now' : 'Sign in';
+      document.getElementById('acct-sync-state').textContent = acctSignedIn
+        ? 'Last synced 2 minutes ago'
+        : 'Sync is off';
+    }
+    let accountReturnTo = 'menu';
+    function openAccount() {
+      const menu = document.getElementById('menu-overlay');
+      if (!menu.classList.contains('open')) openMenu();
+      // Coming from Settings should leave Account back to Settings, not the menu.
+      accountReturnTo = menu.classList.contains('settings-mode') ? 'settings' : 'menu';
+      menu.classList.remove('settings-mode', 'site-mode');
+      menu.classList.add('account-mode');
+      document.getElementById('bottom-bar').classList.add('menu-open');
+      renderAccount();
+      const sc = document.querySelector('.acct-scroll');
+      if (sc) sc.scrollTop = 0;
+      log('Mozilla account opened' + (accountReturnTo === 'settings' ? ' from settings' : ''));
+    }
+    function closeAccount() {
+      const menu = document.getElementById('menu-overlay');
+      if (!menu.classList.contains('account-mode')) return;
+      menu.classList.remove('account-mode');
+      if (accountReturnTo === 'settings') {
+        menu.classList.add('settings-mode');
+        log('Mozilla account closed (back to settings)');
+      } else {
+        log('Mozilla account closed (back to menu)');
+      }
+      accountReturnTo = 'menu';
+    }
+    function accountAction() {
+      if (!acctSignedIn) {
+        acctSignedIn = true;
+        renderAccount();
+        document.getElementById('acct-sync-state').textContent = 'Signed in · sync resumed';
+        log('Signed in to Mozilla account');
+        return;
+      }
+      if (acctBusy) return;
+      acctBusy = true;
+      document.getElementById('acct-cta-label').textContent = 'Syncing…';
+      document.getElementById('acct-sync-state').textContent = 'Syncing…';
+      setTimeout(() => {
+        acctBusy = false;
+        document.getElementById('acct-cta-label').textContent = 'Sync now';
+        document.getElementById('acct-sync-state').textContent = 'Last synced just now';
+        log('Sync complete: bookmarks, history, logins, tabs');
+      }, 1100);
+    }
+    function signOutAccount() {
+      if (!acctSignedIn) return;
+      acctSignedIn = false;
+      renderAccount();
+      log('Signed out of Mozilla account');
+    }
+    function settingTap(name) { log('Settings: ' + name); }
+    function toggleSetting(row, name) {
+      const sw = row.querySelector('.switch');
+      if (!sw) return;
+      const on = !sw.classList.contains('on');
+      sw.classList.toggle('on', on);
+      sw.setAttribute('aria-checked', String(on));
+      log('Settings: ' + name + ' ' + (on ? 'on' : 'off'));
+    }
+    function filterSettings(q) {
+      const query = (q || '').trim().toLowerCase();
+      document.querySelectorAll('.settings-view .settings-group').forEach(group => {
+        let any = false;
+        group.querySelectorAll('.settings-row').forEach(row => {
+          const show = !query || row.textContent.toLowerCase().includes(query);
+          row.style.display = show ? '' : 'none';
+          if (show) any = true;
+        });
+        group.style.display = any ? '' : 'none';
+        const label = group.previousElementSibling;
+        if (label && label.classList.contains('settings-group-label')) label.style.display = any ? '' : 'none';
+      });
+      const acct = document.querySelector('.settings-view .settings-account');
+      if (acct) acct.style.display = query ? 'none' : '';
+      const footer = document.querySelector('.settings-view .settings-footer');
+      if (footer) footer.style.display = query ? 'none' : '';
+    }
+    async function copyCurrentUrl() {
+      const t = tabs[currentTab];
+      const url = t.url === 'home' ? 'about:newtab' : (t.url.includes('://') ? t.url : 'https://' + t.url);
+      const toast = document.getElementById('copy-toast');
+      const btn = document.getElementById('copy-url-btn');
+      let copied = false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(url);
+          copied = true;
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = url; document.body.appendChild(ta); ta.select();
+          copied = document.execCommand('copy'); document.body.removeChild(ta);
+        }
+      } catch (e) {
+        log('Clipboard blocked (file://) - showing feedback only');
+      }
+      // File:// previews have no clipboard permission, so always confirm the action.
+      if (toast) toast.textContent = 'Copied: ' + url;
+      if (btn) btn.classList.add('copied');
+      log('Copied URL' + (copied ? '' : ' (demo)') + ': ' + url);
+      setTimeout(() => { if (toast) toast.textContent = ''; if (btn) btn.classList.remove('copied'); }, 1800);
+    }
+    let zoomLevel = 100;
+    function setZoom(delta) {
+      zoomLevel = Math.max(50, Math.min(200, zoomLevel + delta));
+      const label = document.getElementById('zoom-value');
+      if (label) label.textContent = zoomLevel + '%';
+      const page = document.querySelector('.web-body');
+      if (page) page.style.zoom = String(zoomLevel / 100);
+      log('Zoom: ' + zoomLevel + '%');
+    }
+    let desktopSite = false;
+    function toggleDesktopSite() {
+      desktopSite = !desktopSite;
+      const sw = document.getElementById('desktop-switch');
+      if (sw) {
+        sw.classList.toggle('on', desktopSite);
+        sw.setAttribute('aria-checked', String(desktopSite));
+      }
+      const label = document.getElementById('site-mode-label');
+      if (label) label.textContent = desktopSite ? 'Desktop site' : 'Mobile site';
+      const mobileIco = document.getElementById('site-mode-ico');
+      if (mobileIco) mobileIco.classList.toggle('is-desktop', desktopSite);
+      log('Site mode: ' + (desktopSite ? 'Desktop' : 'Mobile'));
+    }
+    function closeOverlays() {
+      const hadOpen = document.querySelectorAll('.overlay.open').length > 0;
+      document.querySelectorAll('.overlay').forEach(o => o.classList.remove('open'));
+      document.getElementById('menu-overlay').classList.remove('settings-mode', 'site-mode', 'account-mode');
+      document.getElementById('bottom-bar').classList.remove('blend', 'search-open', 'menu-open');
+      if (hadOpen) markSheetClosing();
+    }
+    function overlayBackdrop(e,id){ if(e.target.id===id) closeOverlays(); }
+    function submitTo(val){ log('Search: '+val); visit('example.com','Example','E','#7aa2b8'); }
+
+    window.addEventListener('resize', () => {
+      if (document.getElementById('search-overlay').classList.contains('open')) positionSearchPill();
+      if (document.getElementById('tab-overlay').classList.contains('open')) layoutTabThumbs();
+      if (document.getElementById('sb-thumb').classList.contains('show')) updateScrollThumb();
+    });
+    /* The page scrolls, not the window: condense the pill to the domain while
+       it moves and let it expand again once scrolling settles. */
+    document.getElementById('web-canvas').addEventListener('scroll', onCanvasScroll, { passive: true });
+    updateChrome();
+    syncThemeToggles();
+    log('Mockup v2 ready');
+  </script>
+</body>
+</html>
