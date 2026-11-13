@@ -17,9 +17,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -80,17 +82,28 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                 .fillMaxSize()
                 .background(c.siteBg)
         ) {
-            val recede by animateFloatAsState(
-                if (overlay == Overlay.Tabs) 0.945f else 1f,
-                tween(360, easing = morphEasing),
-                label = "recede",
+            // FLIP-style transition: the page recedes into the carousel card and
+            // grows back out of it when a tab is picked.
+            val flip by animateFloatAsState(
+                if (overlay == Overlay.Tabs) 0.9f else 1f,
+                tween(320, easing = morphEasing),
+                label = "flipScale",
+            )
+            val flipAlpha by animateFloatAsState(
+                if (overlay == Overlay.Tabs) 0.5f else 1f,
+                tween(240),
+                label = "flipAlpha",
             )
             Box(
                 Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        scaleX = recede
-                        scaleY = recede
+                        scaleX = flip
+                        scaleY = flip
+                        alpha = flipAlpha
+                        transformOrigin = TransformOrigin(0.5f, 0.5f)
+                        clip = overlay == Overlay.Tabs
+                        shape = RoundedCornerShape(30.dp)
                     }
             ) {
                 WebHost(session = vm.activeSession, background = c.siteBg, zoom = vm.zoom / 100f)
@@ -165,6 +178,9 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val screenW = maxWidth
         val screenH = maxHeight
+        val density = LocalDensity.current
+        // Edge-to-edge means the IME overlays us; lift the search sheet above it.
+        val imeDp = with(density) { WindowInsets.ime.getBottom(this).toDp() }
         val overlay = vm.overlay
         val open = overlay in sheetOverlays
         val fullHeight = overlay == Overlay.Settings || overlay == Overlay.SiteSettings ||
@@ -182,6 +198,8 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
         }
 
         val closing = !open && panelVisible
+        // Only the bottom-sheet pages move with the keyboard; full pages stay put.
+        val sheetLift = if (overlay == Overlay.Search) imeDp else 0.dp
         val content: @Composable () -> Unit = when (lastSheet) {
             Overlay.Search -> ({ SearchSheet(vm) })
             Overlay.Menu -> ({ MenuSheet(vm) })
@@ -215,7 +233,7 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
                 fullHeight -> screenH
                 else -> screenH * 0.47f
             }
-            val targetBottom = if (open) 0.dp else 18.dp
+            val targetBottom = if (open) sheetLift else 18.dp
             val targetTopRadius = if (open && !fullHeight) 30.dp else if (open) 0.dp else 29.dp
             val targetBottomRadius = if (open) 0.dp else 29.dp
 
@@ -260,7 +278,7 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
                 screenW = screenW,
                 menuMode = overlay == Overlay.Menu,
                 searchMode = searchMode,
-                searchBottom = sheetH - 80.dp,
+                searchBottom = sheetLift + sheetH - 80.dp,
                 searchX = screenW / 2 - 38.dp,
                 visible = true,
             )
@@ -427,7 +445,7 @@ private fun BoxScope.NavPill(
                         PillButton(onClick = { vm.toggleTabs() }) {
                             val t = tab
                             if (t == null || t.isHome || t.url.isBlank()) {
-                                Glyph(Ico.plus, c.iconInk, size = 22.dp, strokeWidth = 2.3f)
+                                Glyph(Ico.tabs, c.iconInk, size = 21.dp, strokeWidth = 2.1f)
                             } else {
                                 FaviconTile(hostLetter(t), size = 24.dp)
                             }

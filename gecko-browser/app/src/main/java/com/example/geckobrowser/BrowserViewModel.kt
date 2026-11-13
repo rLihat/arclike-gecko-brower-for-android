@@ -132,6 +132,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private fun attachDelegates(id: Long, session: GeckoSession) {
         session.progressDelegate = object : GeckoSession.ProgressDelegate {
             override fun onPageStart(session: GeckoSession, url: String) {
+                // Every fresh session reports about:blank before any real load.
+                if (isBlankUrl(url)) return
                 recordNavigation(id, url)
                 updateTab(id) { it.copy(url = url, isHome = false, loading = true) }
                 if (id == activeId) {
@@ -141,10 +143,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             }
 
             override fun onPageStop(session: GeckoSession, success: Boolean) {
-                updateTab(id) { it.copy(loading = false) }
+                updateTab(id) { if (it.isHome) it else it.copy(loading = false) }
                 if (id == activeId) {
                     pipLoading = false
-                    if (!success) showToast("Couldn't load the page")
+                    if (!success && activeTab?.isHome != true) showToast("Couldn't load the page")
                 }
             }
 
@@ -155,7 +157,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
         session.contentDelegate = object : GeckoSession.ContentDelegate {
             override fun onTitleChange(session: GeckoSession, title: String?) {
-                if (!title.isNullOrBlank()) updateTab(id) { it.copy(title = title) }
+                if (title.isNullOrBlank()) return
+                updateTab(id) { if (it.isHome) it else it.copy(title = title) }
             }
         }
 
@@ -529,6 +532,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     companion object {
+        fun isBlankUrl(url: String): Boolean =
+            url.isEmpty() || url == "about:blank" || url.startsWith("about:blank#")
+
         fun toUrl(input: String): String {
             val t = input.trim()
             if (t.startsWith("http://") || t.startsWith("https://") || t.startsWith("about:") ||
