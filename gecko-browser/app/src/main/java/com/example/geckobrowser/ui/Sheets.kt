@@ -53,8 +53,10 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -86,7 +88,11 @@ fun DuckDuckGoBadge(size: Int = 26) {
 @Composable
 fun SearchSheet(vm: BrowserViewModel) {
     val c = LocalArc.current
-    val query = vm.searchText
+    // The field owns the text so a prefilled URL can arrive fully selected.
+    var field by remember {
+        mutableStateOf(TextFieldValue(vm.searchText, TextRange(0, vm.searchText.length)))
+    }
+    val query = field.text
     val engine = vm.currentEngine
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -146,8 +152,11 @@ fun SearchSheet(vm: BrowserViewModel) {
             }
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 BasicTextField(
-                    value = query,
-                    onValueChange = vm::onSearchTextChange,
+                    value = field,
+                    onValueChange = {
+                        field = it
+                        vm.onSearchTextChange(it.text)
+                    },
                     singleLine = true,
                     textStyle = TextStyle(
                         color = c.text,
@@ -445,7 +454,7 @@ fun MenuSheet(vm: BrowserViewModel) {
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .weight(1f)
-                    .clickable { vm.copyCurrentUrl() }
+                    .clickable { vm.editAddressBar() }
                     .padding(horizontal = 4.dp),
             )
             if (vm.pipLoading) {

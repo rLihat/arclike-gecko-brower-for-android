@@ -14,6 +14,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +48,7 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -61,6 +63,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlin.math.abs
+import kotlin.math.max
 
 /* ------------------------------------------------------------------ icons */
 
@@ -74,6 +78,12 @@ private val IcoPlus: List<Path> = listOf(
 )
 private val IcoChevronUp: List<Path> = listOf(
     p { moveTo(6f, 14f); lineTo(12f, 8f); lineTo(18f, 14f) }
+)
+private val IcoArrowUp: List<Path> = listOf(
+    p {
+        moveTo(12f, 19f); lineTo(12f, 5f)
+        moveTo(6.5f, 10.5f); lineTo(12f, 5f); lineTo(17.5f, 10.5f)
+    }
 )
 private val IcoChevronLeft: List<Path> = listOf(
     p { moveTo(15f, 5f); lineTo(8f, 12f); lineTo(15f, 19f) }
@@ -305,6 +315,7 @@ fun Glyph(
 object Ico {
     val plus = IcoPlus
     val chevronUp = IcoChevronUp
+    val arrowUp = IcoArrowUp
     val chevronLeft = IcoChevronLeft
     val chevronRight = IcoChevronRight
     val close = IcoClose
@@ -494,9 +505,52 @@ fun SettingsGroup(content: @Composable androidx.compose.foundation.layout.Column
 
 /* ------------------------------------------------------------------ pill */
 
+/**
+ * Swipe recognition for the nav controls. A drag past 26dp fires at most one
+ * action; because the drag consumes the pointer, the underlying click never
+ * also fires.
+ */
+fun Modifier.swipeActions(
+    onUp: (() -> Unit)? = null,
+    onLeft: (() -> Unit)? = null,
+    onRight: (() -> Unit)? = null,
+): Modifier {
+    if (onUp == null && onLeft == null && onRight == null) return this
+    return this.pointerInput(onUp, onLeft, onRight) {
+        val threshold = 26.dp.toPx()
+        var dx = 0f
+        var dy = 0f
+        detectDragGestures(
+            onDragStart = {
+                dx = 0f
+                dy = 0f
+            },
+            onDrag = { change, amount ->
+                change.consume()
+                dx += amount.x
+                dy += amount.y
+            },
+            onDragEnd = {
+                val ax = abs(dx)
+                val ay = abs(dy)
+                if (max(ax, ay) >= threshold) {
+                    when {
+                        ay > ax * 1.25f && dy < 0f -> onUp?.invoke()
+                        ax > ay * 1.25f && dx < 0f -> onLeft?.invoke()
+                        ax > ay * 1.25f && dx > 0f -> onRight?.invoke()
+                    }
+                }
+            },
+        )
+    }
+}
+
 @Composable
 fun PillButton(
     onClick: () -> Unit,
+    onSwipeUp: (() -> Unit)? = null,
+    onSwipeLeft: (() -> Unit)? = null,
+    onSwipeRight: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val c = LocalArc.current
@@ -504,6 +558,7 @@ fun PillButton(
         Modifier
             .size(46.dp)
             .clip(CircleShape)
+            .swipeActions(onSwipeUp, onSwipeLeft, onSwipeRight)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

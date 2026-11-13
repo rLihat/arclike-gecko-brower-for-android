@@ -22,6 +22,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -47,6 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -68,6 +70,7 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -81,6 +84,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.geckobrowser.BrowserViewModel
 import com.example.geckobrowser.ContextMenuState
+import com.example.geckobrowser.NavNotice
 import com.example.geckobrowser.Overlay
 import com.example.geckobrowser.PendingDownload
 import com.example.geckobrowser.TabInfo
@@ -252,6 +256,11 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
             }
         }
 
+        // Swipe-up-to-cancel on the chip: the drag progress drives the floating
+        // trash confirm, and `cancelDone` plays it out after the release.
+        var cancelProgress by remember { mutableFloatStateOf(0f) }
+        var cancelDone by remember { mutableStateOf(false) }
+
         val closing = !open && panelVisible
         // Only the bottom-sheet pages move with the keyboard; full pages stay put.
         val sheetLift = if (overlay == Overlay.Search) imeDp else 0.dp
@@ -330,9 +339,11 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
             }
         }
 
-        // The nav pill floats above the sheet, exactly like the mockup.
-        val pillVisible = overlay == Overlay.None || overlay == Overlay.Menu ||
-            overlay == Overlay.Search
+        // The nav pill floats above the sheet, exactly like the mockup. While a
+        // back/forward notice is up it steps aside entirely, handing its
+        // footprint to the popup for the same brief dwell.
+        val pillVisible = (overlay == Overlay.None || overlay == Overlay.Menu ||
+            overlay == Overlay.Search) && vm.navNotice == null
         if (pillVisible) {
             val searchMode = overlay == Overlay.Search
             val sheetH = screenH * 0.47f
@@ -358,10 +369,19 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
         DownloadChip(
             vm = vm,
             visible = chipVisible,
+            iconOnly = overlay == Overlay.Menu,
+            onCancelProgress = { cancelProgress = it },
+            onCanceled = { cancelDone = true },
             modifier = Modifier
                 .align(Alignment.BottomEnd)
                 .padding(end = 6.dp, bottom = 24.dp),
         )
+        DownloadCancelPreview(
+            progress = cancelProgress,
+            done = cancelDone,
+            onDonePlayed = { cancelDone = false },
+        )
+        NavNoticeHost(vm)
 
         DownloadPromptHost(vm)
         ContextMenuHost(vm, screenW, screenH)
@@ -401,7 +421,14 @@ private fun BoxScope.ToastHost(vm: BrowserViewModel) {
 /* ---------------------------------------------------------- downloads UI */
 
 @Composable
-private fun DownloadChip(vm: BrowserViewModel, visible: Boolean, modifier: Modifier = Modifier) {
+private fun DownloadChip(
+    vm: BrowserViewModel,
+    visible: Boolean,
+    iconOnly: Boolean,
+    onCancelProgress: (Float) -> Unit,
+    onCanceled: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val c = LocalArc.current
     val active = vm.activeDownloads
     val progress = vm.downloadRingProgress
@@ -419,6 +446,9 @@ private fun DownloadChip(vm: BrowserViewModel, visible: Boolean, modifier: Modif
         animationSpec = infiniteRepeatable(tween(675, easing = LinearEasing), RepeatMode.Reverse),
         label = "dlBobY",
     )
+    // 0..1 upward drag. Local state keeps every pointer sample, then mirrors the
+    // value up so the trash confirm can float above the chip.
+    var drag by remember { mutableFloatStateOf(0f) }
     val label = when {
         active.isNotEmpty() -> "${active.size} download${if (active.size == 1) "" else "s"} in progress"
         vm.downloads.isNotEmpty() -> "${vm.downloads.size} download${if (vm.downloads.size == 1) "" else "s"}"
@@ -441,6 +471,29 @@ private fun DownloadChip(vm: BrowserViewModel, visible: Boolean, modifier: Modif
                 }
                 .clip(CircleShape)
                 .semantics { contentDescription = label }
+                .pointerInput(active.isNotEmpty()) {
+                    if (active.isEmpty()) return@pointerInput
+                    val travel = 76.dp.toPx()
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { change, amount ->
+                            change.consume()
+                            drag = (drag - amount / travel).coerceIn(0f, 1f)
+                            onCancelProgress(drag)
+                        },
+                        onDragEnd = {
+                            if (drag >= 0.8f) {
+                                vm.cancelNewestDownload()
+                                onCanceled()
+                            }
+                            drag = 0f
+                            onCancelProgress(0f)
+                        },
+                        onDragCancel = {
+                            drag = 0f
+                            onCancelProgress(0f)
+                        },
+                    )
+                }
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -471,8 +524,10 @@ private fun DownloadChip(vm: BrowserViewModel, visible: Boolean, modifier: Modif
                     .size(38.dp)
                     .align(Alignment.Center)
                     .clip(CircleShape)
-                    .background(c.navSoft)
-                    .border(1.dp, c.stroke, CircleShape),
+                    // In the expanded menu the chip reads as one more pill icon:
+                    // no bead, just the glyph (the ring still reports progress).
+                    .background(if (iconOnly) Color.Transparent else c.navSoft)
+                    .then(if (iconOnly) Modifier else Modifier.border(1.dp, c.stroke, CircleShape)),
                 contentAlignment = Alignment.Center,
             ) {
                 Glyph(
@@ -511,6 +566,168 @@ private fun DownloadChip(vm: BrowserViewModel, visible: Boolean, modifier: Modif
                     }
                 }
             }
+        }
+    }
+}
+
+/* -------------------------------------------------- swipe-to-cancel UI */
+
+@Composable
+private fun BoxScope.DownloadCancelPreview(
+    progress: Float,
+    done: Boolean,
+    onDonePlayed: () -> Unit,
+) {
+    val c = LocalArc.current
+    val shown = progress > 0.02f || done
+    if (shown) {
+        LaunchedEffect(done) {
+            if (done) {
+                delay(320)
+                onDonePlayed()
+            }
+        }
+    }
+    if (!shown) return
+
+    val armed = progress >= 0.55f
+    val near = progress >= 0.75f
+    val red = if (c.dark) Color(0xFFFF9D92) else Color(0xFFD14C40)
+    val trashAlpha by animateFloatAsState(
+        if (done) 0f else 0.3f + 0.7f * progress,
+        tween(if (done) 220 else 60),
+        label = "trashAlpha",
+    )
+    val trashScale by animateFloatAsState(
+        if (done) 0.5f else 0.74f + 0.28f * progress,
+        tween(if (done) 220 else 60),
+        label = "trashScale",
+    )
+    val xAlpha by animateFloatAsState(
+        if (near && !done) 1f else 0f,
+        tween(140),
+        label = "xAlpha",
+    )
+
+    Column(
+        Modifier
+            .align(Alignment.BottomEnd)
+            .padding(end = 6.dp, bottom = 76.dp)
+            .width(46.dp)
+            .height(104.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Bottom,
+    ) {
+        Box(Modifier.size(42.dp)) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        alpha = trashAlpha
+                        scaleX = trashScale
+                        scaleY = trashScale
+                        translationY = (1f - progress) * 18.dp.toPx()
+                    }
+                    .clip(CircleShape)
+                    .background(if (armed) red.copy(alpha = 0.14f) else c.navSoft)
+                    .border(
+                        1.dp,
+                        if (armed) red.copy(alpha = 0.5f) else c.stroke,
+                        CircleShape,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                Glyph(Ico.trash, if (armed) red else c.text, size = 20.dp, strokeWidth = 2f)
+            }
+            Box(
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = 4.dp, y = (-4).dp)
+                    .size(16.dp)
+                    .alpha(xAlpha)
+                    .clip(CircleShape)
+                    .background(red),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("×", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+            }
+        }
+        Spacer(Modifier.height(7.dp))
+        Glyph(
+            Ico.arrowUp,
+            if (armed) red else c.muted.copy(alpha = 0.35f + 0.65f * progress),
+            size = 22.dp,
+            strokeWidth = 2f,
+            modifier = Modifier
+                .alpha(if (done) 0f else 1f)
+                .offset(y = ((1f - progress) * 6f).dp),
+        )
+    }
+}
+
+/* ---------------------------------------------- back/forward nav notice */
+
+@Composable
+private fun BoxScope.NavNoticeHost(vm: BrowserViewModel) {
+    val c = LocalArc.current
+    val notice = vm.navNotice
+    var last by remember { mutableStateOf<NavNotice?>(null) }
+    if (notice != null) last = notice
+    // Driven by hand so a second swipe re-plays the entrance instead of just
+    // swapping the text inside an already-visible popup.
+    val appear = remember { Animatable(0f) }
+    LaunchedEffect(notice?.at) {
+        if (notice == null) {
+            appear.animateTo(0f, tween(220))
+        } else {
+            appear.snapTo(0f)
+            appear.animateTo(1f, tween(320, easing = morphEasing))
+        }
+    }
+    if (notice == null && appear.value <= 0.01f) return
+    val n = last ?: return
+    Row(
+        Modifier
+            .align(Alignment.BottomCenter)
+            .padding(bottom = 18.dp)
+            .fillMaxWidth(0.7f)
+            .height(58.dp)
+            .graphicsLayer {
+                alpha = appear.value
+                val s = 0.96f + 0.04f * appear.value
+                scaleX = s
+                scaleY = s
+                translationY = (1f - appear.value) * 14.dp.toPx()
+            }
+            .shadow(20.dp, RoundedCornerShape(29.dp))
+            .clip(RoundedCornerShape(29.dp))
+            .background(c.navSoft)
+            .border(1.dp, c.stroke, RoundedCornerShape(29.dp)),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Glyph(
+            if (n.forward) Ico.forward else Ico.back,
+            c.text,
+            size = 18.dp,
+            strokeWidth = 2f,
+        )
+        Spacer(Modifier.width(11.dp))
+        Column {
+            Text(
+                if (n.forward) "Forward" else "Back",
+                color = c.text,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                n.url?.let { BrowserViewModel.hostOf(it) }
+                    ?: if (n.forward) "No page to go forward to" else "No page to go back to",
+                color = c.muted,
+                fontSize = 11.5.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
 }
@@ -973,7 +1190,11 @@ private fun BoxScope.NavPill(
                         PillButton(onClick = { vm.openSettings() }) {
                             Text("⚙", color = c.text, fontSize = 21.sp)
                         }
-                        PillButton(onClick = { vm.toggleMenu() }) {
+                        PillButton(
+                            onClick = { vm.toggleMenu() },
+                            onSwipeUp = { vm.openMenu() },
+                            onSwipeRight = { vm.navGesture(forward = true) },
+                        ) {
                             Glyph(Ico.chevronUp, c.text, size = 24.dp,
                                 strokeWidth = 2.2f, modifier = Modifier.rotate(chevronRotation))
                         }
@@ -984,7 +1205,11 @@ private fun BoxScope.NavPill(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        PillButton(onClick = { vm.toggleTabs() }) {
+                        PillButton(
+                            onClick = { vm.toggleTabs() },
+                            onSwipeUp = { vm.openTabs() },
+                            onSwipeLeft = { vm.navGesture(forward = false) },
+                        ) {
                             val t = tab
                             if (t == null || t.isHome || t.url.isBlank()) {
                                 Glyph(Ico.tabs, c.iconInk, size = 21.dp, strokeWidth = 2.1f)
@@ -996,10 +1221,19 @@ private fun BoxScope.NavPill(
                                 )
                             }
                         }
-                        PillButton(onClick = { vm.openSearch() }) {
+                        PillButton(
+                            onClick = { vm.openSearch() },
+                            onSwipeUp = { vm.openMenu() },
+                            onSwipeLeft = { vm.switchTab(1) },
+                            onSwipeRight = { vm.switchTab(-1) },
+                        ) {
                             Glyph(Ico.plus, c.text, size = 24.dp, strokeWidth = 2.2f)
                         }
-                        PillButton(onClick = { vm.toggleMenu() }) {
+                        PillButton(
+                            onClick = { vm.toggleMenu() },
+                            onSwipeUp = { vm.openMenu() },
+                            onSwipeRight = { vm.navGesture(forward = true) },
+                        ) {
                             Glyph(Ico.chevronUp, c.text, size = 24.dp, strokeWidth = 2.2f)
                         }
                     }

@@ -11,8 +11,8 @@ native Kotlin + Jetpack Compose; only the page content is Gecko. The UI follows
 | `MainActivity.kt` | Immersive edge-to-edge host, system back handling, XPI document picker. |
 | `BrowserViewModel.kt` | One `GeckoSession` per tab, tab history, scroll-driven chrome state, sheets, dark mode, zoom, desktop site, add-on install. |
 | `ui/Theme.kt` | Light/dark design tokens transcribed from the mockup. |
-| `ui/Root.kt` | Persistent `GeckoView` host, home overlay, morphing sheet, nav pill, loading glow, toasts. |
-| `ui/Sheets.kt` | DuckDuckGo search sheet and the menu (address bar, actions, zoom, desktop site, site settings). |
+| `ui/Root.kt` | Persistent `GeckoView` host, home overlay, morphing sheet, nav pill, loading glow, download chip with swipe-to-cancel, back/forward notice, toasts. |
+| `ui/Sheets.kt` | DuckDuckGo search sheet and the menu (address bar with tap-to-edit URL, actions, zoom, desktop site, site settings). |
 | `ui/Screens.kt` | Home, Firefox-style settings, site settings (with dark mode), Mozilla account. |
 | `ui/Tabs.kt` | Horizontal recents carousel with per-tab miniatures and a new-tab card. |
 | `ui/Components.kt` | Stroke icons, switches, settings rows, favicon tiles, glow. |
@@ -29,6 +29,18 @@ native Kotlin + Jetpack Compose; only the page content is Gecko. The UI follows
 - Menu shows account · settings · menu while it is open, without resizing the pill.
 - Dark mode lives in **Site settings → Appearance**, in **Settings → Appearance**, and the
   same preference drives the chrome theme.
+
+## Gestures
+
+- Swipe **up** from the plus or the menu chevron to open the menu.
+- Swipe **left/right** from the plus to walk the open tabs.
+- Swipe **up** from the tab icon to open the tab carousel, **left** to go back a page.
+- Swipe **right** from the menu chevron to go forward a page. Back and forward flash a
+  pill-sized notice that briefly takes over the pill's footprint.
+- Swipe **up** from a live download chip to cancel the newest transfer: a trash confirm
+  floats above the chip, arms red, and shows an X near the end of the drag.
+- Tapping the URL in the menu address bar hands the whole address to the search field,
+  fully selected, ready to edit.
 
 ## Build
 
@@ -72,6 +84,6 @@ Caveats:
 - Home, settings and the switcher are native reimplementations; the mockup's fake site
   clones are replaced by real web content.
 - Tab previews are stylised miniatures (title/url/colour), not live screenshots.
-- There is no download manager, autofill or history UI yet.
+- There is no autofill or browsing-history UI yet.
 - Zoom scales the web surface visually; GeckoView 138 exposes no page-zoom or script API,
   so pages do not reflow when zoomed.

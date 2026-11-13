@@ -23,6 +23,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -92,6 +93,13 @@ data class DownloadFlight(
     val name: String,
     val startX: Float,
     val startY: Float,
+)
+
+/** A short lived back/forward notice shown in the nav pill's footprint. */
+data class NavNotice(
+    val forward: Boolean,
+    val url: String?,
+    val at: Long = System.currentTimeMillis(),
 )
 
 /** Long-press target, already flattened out of GeckoView's ContextElement. */
@@ -189,6 +197,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     var toastMessage by mutableStateOf<String?>(null)
+        private set
+
+    var navNotice by mutableStateOf<NavNotice?>(null)
         private set
 
     var settingsSearch by mutableStateOf("")
@@ -467,6 +478,59 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         sessions[tab.id]?.loadUri(h.urls[h.index])
         syncHistoryFlags(tab.id)
         expandPill()
+    }
+
+    /* ---- history and tab gestures --------------------------------------- */
+
+    private var navNoticeJob: Job? = null
+
+    /**
+     * Back/forward via a swipe: the page moves when there is somewhere to go,
+     * and either way the pill briefly hands its footprint to a notice, exactly
+     * like the immersive-mode coach mark.
+     */
+    fun navGesture(forward: Boolean) {
+        val tab = activeTab ?: return
+        val h = histories.getOrPut(tab.id) { History() }
+        val target = h.urls.getOrNull(h.index + if (forward) 1 else -1)
+        if (target != null) {
+            if (forward) goForward() else goBack()
+        }
+        navNotice = NavNotice(forward = forward, url = target)
+        navNoticeJob?.cancel()
+        navNoticeJob = scope.launch {
+            delay(1150)
+            navNotice = null
+        }
+    }
+
+    fun clearNavNotice() {
+        navNoticeJob?.cancel()
+        navNotice = null
+    }
+
+    /** Horizontal swipes on the plus walk the open tabs. */
+    fun switchTab(delta: Int) {
+        if (tabs.size < 2) return
+        val idx = tabs.indexOfFirst { it.id == activeId }
+        if (idx < 0) return
+        val next = tabs[(idx + delta + tabs.size) % tabs.size]
+        selectTab(next.id)
+    }
+
+    /** Tapping the menu address hands the whole URL to the search field. */
+    fun editAddressBar() {
+        val tab = activeTab ?: run {
+            openSearch()
+            return
+        }
+        if (tab.isHome || tab.url.isBlank()) {
+            openSearch()
+            return
+        }
+        val full = if (tab.url.startsWith("http://") || tab.url.startsWith("https://")) tab.url
+        else "https://${tab.url}"
+        openSearch(full)
     }
 
     fun reload() {
@@ -753,6 +817,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         saveTargets.remove(id)?.discard()
     }
 
+    /** Swipe-up on the chip: cancel the newest transfer that is still running. */
+    fun cancelNewestDownload(): DownloadItem? {
+        val item = activeDownloads.firstOrNull() ?: return null
+        cancelDownload(item.id)
+        showToast("Canceled ${item.name}")
+        return item
+    }
+
     fun retryDownload(id: Long) {
         val item = downloads.firstOrNull { it.id == id } ?: return
         if (item.status == DownloadStatus.Downloading) return
@@ -951,10 +1023,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         compactPill = false
     }
 
-    fun openSearch() {
+    fun openSearch(prefill: String? = null) {
         cancelDownloadPrompt()
         dismissContextMenu()
-        searchText = ""
+        clearNavNotice()
+        searchText = prefill.orEmpty()
         overlay = Overlay.Search
         compactPill = false
     }
