@@ -14,6 +14,9 @@
       --surface: #f4f4f2;
       --surface-strong: #ebebea;
       --nav-surface: #f2f2f0;
+      /* Soft surfaces: the only translucent chrome (nav pill + search/menu sheets). */
+      --nav-soft: rgba(246,246,244,0.80);
+      --sheet-soft: rgba(249,249,247,0.88);
       --field: #ffffff;
       --sheet-bg: #f3f3f1;
       --settings-bg: #f6f6f4;
@@ -53,6 +56,8 @@
       --surface: #1a2024;
       --surface-strong: #232a2e;
       --nav-surface: #1c2226;
+      --nav-soft: rgba(28,34,38,0.80);
+      --sheet-soft: rgba(24,30,34,0.88);
       --field: #232a2e;
       --sheet-bg: #1a2024;
       --settings-bg: #12171a;
@@ -121,7 +126,8 @@
     .card small { color: var(--muted); }
     .bottom-bar {
       position: absolute; left: 50%; transform: translateX(-50%); bottom: 18px; height: 58px; border-radius: 29px;
-      z-index: 50; width: 70%; overflow: hidden; background: var(--nav-surface); padding: 0;
+      z-index: 50; width: 70%; overflow: hidden; background: var(--nav-soft); padding: 0;
+      -webkit-backdrop-filter: blur(12px) saturate(1.12); backdrop-filter: blur(12px) saturate(1.12);
       transition: width .35s cubic-bezier(0.4, 0, 1, 1), height .35s cubic-bezier(0.4, 0, 1, 1),
                   bottom .35s cubic-bezier(0.4, 0, 1, 1), border-radius .35s cubic-bezier(0.4, 0, 1, 1),
                   transform .35s cubic-bezier(0.4, 0, 1, 1), background .3s ease, border-color .3s ease, box-shadow .3s ease, opacity .3s ease;
@@ -130,6 +136,7 @@
     .bottom-bar.blend,
     .bottom-bar.menu-open {
       background: transparent; border-color: transparent; box-shadow: none;
+      -webkit-backdrop-filter: none; backdrop-filter: none;
     }
     /* Hand the surface over quickly so the pill outline never lingers over the panel */
     .bottom-bar.menu-open,
@@ -141,6 +148,7 @@
        shapes never show as a doubled outline mid-collapse. */
     .bottom-bar.sheet-closing {
       background: transparent; border-color: transparent; box-shadow: none;
+      -webkit-backdrop-filter: none; backdrop-filter: none;
       transition: background .12s ease, border-color .12s ease, box-shadow .12s ease;
     }
     /* Two fixed, centered sets crossfade instead of reflowing, so icons never drift. */
@@ -162,6 +170,7 @@
     #nav-search svg { transition: transform .35s cubic-bezier(0.4, 0, 1, 1); }
     .bottom-bar.search-open {
       width: 58px; background: transparent; border-color: transparent; box-shadow: none;
+      -webkit-backdrop-filter: none; backdrop-filter: none;
       transform: translate(calc(-50% + var(--sx, 0px)), var(--sy, 0px));
     }
     .bottom-bar.search-open .nav-set { padding: 0; }
@@ -629,7 +638,8 @@
     #search-overlay .sheet {
       right: auto; left: 15%; width: 70%; bottom: 18px; height: 58px;
       max-height: none; overflow: hidden; padding: 12px 16px 24px;
-      border-radius: 29px; background: var(--surface);
+      border-radius: 29px; background: var(--sheet-soft);
+      -webkit-backdrop-filter: blur(14px) saturate(1.12); backdrop-filter: blur(14px) saturate(1.12);
       transition: left .42s cubic-bezier(0.32, 0.72, 0, 1),
                   width .42s cubic-bezier(0.32, 0.72, 0, 1),
                   height .42s cubic-bezier(0.32, 0.72, 0, 1),
@@ -646,12 +656,14 @@
     #menu-overlay.open .menu-view { opacity: 1; transition: opacity .2s ease .16s; }
     #search-overlay .sheet > * { opacity: 0; transition: opacity .12s ease; }
     #search-overlay.open .sheet > * { opacity: 1; transition: opacity .2s ease .16s; }
-    /* The menu sheet itself grows into the full-height settings page */
+    /* The menu sheet itself grows into the full-height settings page.
+       Those pages stay fully opaque; only the menu/search sheets are soft. */
     #menu-overlay.settings-mode .sheet,
     #menu-overlay.site-mode .sheet,
     #menu-overlay.account-mode .sheet {
       height: 100%; max-height: none; overflow: hidden;
-      border-radius: 0;
+      border-radius: 0; background: var(--settings-bg);
+      -webkit-backdrop-filter: none; backdrop-filter: none;
     }
     .handle { width: 42px; height: 5px; border-radius: 99px; background: var(--handle); margin: 4px auto 14px; }
     .input-wrap { position: relative; margin-bottom: 8px; }

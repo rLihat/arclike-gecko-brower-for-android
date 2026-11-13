@@ -259,7 +259,13 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                     ) { /* keep taps on the panel from dismissing it */ }
-                    .background(if (closing) Color.Transparent else c.surface),
+                    .background(
+                        when {
+                            closing -> Color.Transparent
+                            lastSheet == Overlay.Search || lastSheet == Overlay.Menu -> c.sheetSoft
+                            else -> c.surface
+                        }
+                    ),
             ) {
                 Box(Modifier.fillMaxSize().alpha(contentAlpha)) {
                     content()
@@ -388,7 +394,7 @@ private fun BoxScope.NavPill(
             Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(h / 2))
-                .background(if (menuMode || searchMode) Color.Transparent else c.navSurface)
+                .background(if (menuMode || searchMode) Color.Transparent else c.navSoft)
                 .then(if (mode == PillMode.Compact) Modifier.clickable { vm.expandPill() } else Modifier),
         ) {
             Crossfade(targetState = mode, animationSpec = tween(150), label = "pillSet") { m ->
