@@ -178,16 +178,18 @@
     .nav-btn svg { width: 24px; height: 24px; stroke: var(--text); stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 
     .fav-in-nav {
-      width: 22px; height: 22px; border-radius: 7px; background: #fff; display:flex; align-items:center; justify-content:center;
-      font-size: 11px; font-weight: 700; color: #2f5c69; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      width: 22px; height: 22px; border-radius: 7px; display:flex; align-items:center; justify-content:center;
+      font-size: 11px; font-weight: 700; color: var(--icon-ink); overflow: hidden;
       position: relative;
     }
     .fav-in-nav .fav-letter {
       position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      background: var(--chip); border-radius: inherit;
     }
+    .fav-in-nav.has-icon .fav-letter { visibility: hidden; }
     .fav-in-nav img {
       position: absolute; inset: 0; width: 100%; height: 100%;
-      object-fit: contain; background: #fff; display: block;
+      object-fit: contain; background: transparent; display: block; border-radius: inherit;
     }
     .tabs-icon-wrap { width: 28px; height: 28px; border-radius: 9px; background: var(--tabs-wrap); border: none; display:flex; align-items:center; justify-content:center; }
     .url-row { display:flex; align-items:center; gap: 8px; margin: 4px 0 10px; }
@@ -676,19 +678,38 @@
       background: var(--chip); color: var(--accent);
       font-size: 10px; font-weight: 700; line-height: 1;
     }
+    .eng-ico.has-icon { background: transparent; color: transparent; }
     .eng-ico img {
       position: absolute; inset: 0; width: 100%; height: 100%;
-      object-fit: contain; background: #fff; display: block;
+      object-fit: contain; background: transparent; display: block; border-radius: inherit;
     }
-    /* Engine switcher: a small dropdown tucked under the search field. */
+    /* Engine switcher: a small dropdown tucked under the search field, centred. */
     .engine-menu {
-      position: absolute; top: calc(100% + 4px); left: 0; z-index: 12;
+      position: absolute; top: calc(100% + 4px); left: 50%; z-index: 12;
       width: min(292px, calc(100% - 4px)); padding: 6px; text-align: left;
       border-radius: 16px; background: var(--sheet-bg);
       border: 1px solid var(--stroke); box-shadow: var(--shadow);
+      transform: translateX(-50%); transform-origin: top center;
       display: none;
     }
-    .engine-menu.open { display: block; }
+    .engine-menu.open {
+      display: block;
+      animation: engine-spill 360ms cubic-bezier(0.2, 0.9, 0.25, 1.04) both;
+    }
+    /* The panel spills out from the badge, then its rows rise one after another. */
+    @keyframes engine-spill {
+      0% { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(0.84, 0.62); }
+      55% { opacity: 1; transform: translateX(-50%) translateY(2px) scale(1.025, 1.012); }
+      100% { opacity: 1; transform: translateX(-50%) translateY(0) scale(1, 1); }
+    }
+    .engine-menu.open .eng-row {
+      animation: eng-row-rise 300ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+      animation-delay: calc(var(--i, 0) * 24ms + 45ms);
+    }
+    @keyframes eng-row-rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
     /* Adding an engine swaps the list for the form so it fits the sheet. */
     .engine-menu.adding #engine-list,
     .engine-menu.adding .engine-add-btn { display: none; }
@@ -736,6 +757,15 @@
       cursor: pointer; font-size: 15px; color: var(--text);
     }
     .sug-row:hover, .sug-row:active { background: var(--chip); }
+    /* Rows rise into place when the suggestion list first appears. */
+    .suggestions.rising .sug-row {
+      animation: sug-rise 340ms cubic-bezier(0.2, 0.85, 0.25, 1) both;
+      animation-delay: calc(var(--i, 0) * 28ms);
+    }
+    @keyframes sug-rise {
+      from { opacity: 0; transform: translateY(11px) scale(0.985); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
     .sug-ico { width: 20px; height: 20px; flex: 0 0 20px; display: flex; align-items: center; justify-content: center; }
     .sug-ico svg { width: 20px; height: 20px; display: block; }
     .sug-ico svg.stroke { stroke: var(--muted); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
@@ -1341,10 +1371,12 @@
       const host = t && t.url && t.url !== 'home' ? hostOf(t.url) : '';
       const src = faviconSrc(host);
       const letter = `<span class="fav-letter">${t && t.favicon ? t.favicon : 'A'}</span>`;
-      return src ? letter + `<img src="${src}" alt="" onerror="this.remove()">` : letter;
+      return src
+        ? letter + `<img src="${src}" alt="" onload="this.parentElement.classList.add('has-icon')" onerror="this.remove()">`
+        : letter;
     }
     function faviconTileHTML(t) {
-      return `<span class="fav-in-nav" style="background:${t.color || '#7aa2b8'};color:#fff">${faviconInner(t)}</span>`;
+      return `<span class="fav-in-nav">${faviconInner(t)}</span>`;
     }
 
     /* ---------- Search engines ---------- */
@@ -1380,8 +1412,9 @@
     function engineLetter(e) { return (e.name || '?').trim().charAt(0).toUpperCase(); }
     function engineIconHTML(e) {
       const src = faviconSrc(engineHost(e));
-      return `<span class="eng-ico" style="background:${e.color || '#2f5c69'};color:#fff">${engineLetter(e)}` +
-        (src ? `<img src="${src}" alt="" onerror="this.remove()">` : '') + `</span>`;
+      return `<span class="eng-ico">${engineLetter(e)}` +
+        (src ? `<img src="${src}" alt="" onload="this.parentElement.classList.add('has-icon')" onerror="this.remove()">` : '') +
+        `</span>`;
     }
     function escapeHTML(s) {
       return String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -1406,8 +1439,9 @@
     function renderEngineMenu() {
       const list = document.getElementById('engine-list');
       if (!list) return;
-      list.innerHTML = allEngines().map(e => `
+      list.innerHTML = allEngines().map((e, i) => `
         <button class="eng-row${e.id === engineId ? ' on' : ''}" type="button" role="menuitemradio"
+          style="--i:${i}"
           aria-checked="${e.id === engineId}" onclick="selectEngine('${e.id}')">
           ${engineIconHTML(e)}
           <span class="eng-row-name">${escapeHTML(e.name)}</span>
@@ -1871,9 +1905,8 @@
     function updateChrome() {
       const t = tabs[currentTab];
       const fav = document.getElementById('nav-favicon');
+      fav.classList.remove('has-icon');
       fav.innerHTML = faviconInner(t);
-      fav.style.background = t.color;
-      fav.style.color = '#fff';
       document.getElementById('menu-url').textContent = t.url === 'home' ? 'New Tab' : t.url;
       if (t.url === 'home') setScreen('home');
       else { setScreen('browse'); renderSite(t); }
@@ -2133,9 +2166,11 @@
       const box = document.getElementById('search-suggestions');
       if (!input || !box) return;
       const q = (input.value || '').trim();
-      box.replaceChildren(...suggestionItems(q).map(it => {
+      const animate = !box.dataset.prevQuery && q.length > 0;
+      box.replaceChildren(...suggestionItems(q).map((it, i) => {
         const row = document.createElement('div');
         row.className = 'sug-row';
+        row.style.setProperty('--i', String(i));
         row.dataset.value = it.value;
         row.dataset.type = it.type;
         const ico = document.createElement('span');
@@ -2150,6 +2185,9 @@
         row.append(ico, text, kind);
         return row;
       }));
+      // Only animate the first keystroke, so later characters stay calm.
+      box.classList.toggle('rising', animate);
+      box.dataset.prevQuery = q;
     }
     function pickSuggestion(e) {
       const row = e.target.closest('.sug-row');

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -503,17 +504,14 @@ fun SiteFavicon(host: String, letter: String, size: Dp = 22.dp, background: Colo
     Box(
         Modifier
             .size(size)
-            .clip(RoundedCornerShape(size / 3))
-            .background(Color.White)
-            .border(1.dp, LocalArc.current.stroke, RoundedCornerShape(size / 3))
-            .padding(size * 0.1f),
+            .clip(RoundedCornerShape(size / 3)),
         contentAlignment = Alignment.Center,
     ) {
         Image(
             bitmap = bmp.asImageBitmap(),
             contentDescription = null,
             contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxSize(),
         )
     }
 }
