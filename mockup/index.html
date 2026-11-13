@@ -181,7 +181,7 @@
     .bottom-bar.search-open #nav-search svg { transform: rotate(315deg); }
     .nav-btn {
       width: 46px; height: 46px; border: none; background: transparent; color: var(--text); border-radius: 23px; cursor: pointer;
-      display: flex; align-items: center; justify-content: center; padding: 0;
+      display: flex; align-items: center; justify-content: center; padding: 0; touch-action: none;
     }
     .nav-btn:active { background: var(--press); }
     .nav-btn svg { width: 24px; height: 24px; stroke: var(--text); stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
@@ -220,9 +220,11 @@
     .addr-btn svg { width: 16px; height: 16px; stroke: var(--text); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .addr-btn.copied { background: rgba(120,200,150,0.45); }
     .addr-url {
-      flex: 1; min-width: 0; padding: 0 4px; text-align: center; font-size: 13px; color: var(--text);
+      flex: 1; min-width: 0; padding: 3px 6px; text-align: center; font-size: 13px; color: var(--text);
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      border-radius: 8px; cursor: text; transition: background .15s ease;
     }
+    .addr-url:hover { background: var(--row-hover); }
     /* Copy feedback floats over the URL so it never shifts the layout */
     .copy-toast {
       position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -599,6 +601,16 @@
     }
     .imm-banner b { display: block; font-size: 13px; line-height: 1.25; color: var(--text); }
     .imm-banner small { display: block; margin-top: 1px; font-size: 11.5px; color: var(--muted); }
+    /* Back/forward gesture notice: same pill-sized popup, but it must sit above
+       the still-visible nav pill so it reads as the chrome handing over. */
+    .nav-banner { z-index: 52; }
+    .nav-banner .imm-banner-ico svg { stroke-width: 2; }
+    /* The pill steps aside while the notice occupies its footprint, exactly
+       like the immersive coach mark. */
+    .bottom-bar.gesture-hint {
+      opacity: 0; pointer-events: none;
+      transform: translate(-50%, 22px) scale(.92);
+    }
     /* Entering immersive: the screen pulls back a touch (zoom out) as the pill
        drops away, then settles back to full size with the chrome gone. */
     @keyframes imm-zoom-out {
@@ -827,7 +839,7 @@
     .dl-chip {
       position: absolute; right: 6px; bottom: 24px; z-index: 49;
       width: 46px; height: 46px; padding: 0; border: 0; background: transparent;
-      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; cursor: pointer; touch-action: none;
       opacity: 0; visibility: hidden; pointer-events: none;
       transform: translateX(-9px) scale(.78);
       transition: opacity .2s ease, transform .34s cubic-bezier(0.32, 0.72, 0, 1), visibility .2s;
@@ -875,6 +887,58 @@
       display: none;
     }
     .dl-chip.multi .dl-badge { display: block; }
+    /* In the expanded menu the chip reads as one more pill icon: no bead,
+       just the glyph (the live ring still reports progress). */
+    body:has(#menu-overlay.open) .dl-chip .dl-core {
+      background: transparent; border-color: transparent; box-shadow: none;
+      -webkit-backdrop-filter: none; backdrop-filter: none;
+    }
+    /* Swipe-up-to-cancel: a trash confirm floats above the chip while dragging */
+    .dl-cancel {
+      position: absolute; right: 6px; bottom: 76px; z-index: 51;
+      width: 46px; height: 104px;
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 7px;
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transition: opacity .16s ease, visibility .16s;
+    }
+    .dl-cancel.show { opacity: 1; visibility: visible; }
+    .dlc-trash {
+      position: relative; width: 42px; height: 42px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--nav-surface); border: 1px solid var(--stroke);
+      box-shadow: 0 8px 22px rgba(20, 30, 35, .18); color: var(--text);
+      opacity: calc(.3 + var(--p, 0) * .7);
+      transform: translateY(calc((1 - var(--p, 0)) * 18px)) scale(calc(.74 + var(--p, 0) * .28));
+    }
+    .dlc-trash svg {
+      width: 20px; height: 20px; stroke: currentColor; stroke-width: 2;
+      fill: none; stroke-linecap: round; stroke-linejoin: round;
+    }
+    .dlc-x {
+      position: absolute; top: -4px; right: -4px; width: 16px; height: 16px; border-radius: 50%;
+      background: #d14c40; color: #fff; font-size: 11px; font-weight: 800; line-height: 16px; text-align: center;
+      box-shadow: 0 0 0 2px var(--bg1);
+      opacity: 0; transform: scale(.4);
+      transition: opacity .12s ease, transform .16s cubic-bezier(.3, 1.4, .5, 1);
+    }
+    .dl-cancel.near .dlc-x { opacity: 1; transform: scale(1); }
+    .dlc-arrow {
+      width: 22px; height: 22px;
+      stroke: var(--muted); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round;
+      opacity: calc(.35 + var(--p, 0) * .65);
+      transform: translateY(calc((1 - var(--p, 0)) * 6px));
+    }
+    .dl-cancel.armed .dlc-trash {
+      color: #d14c40; border-color: rgba(209, 76, 64, .5);
+      background: rgba(209, 76, 64, .14);
+      box-shadow: 0 8px 26px rgba(209, 76, 64, .3);
+    }
+    .dl-cancel.armed .dlc-arrow { stroke: #d14c40; }
+    .dark .dl-cancel.armed .dlc-trash { color: #ff9d92; border-color: rgba(255, 157, 146, .55); }
+    .dark .dl-cancel.armed .dlc-arrow { stroke: #ff9d92; }
+    .dl-cancel.done .dlc-trash { transform: scale(.5); opacity: 0; transition: transform .22s ease, opacity .22s ease; }
+    .dl-cancel.done .dlc-x { opacity: 0; }
+    .dl-cancel.done .dlc-arrow { opacity: 0; }
     /* File tile used by the prompt, the flying file, the manager and the demo page */
     .dl-ftile {
       width: 42px; height: 42px; flex: 0 0 42px; border-radius: 12px;
@@ -1088,6 +1152,20 @@
       background: var(--accent); color: #fff; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
     }
     .debug-btn:active { transform: scale(.97); }
+    .gesture-card {
+      padding: 10px 12px; margin-bottom: 14px; font-size: 14px;
+      background: #fff; border: 1px solid rgba(16,19,20,0.1); border-radius: 12px;
+    }
+    .gesture-card small { display: block; margin-top: 2px; font-size: 10.5px; color: #8b8b86; }
+    .gesture-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 9px; }
+    .gesture-btn {
+      display: flex; align-items: center; gap: 6px; border: 0; border-radius: 9px;
+      padding: 7px 8px; background: #f1f0ec; color: #333; font: inherit;
+      font-size: 11px; font-weight: 600; text-align: left; cursor: pointer;
+    }
+    .gesture-btn:active { transform: scale(.97); background: var(--chip); }
+    .gesture-btn .g-arrow { font-size: 13px; line-height: 1; color: var(--accent); }
+    .gesture-btn .g-target { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
     .panel {
       width: 340px; flex: 0 0 340px; background: #fff; border-radius: 20px; padding: 18px 18px 8px; box-shadow: var(--shadow);
@@ -1183,6 +1261,22 @@
           <span class="dl-badge" id="dl-badge">0</span>
         </button>
 
+        <div class="dl-cancel" id="dl-cancel" aria-hidden="true">
+          <span class="dlc-trash">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7"/><path d="M6.5 7l.9 11.6a1 1 0 0 0 1 .9h7.2a1 1 0 0 0 1-.9L17.5 7"/><path d="M10 11v4.5"/><path d="M14 11v4.5"/></svg>
+            <span class="dlc-x" aria-hidden="true">×</span>
+          </span>
+          <svg class="dlc-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V6"/><path d="M7 11l5-5 5 5"/></svg>
+        </div>
+
+        <div class="imm-banner nav-banner" id="nav-banner" role="status" aria-live="polite">
+          <span class="imm-banner-ico" aria-hidden="true" id="nav-banner-ico"></span>
+          <span>
+            <b id="nav-banner-title">Back</b>
+            <small id="nav-banner-sub">example.com</small>
+          </span>
+        </div>
+
         <div class="imm-banner" id="imm-banner" role="status" aria-live="polite">
           <span class="imm-banner-ico" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M9 4H4v5"/><path d="M15 4h5v5"/><path d="M9 20H4v-5"/><path d="M15 20h5v-5"/><path d="M4 4l5 5"/><path d="M20 4l-5 5"/><path d="M4 20l5-5"/><path d="M20 20l-5-5"/></svg>
@@ -1264,7 +1358,8 @@
               <button class="addr-btn" onclick="log('Forward')" title="Forward" aria-label="Forward">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>
               </button>
-              <span class="addr-url" id="menu-url">example.com</span>
+              <span class="addr-url" id="menu-url" role="button" tabindex="0" title="Edit address" onclick="editAddressBar()"
+                    onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();editAddressBar();}">example.com</span>
               <span class="copy-toast" id="copy-toast"></span>
               <button class="addr-btn" onclick="refreshPage()" title="Refresh" aria-label="Refresh">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>
@@ -1673,6 +1768,7 @@
       <p>Arc-inspired GeckoView concept. Click around, then tell me what to change.</p>
       <div class="note"><b>Tabs:</b> favicon in navbar; tap for horizontal recents-style previews. <b>Search (+):</b> expands input only; queries open a DuckDuckGo results page. <b>Menu (⌃):</b> URL with copy, back/forward/refresh, share, extensions, settings + Mozilla pfp.</div>
       <div class="note"><b>Sites:</b> YouTube, GitHub, Gmail and Add-ons clones are long enough to scroll — page content runs edge-to-edge behind the pill, which glows while loading, condenses to a bare domain chip as you scroll down, and hands the icons back the moment you scroll up. A 3px scroll indicator fades in on the page edge.</div>
+      <div class="note"><b>Gestures:</b> swipe ↑ from the plus or menu arrow for the menu · ←/→ from the plus walks tabs · ↑ from the tab icon opens previews · ← from the tab icon goes back · → from the menu arrow goes forward · ↑ from the live download chip cancels it. Back and forward flash a pill-sized notice.</div>
       <div class="section-title">Debug</div>
       <div class="debug-row">
         <span>Dark mode</span>
@@ -1685,6 +1781,18 @@
       <div class="debug-row">
         <span>Test download<small>Tap twice to see the count badge</small></span>
         <button class="debug-btn" type="button" onclick="debugTestDownload(event)">Download</button>
+      </div>
+      <div class="gesture-card">
+        <span>Gestures<small>Simulate each nav swipe</small></span>
+        <div class="gesture-grid">
+          <button class="gesture-btn" type="button" onclick="debugGesture('plus-up')" title="Swipe up from the plus"><span class="g-arrow">↑</span><span class="g-target">+ menu</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('plus-left')" title="Swipe left from the plus"><span class="g-arrow">←</span><span class="g-target">+ next tab</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('plus-right')" title="Swipe right from the plus"><span class="g-arrow">→</span><span class="g-target">+ prev tab</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('tabs-up')" title="Swipe up from the tab icon"><span class="g-arrow">↑</span><span class="g-target">tab previews</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('tabs-left')" title="Swipe the tab icon left"><span class="g-arrow">←</span><span class="g-target">tab back</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('arrow-right')" title="Swipe the menu arrow right"><span class="g-arrow">→</span><span class="g-target">arrow forward</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('dl-up')" title="Swipe up from the live download"><span class="g-arrow">↑</span><span class="g-target">chip cancel</span></button>
+        </div>
       </div>
       <div class="section-title">Interaction log</div>
       <div class="log" id="log"></div>
@@ -2293,7 +2401,89 @@
       lastScrollTop = 0;
       expandNavPill();
       startLoading(1000);
+      historyPush(url);
       log('Navigate: ' + url);
+    }
+
+    /* ---------- Page history + tab cycling, driven by the nav gestures ---------- */
+    let pageHistory = [tabs[currentTab].url];
+    let pageIndex = 0;
+    function historyPush(url) {
+      pageHistory = pageHistory.slice(0, pageIndex + 1);
+      if (pageHistory[pageHistory.length - 1] !== url) pageHistory.push(url);
+      pageIndex = pageHistory.length - 1;
+    }
+    function openHistoryEntry(url) {
+      closeOverlays();
+      let idx = tabs.findIndex(x => x.url === url);
+      if (idx < 0) {
+        const label = hostOf(url);
+        tabs.push({ title: label, url, favicon: (label[0] || '?').toUpperCase(), color: '#7aa2b8' });
+        idx = tabs.length - 1;
+      }
+      currentTab = idx;
+      updateChrome();
+      const canvas = document.getElementById('web-canvas');
+      if (canvas) canvas.scrollTop = 0;
+      lastScrollTop = 0;
+      expandNavPill();
+      startLoading(750);
+    }
+    const NAV_ARROW = {
+      back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
+      forward: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>',
+    };
+    let navBannerTimer = null;
+    /* The back/forward notice borrows the immersive popup wholesale: same pill
+       footprint, same entrance, same one-shot dwell. */
+    function showNavBanner(dir, url) {
+      const el = document.getElementById('nav-banner');
+      if (!el) return;
+      document.getElementById('nav-banner-title').textContent = dir === 'back' ? 'Back' : 'Forward';
+      document.getElementById('nav-banner-sub').textContent = url
+        ? hostOf(url)
+        : (dir === 'back' ? 'No page to go back to' : 'No page to go forward to');
+      document.getElementById('nav-banner-ico').innerHTML = NAV_ARROW[dir];
+      const bar = document.getElementById('bottom-bar');
+      bar.classList.add('gesture-hint');
+      el.classList.remove('show');
+      void el.offsetWidth;
+      el.classList.add('show');
+      clearTimeout(navBannerTimer);
+      navBannerTimer = setTimeout(() => {
+        el.classList.remove('show');
+        bar.classList.remove('gesture-hint');
+      }, 1150);
+      log((dir === 'back' ? 'Back' : 'Forward') + (url ? ': ' + hostOf(url) : ' · end of history'));
+    }
+    function goBackPage() {
+      const target = pageIndex > 0 ? pageHistory[pageIndex - 1] : null;
+      if (target) {
+        pageIndex -= 1;
+        openHistoryEntry(target);
+      }
+      showNavBanner('back', target);
+    }
+    function goForwardPage() {
+      const target = pageIndex < pageHistory.length - 1 ? pageHistory[pageIndex + 1] : null;
+      if (target) {
+        pageIndex += 1;
+        openHistoryEntry(target);
+      }
+      showNavBanner('forward', target);
+    }
+    /* Horizontal swipes on the plus walk the recent tabs in either direction. */
+    function switchTab(dir) {
+      if (tabs.length < 2) return;
+      currentTab = (currentTab + dir + tabs.length) % tabs.length;
+      closeOverlays();
+      updateChrome();
+      const canvas = document.getElementById('web-canvas');
+      if (canvas) canvas.scrollTop = 0;
+      lastScrollTop = 0;
+      expandNavPill();
+      startLoading(650);
+      log('Tab: ' + tabs[currentTab].title);
     }
     function toggleTabs() {
       if (document.getElementById('tab-overlay').classList.contains('open')) closeOverlays();
@@ -2631,23 +2821,35 @@
       bar.style.setProperty('--sx', (targetX - phoneCenterX) + 'px');
       bar.style.setProperty('--sy', (targetY - closedY) + 'px');
     }
-    function openSearch() {
+    function openSearch(prefill) {
       // Search can be opened from the tab switcher too: dismissing the previews
       // first lets the pill grow straight into the field.
       dismissTabOverlay();
       closeMenuOnly();
       const bar = document.getElementById('bottom-bar');
       bar.classList.remove('sheet-closing', 'scrolled', 'loading');
-      document.getElementById('search-input').value = '';
+      const input = document.getElementById('search-input');
+      input.value = typeof prefill === 'string' ? prefill : '';
       renderEngineBadge();
       renderSuggestions();
       closeEngineMenu();
       document.getElementById('search-overlay').classList.add('open');
       positionSearchPill();
       document.getElementById('bottom-bar').classList.add('search-open');
-      setTimeout(() => document.getElementById('search-input').focus({ preventScroll: true }), 50);
+      setTimeout(() => {
+        input.focus({ preventScroll: true });
+        // Editing the current URL starts with the whole address selected.
+        if (input.value) input.select();
+      }, 50);
       syncDownloadChip();
-      log('Search opened (+ → ×)');
+      log(prefill ? 'Address editing: ' + prefill : 'Search opened (+ → ×)');
+    }
+    /* Tapping the URL in the menu hands it to the address bar, fully selected. */
+    function editAddressBar() {
+      const t = tabs[currentTab];
+      if (!t || t.url === 'home') { openSearch(''); return; }
+      const full = /^https?:\/\//.test(t.url) ? t.url : 'https://' + t.url;
+      openSearch(full);
     }
     let sheetCloseTimer = null;
     /* Keep the pill surface hidden until a shrinking panel has fully collapsed
@@ -3154,6 +3356,101 @@
         chip.classList.add('landed');
         setTimeout(() => chip.classList.remove('landed'), 520);
       }
+    }
+
+    /* ---------- Swipe up on the live chip to cancel the newest transfer ---------- */
+    function paintCancel(p) {
+      const el = document.getElementById('dl-cancel');
+      if (!el) return;
+      el.classList.toggle('show', p > 0.02);
+      el.classList.toggle('armed', p >= 0.55);
+      el.classList.toggle('near', p >= 0.75);
+      el.style.setProperty('--p', String(p));
+    }
+    function hideCancelPreview() {
+      const el = document.getElementById('dl-cancel');
+      if (!el) return;
+      el.classList.remove('show', 'armed', 'near', 'done');
+      el.style.setProperty('--p', '0');
+    }
+    function activeCancelTarget() {
+      const active = dlActive();
+      return active.length ? active[0] : null;
+    }
+    function commitSwipeCancel() {
+      const el = document.getElementById('dl-cancel');
+      const target = activeCancelTarget();
+      if (el) el.classList.add('done');
+      if (target) {
+        target.status = 'canceled';
+        target.ended = Date.now();
+        renderDownloads();
+        syncDownloadChip();
+        toast('Canceled ' + target.name);
+        log('Download canceled by swipe: ' + target.name);
+      }
+      setTimeout(() => {
+        if (el) {
+          el.classList.remove('done', 'show', 'armed', 'near');
+          el.style.setProperty('--p', '0');
+        }
+      }, 320);
+    }
+    function demoCancelSwipe() {
+      closeOverlays();
+      if (!dlActive().length) { toast('No active download'); return; }
+      const start = performance.now();
+      function step(now) {
+        const t = Math.min(1, (now - start) / 650);
+        paintCancel(1 - Math.pow(1 - t, 2));
+        if (t < 1) requestAnimationFrame(step);
+        else setTimeout(commitSwipeCancel, 140);
+      }
+      requestAnimationFrame(step);
+    }
+    function bindChipCancel() {
+      const chip = document.getElementById('dl-chip');
+      if (!chip) return;
+      let sx = 0, sy = 0, pointerId = null, dragging = false, moved = false;
+      chip.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        if (!dlActive().length) return;
+        dragging = true;
+        moved = false;
+        sx = e.clientX;
+        sy = e.clientY;
+        pointerId = e.pointerId;
+        try { chip.setPointerCapture(pointerId); } catch {}
+      });
+      chip.addEventListener('pointermove', (e) => {
+        if (!dragging || e.pointerId !== pointerId) return;
+        const dx = e.clientX - sx;
+        const dy = e.clientY - sy;
+        if (Math.hypot(dx, dy) > 8) moved = true;
+        if (Math.abs(dx) > Math.abs(dy) + 10 || dy >= 0) { paintCancel(0); return; }
+        paintCancel(Math.max(0, Math.min(1, (-dy - 8) / 76)));
+      });
+      const end = (e, cancelled) => {
+        if (!dragging || e.pointerId !== pointerId) return;
+        dragging = false;
+        pointerId = null;
+        const dy = e.clientY - sy;
+        const p = Math.max(0, Math.min(1, (-dy - 8) / 76));
+        if (!cancelled && p >= 0.8) commitSwipeCancel();
+        else hideCancelPreview();
+        if (moved) {
+          chip.dataset.swipeSuppress = '1';
+          setTimeout(() => { delete chip.dataset.swipeSuppress; }, 80);
+        }
+      };
+      chip.addEventListener('pointerup', e => end(e, false));
+      chip.addEventListener('pointercancel', e => end(e, true));
+      chip.addEventListener('click', (e) => {
+        if (chip.dataset.swipeSuppress) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+        }
+      }, true);
     }
 
     function dlRowHTML(d) {
@@ -3683,6 +3980,105 @@
     /* The page scrolls, not the window: condense the pill to the domain while
        it moves and let it expand again once scrolling settles. */
     document.getElementById('web-canvas').addEventListener('scroll', onCanvasScroll, { passive: true });
+    /* ---------- Nav swipe triggers (plus, tab icon, menu arrow) ---------- */
+    function attachSwipe(el, opts) {
+      if (!el) return;
+      let sx = 0, sy = 0, pointerId = null, tracking = false, moved = false;
+      el.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        tracking = true;
+        moved = false;
+        sx = e.clientX;
+        sy = e.clientY;
+        pointerId = e.pointerId;
+      });
+      el.addEventListener('pointermove', (e) => {
+        if (!tracking || e.pointerId !== pointerId) return;
+        if (Math.hypot(e.clientX - sx, e.clientY - sy) > 8) moved = true;
+      });
+      const end = (e, cancelled) => {
+        if (!tracking || e.pointerId !== pointerId) return;
+        tracking = false;
+        pointerId = null;
+        if (!moved) return;
+        const dx = e.clientX - sx;
+        const dy = e.clientY - sy;
+        const ax = Math.abs(dx);
+        const ay = Math.abs(dy);
+        if (!cancelled && Math.max(ax, ay) >= 26) {
+          if (ay > ax * 1.25 && dy < 0) opts.up && opts.up();
+          else if (ax > ay * 1.25 && dx < 0) opts.left && opts.left();
+          else if (ax > ay * 1.25 && dx > 0) opts.right && opts.right();
+        }
+        // A drag must never also count as a tap on the control it started on.
+        el.dataset.swipeSuppress = '1';
+        setTimeout(() => { delete el.dataset.swipeSuppress; }, 80);
+      };
+      el.addEventListener('pointerup', e => end(e, false));
+      el.addEventListener('pointercancel', e => end(e, true));
+      el.addEventListener('click', (e) => {
+        if (el.dataset.swipeSuppress) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+        }
+      }, true);
+    }
+    function bindNavGestures() {
+      attachSwipe(document.getElementById('nav-search'), {
+        up: () => openMenu(),
+        left: () => switchTab(1),
+        right: () => switchTab(-1),
+      });
+      document.querySelectorAll('.nav-menu-btn').forEach((btn) => attachSwipe(btn, {
+        up: () => openMenu(),
+        right: () => goForwardPage(),
+      }));
+      attachSwipe(document.getElementById('nav-tabs'), {
+        up: () => openTabSwitcher(),
+        left: () => goBackPage(),
+      });
+      bindChipCancel();
+    }
+    /* Debug-panel stand-ins for each gesture, so every path is reachable. */
+    function debugGesture(kind) {
+      switch (kind) {
+        case 'plus-up':
+          log('Gesture: swipe up from +');
+          openMenu();
+          break;
+        case 'plus-left':
+          log('Gesture: swipe left from +');
+          switchTab(1);
+          break;
+        case 'plus-right':
+          log('Gesture: swipe right from +');
+          switchTab(-1);
+          break;
+        case 'tabs-up':
+          log('Gesture: swipe up from the tab icon');
+          openTabSwitcher();
+          break;
+        case 'tabs-left':
+          log('Gesture: swipe the tab icon left');
+          goBackPage();
+          break;
+        case 'arrow-right':
+          log('Gesture: swipe the menu arrow right');
+          goForwardPage();
+          break;
+        case 'dl-up':
+          log('Gesture: swipe up from the live chip');
+          if (!dlActive().length) {
+            startDownload({ name: 'screen-recording.mp4', size: 186 * 1048576, host: 'files.example', url: 'https://files.example/rec.mp4' });
+            setTimeout(demoCancelSwipe, 950);
+          } else {
+            demoCancelSwipe();
+          }
+          break;
+      }
+    }
+
+    bindNavGestures();
     updateChrome();
     renderEngineBadge();
     syncThemeToggles();
