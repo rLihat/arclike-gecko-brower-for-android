@@ -348,8 +348,13 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
         }
 
         // The live download chip sits in the free gutter beside the 70% pill.
-        val chipVisible = overlay == Overlay.None && !vm.compactPill &&
-            vm.downloads.isNotEmpty() && vm.flight == null
+        // The expanded menu always offers it; on the page it only appears once
+        // something has been downloaded.
+        val chipVisible = vm.flight == null && when (overlay) {
+            Overlay.Menu -> true
+            Overlay.None -> !vm.compactPill && vm.downloads.isNotEmpty()
+            else -> false
+        }
         DownloadChip(
             vm = vm,
             visible = chipVisible,
@@ -402,7 +407,7 @@ private fun DownloadChip(vm: BrowserViewModel, visible: Boolean, modifier: Modif
     val progress = vm.downloadRingProgress
     val pulse = remember { Animatable(1f) }
     LaunchedEffect(vm.chipPulse) {
-        if (vm.chipPulse == 0) return@LaunchedEffect
+        if (vm.chipPulse == 0 || active.isEmpty()) return@LaunchedEffect
         pulse.snapTo(1f)
         pulse.animateTo(1.22f, tween(100, easing = CubicBezierEasing(0.2f, 0.9f, 0.25f, 1.08f)))
         pulse.animateTo(0.94f, tween(140))
@@ -414,10 +419,10 @@ private fun DownloadChip(vm: BrowserViewModel, visible: Boolean, modifier: Modif
         animationSpec = infiniteRepeatable(tween(675, easing = LinearEasing), RepeatMode.Reverse),
         label = "dlBobY",
     )
-    val label = if (active.isNotEmpty()) {
-        "${active.size} download${if (active.size == 1) "" else "s"} in progress"
-    } else {
-        "${vm.downloads.size} download${if (vm.downloads.size == 1) "" else "s"}"
+    val label = when {
+        active.isNotEmpty() -> "${active.size} download${if (active.size == 1) "" else "s"} in progress"
+        vm.downloads.isNotEmpty() -> "${vm.downloads.size} download${if (vm.downloads.size == 1) "" else "s"}"
+        else -> "Downloads"
     }
 
     AnimatedVisibility(
@@ -441,15 +446,15 @@ private fun DownloadChip(vm: BrowserViewModel, visible: Boolean, modifier: Modif
                     indication = null,
                 ) { vm.openDownloads() },
         ) {
-            Canvas(Modifier.fillMaxSize().alpha(if (active.isEmpty()) 0.48f else 1f)) {
-                val stroke = 4.dp.toPx()
-                val radius = (size.minDimension - stroke) / 2f
-                drawCircle(
-                    color = c.stroke,
-                    radius = radius,
-                    style = Stroke(stroke),
-                )
+            Canvas(Modifier.fillMaxSize()) {
                 if (active.isNotEmpty()) {
+                    val stroke = 4.dp.toPx()
+                    val radius = (size.minDimension - stroke) / 2f
+                    drawCircle(
+                        color = c.stroke,
+                        radius = radius,
+                        style = Stroke(stroke),
+                    )
                     drawArc(
                         color = c.accent,
                         startAngle = -90f,
@@ -472,7 +477,7 @@ private fun DownloadChip(vm: BrowserViewModel, visible: Boolean, modifier: Modif
             ) {
                 Glyph(
                     Ico.download,
-                    if (active.isEmpty()) c.accent.copy(alpha = 0.82f) else c.accent,
+                    if (active.isEmpty()) c.text else c.accent,
                     size = 19.dp,
                     strokeWidth = 2f,
                     modifier = if (active.isNotEmpty()) Modifier.offset(y = bob.dp) else Modifier,

@@ -255,26 +255,6 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             return "${done.size} file${if (done.size == 1) "" else "s"} · ${formatBytes(total)}$tail"
         }
 
-    val menuDownloadSummary: String
-        get() {
-            if (downloads.isEmpty()) return "No downloads yet"
-            val active = activeDownloads
-            if (active.isNotEmpty()) return "${active.size} downloading · $downloadRingProgress%"
-            val done = downloads.filter { it.status == DownloadStatus.Done }
-            if (done.isEmpty()) return "${downloads.size} canceled"
-            return "${done.size} file${if (done.size == 1) "" else "s"} · ${formatBytes(done.sumOf { it.size })}"
-        }
-
-    val menuDownloadCount: Int
-        get() {
-            val active = activeDownloads
-            if (active.isNotEmpty()) return active.size
-            val done = downloads.count { it.status == DownloadStatus.Done }
-            return if (done > 0) done else downloads.size
-        }
-
-    val menuDownloadHot: Boolean get() = activeDownloads.isNotEmpty()
-
     val engines: List<SearchEngine>
         get() = BUILTIN_ENGINES + customEngines
 

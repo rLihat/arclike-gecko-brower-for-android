@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -473,9 +472,6 @@ fun MenuSheet(vm: BrowserViewModel) {
             MenuAction("Extensions", Ico.puzzle, badge = "1") { vm.openAddonPicker() }
         }
 
-        Spacer(Modifier.height(3.dp))
-        MenuDownloadsStrip(vm)
-
         Text(
             "PAGE",
             color = c.muted,
@@ -557,61 +553,6 @@ fun MenuSheet(vm: BrowserViewModel) {
         }
 
         Spacer(Modifier.height(16.dp))
-    }
-}
-
-@Composable
-private fun MenuDownloadsStrip(vm: BrowserViewModel) {
-    val c = LocalArc.current
-    Column(Modifier.fillMaxWidth()) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .clickable { vm.openDownloads() }
-                .padding(horizontal = 6.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Glyph(Ico.download, c.muted, size = 20.dp, strokeWidth = 1.9f)
-            Spacer(Modifier.width(11.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    "Downloads",
-                    color = c.text,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Spacer(Modifier.height(1.dp))
-                Text(
-                    vm.menuDownloadSummary,
-                    color = c.muted,
-                    fontSize = 11.5.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            if (vm.downloads.isNotEmpty()) {
-                Box(
-                    Modifier
-                        .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp)
-                        .clip(CircleShape)
-                        .background(if (vm.menuDownloadHot) c.accent else c.chip)
-                        .padding(horizontal = 6.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        vm.menuDownloadCount.toString(),
-                        color = if (vm.menuDownloadHot) Color.White else c.muted,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                    )
-                }
-                Spacer(Modifier.width(6.dp))
-            }
-            Glyph(Ico.chevronRight, c.muted, size = 16.dp, strokeWidth = 1.9f)
-        }
-        Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
     }
 }
 

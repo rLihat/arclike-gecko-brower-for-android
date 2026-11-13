@@ -862,6 +862,11 @@
       60% { transform: translateY(0); }
     }
     .dl-chip.idle .dl-core { color: var(--accent); opacity: .82; }
+    /* No active downloads: the chip drops its ring, badge and bob and becomes
+       a still download button in the same 46px slot beside the pill. */
+    .dl-chip.static .dl-ring { display: none; }
+    .dl-chip.static .dl-core { color: var(--text); opacity: 1; }
+    .dl-chip.static:active .dl-core { background: var(--press); }
     .dl-badge {
       position: absolute; top: -4px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px;
       border-radius: 9px; background: var(--accent); color: #fff;
@@ -968,25 +973,6 @@
     .ctx-row svg { width: 17px; height: 17px; flex: 0 0 17px; stroke: var(--menu-ico); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .ctx-sep { height: 1px; margin: 4px 6px; background: var(--hairline); }
 
-    /* Menu downloads strip: always present, no card of its own */
-    .menu-downloads {
-      display: flex; align-items: center; gap: 11px; padding: 10px 6px; margin-top: 3px;
-      border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline);
-      cursor: pointer;
-    }
-    .menu-downloads:active { opacity: .72; }
-    .menu-downloads .menu-ico { color: var(--menu-ico); }
-    .mdl-main { flex: 1; min-width: 0; }
-    .mdl-main b { display: block; font-size: 14px; font-weight: 600; }
-    .mdl-main span { display: block; margin-top: 1px; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .mdl-count {
-      min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
-      background: var(--chip); color: var(--muted); font-size: 11px; font-weight: 700;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .mdl-count.hot { background: var(--accent); color: #fff; }
-    .mdl-count.zero { display: none; }
-
     /* Full-height downloads manager, grown from the menu sheet */
     #menu-overlay.downloads-mode .sheet {
       height: 100%; max-height: none; overflow: hidden; border-radius: 0;
@@ -1005,6 +991,14 @@
     body:has(#menu-overlay.downloads-mode) .bottom-bar,
     body:has(#menu-overlay.downloads-mode) .bottom-bar .nav-set,
     body:has(#menu-overlay.downloads-mode) .bottom-bar .nav-btn { opacity: 0; pointer-events: none; }
+    /* The chip belongs to the page and the plain menu sheet. Settings, site,
+       account and the manager take the screen, so it steps aside. */
+    body:has(#menu-overlay.settings-mode) .dl-chip,
+    body:has(#menu-overlay.site-mode) .dl-chip,
+    body:has(#menu-overlay.account-mode) .dl-chip,
+    body:has(#menu-overlay.downloads-mode) .dl-chip {
+      opacity: 0; visibility: hidden; pointer-events: none;
+    }
     .dl-header-ico { width: 30px; height: 30px; flex: 0 0 30px; display: flex; align-items: center; justify-content: center; color: var(--accent); }
     .dl-header-ico svg { width: 21px; height: 21px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .dl-clear {
@@ -1300,15 +1294,6 @@
                 </span>
                 Extensions
               </button>
-            </div>
-
-            <div class="menu-downloads" id="menu-downloads" role="button" tabindex="0" onclick="openDownloads('menu')" aria-label="Open downloads">
-              <span class="menu-ico">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/><path d="M5 19h14"/></svg>
-              </span>
-              <div class="mdl-main"><b>Downloads</b><span id="mdl-summary">No downloads yet</span></div>
-              <span class="mdl-count zero" id="mdl-count">0</span>
-              <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
             </div>
 
             <div class="menu-label">Page</div>
@@ -2296,7 +2281,6 @@
       const thumb = document.getElementById('sb-thumb');
       if (thumb) thumb.classList.remove('show');
       syncDownloadChip();
-      syncMenuDownloads();
     }
     function visit(url, title, favicon, color) {
       closeOverlays();
@@ -2715,7 +2699,6 @@
       if (toast) toast.textContent = '';
       if (btn) btn.classList.remove('copied');
       syncImmersiveToggle();
-      syncMenuDownloads();
       syncDownloadChip();
       log('Menu opened');
     }
@@ -3079,7 +3062,6 @@
       flyFileToChip(item, spec.origin);
       ensureDlTicker();
       renderDownloads();
-      syncMenuDownloads();
       log('Download started: ' + item.name);
     }
 
@@ -3109,7 +3091,6 @@
         dlTicker = null;
       }
       renderDownloads();
-      syncMenuDownloads();
       syncDownloadChip();
     }
 
@@ -3148,55 +3129,31 @@
       const bar = document.getElementById('bottom-bar');
       const menu = document.getElementById('menu-overlay');
       const active = dlActive();
+      const menuOpen = menu.classList.contains('open');
       const blocked = !!(document.querySelector('#tab-overlay.open, #search-overlay.open') ||
         bar.classList.contains('scrolled') || bar.classList.contains('immersive') ||
-        bar.classList.contains('menu-open') || menu.classList.contains('downloads-mode') ||
+        menu.classList.contains('downloads-mode') ||
         menu.classList.contains('settings-mode') || menu.classList.contains('site-mode') ||
         menu.classList.contains('account-mode'));
-      const show = downloads.length > 0 && !blocked && !chip.classList.contains('landing');
+      const show = (downloads.length > 0 || menuOpen) && !blocked && !chip.classList.contains('landing');
       chip.classList.toggle('show', show);
       chip.classList.toggle('active', active.length > 0);
       chip.classList.toggle('idle', active.length === 0);
+      chip.classList.toggle('static', active.length === 0);
       chip.classList.toggle('multi', active.length > 1);
       chip.style.setProperty('--p', String(dlActiveProgress()));
       const badge = document.getElementById('dl-badge');
       if (badge) badge.textContent = String(active.length);
       chip.title = active.length
         ? active.length + ' download' + (active.length === 1 ? '' : 's') + ' in progress'
-        : downloads.length + ' download' + (downloads.length === 1 ? '' : 's');
+        : downloads.length
+          ? downloads.length + ' download' + (downloads.length === 1 ? '' : 's')
+          : 'Downloads';
       chip.setAttribute('aria-label', chip.title);
       if (reveal) {
         chip.classList.add('landed');
         setTimeout(() => chip.classList.remove('landed'), 520);
       }
-    }
-
-    function syncMenuDownloads() {
-      const summary = document.getElementById('mdl-summary');
-      const count = document.getElementById('mdl-count');
-      if (!summary || !count) return;
-      const active = dlActive();
-      if (!downloads.length) {
-        summary.textContent = 'No downloads yet';
-        count.textContent = '0';
-        count.classList.add('zero');
-        count.classList.remove('hot');
-        return;
-      }
-      if (active.length) {
-        summary.textContent = active.length + ' downloading · ' + dlActiveProgress() + '%';
-        count.textContent = String(active.length);
-        count.classList.add('hot');
-        count.classList.remove('zero');
-        return;
-      }
-      const done = downloads.filter(d => d.status === 'done');
-      const total = done.reduce((acc, d) => acc + d.size, 0);
-      summary.textContent = done.length
-        ? done.length + ' file' + (done.length === 1 ? '' : 's') + ' · ' + formatBytes(total)
-        : downloads.length + ' canceled';
-      count.textContent = String(done.length || downloads.length);
-      count.classList.remove('hot', 'zero');
     }
 
     function dlRowHTML(d) {
@@ -3264,7 +3221,6 @@
       downloads = [];
       if (dlTicker) { clearInterval(dlTicker); dlTicker = null; }
       renderDownloads();
-      syncMenuDownloads();
       syncDownloadChip();
       log('Cleared ' + n + ' download' + (n === 1 ? '' : 's'));
     }
@@ -3294,7 +3250,6 @@
         log('Retrying download: ' + d.name);
       }
       renderDownloads();
-      syncMenuDownloads();
       syncDownloadChip();
     });
 
@@ -3320,7 +3275,6 @@
       menu.classList.add('downloads-mode');
       bar.classList.remove('sheet-closing', 'scrolled', 'loading');
       renderDownloads();
-      syncMenuDownloads();
       syncDownloadChip();
       const sc = document.querySelector('.dl-scroll');
       if (sc) sc.scrollTop = 0;
@@ -3729,20 +3683,10 @@
     /* The page scrolls, not the window: condense the pill to the domain while
        it moves and let it expand again once scrolling settles. */
     document.getElementById('web-canvas').addEventListener('scroll', onCanvasScroll, { passive: true });
-    const menuDownloads = document.getElementById('menu-downloads');
-    if (menuDownloads) {
-      menuDownloads.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          openDownloads('menu');
-        }
-      });
-    }
     updateChrome();
     renderEngineBadge();
     syncThemeToggles();
     renderDownloads();
-    syncMenuDownloads();
     syncDownloadChip();
     log('Mockup v2 ready');
   </script>
