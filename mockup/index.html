@@ -1186,6 +1186,10 @@
         <span>Dark mode</span>
         <span class="switch" id="debug-theme-switch" role="switch" aria-checked="false" onclick="toggleTheme()" title="Toggle dark mode"><span></span></span>
       </div>
+      <div class="debug-row">
+        <span>Immersive mode</span>
+        <span class="switch" id="debug-immersive-switch" role="switch" aria-checked="false" onclick="toggleImmersive()" title="Hide the nav pill"><span></span></span>
+      </div>
       <div class="section-title">Interaction log</div>
       <div class="log" id="log"></div>
     </div>
@@ -2164,10 +2168,12 @@
     /* ---------- Immersive mode: pinch out to hide the pill ---------- */
     let immersive = false;
     function syncImmersiveToggle() {
-      const sw = document.getElementById('immersive-switch');
-      if (!sw) return;
-      sw.classList.toggle('on', immersive);
-      sw.setAttribute('aria-checked', String(immersive));
+      ['immersive-switch', 'debug-immersive-switch'].forEach(id => {
+        const sw = document.getElementById(id);
+        if (!sw) return;
+        sw.classList.toggle('on', immersive);
+        sw.setAttribute('aria-checked', String(immersive));
+      });
     }
     function setImmersive(on, silent) {
       immersive = on;
