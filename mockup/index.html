@@ -554,6 +554,32 @@
       opacity: 0; pointer-events: none;
       transform: translate(-50%, 22px) scale(.92);
     }
+    /* One-shot coach mark when immersive mode turns on. Sits where the pill
+       used to be, then fades out so it never becomes permanent chrome. */
+    .imm-banner {
+      position: absolute; left: 50%; bottom: 24px; z-index: 35;
+      display: flex; align-items: center; gap: 11px;
+      width: max-content; max-width: calc(100% - 44px); padding: 11px 15px 11px 13px;
+      border-radius: 17px; background: var(--nav-surface);
+      border: 1px solid var(--stroke); box-shadow: 0 10px 28px rgba(0, 0, 0, .16);
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transform: translate(-50%, 16px) scale(.96);
+      transition: opacity .26s ease, transform .32s cubic-bezier(0.32, 0.72, 0, 1), visibility .26s;
+    }
+    .imm-banner.show {
+      opacity: 1; visibility: visible; transform: translate(-50%, 0) scale(1);
+    }
+    .imm-banner-ico {
+      width: 30px; height: 30px; flex: 0 0 30px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--chip); color: var(--accent);
+    }
+    .imm-banner-ico svg {
+      width: 17px; height: 17px; stroke: currentColor; stroke-width: 1.9; fill: none;
+      stroke-linecap: round; stroke-linejoin: round;
+    }
+    .imm-banner b { display: block; font-size: 13px; line-height: 1.25; color: var(--text); }
+    .imm-banner small { display: block; margin-top: 1px; font-size: 11.5px; color: var(--muted); }
     .overlay { position: absolute; inset: 0; display: none; z-index: 40; }
     /* Tab view zooms in/out from the center; the page recedes slightly behind it */
     #tab-overlay {
@@ -754,6 +780,16 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg>
             </button>
           </div>
+        </div>
+
+        <div class="imm-banner" id="imm-banner" role="status" aria-live="polite">
+          <span class="imm-banner-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M9 4H4v5"/><path d="M15 4h5v5"/><path d="M9 20H4v-5"/><path d="M15 20h5v-5"/><path d="M4 4l5 5"/><path d="M20 4l-5 5"/><path d="M4 20l5-5"/><path d="M20 20l-5-5"/></svg>
+          </span>
+          <span>
+            <b>Immersive mode</b>
+            <small>Pinch out to bring the pill back</small>
+          </span>
         </div>
 
         <div class="overlay" id="tab-overlay">
@@ -2167,6 +2203,19 @@
     }
     /* ---------- Immersive mode: pinch out to hide the pill ---------- */
     let immersive = false;
+    let immBannerTimer = null;
+    function showImmersiveBanner() {
+      const banner = document.getElementById('imm-banner');
+      if (!banner) return;
+      clearTimeout(immBannerTimer);
+      banner.classList.add('show');
+      immBannerTimer = setTimeout(() => banner.classList.remove('show'), 3800);
+    }
+    function hideImmersiveBanner() {
+      const banner = document.getElementById('imm-banner');
+      if (banner) banner.classList.remove('show');
+      clearTimeout(immBannerTimer);
+    }
     function syncImmersiveToggle() {
       ['immersive-switch', 'debug-immersive-switch'].forEach(id => {
         const sw = document.getElementById(id);
@@ -2180,6 +2229,7 @@
       const bar = document.getElementById('bottom-bar');
       bar.classList.toggle('immersive', on);
       if (on) bar.classList.remove('loading', 'scrolled');
+      if (on) showImmersiveBanner(); else hideImmersiveBanner();
       syncImmersiveToggle();
       if (!silent) log(on ? 'Immersive: pinch out again to bring the pill back' : 'Immersive off');
     }
