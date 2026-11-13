@@ -447,7 +447,11 @@ private fun BoxScope.NavPill(
                             if (t == null || t.isHome || t.url.isBlank()) {
                                 Glyph(Ico.tabs, c.iconInk, size = 21.dp, strokeWidth = 2.1f)
                             } else {
-                                FaviconTile(hostLetter(t), size = 24.dp)
+                                SiteFavicon(
+                                    host = BrowserViewModel.hostOf(t.url),
+                                    letter = hostLetter(t),
+                                    size = 24.dp,
+                                )
                             }
                         }
                         PillButton(onClick = { vm.openSearch() }) {

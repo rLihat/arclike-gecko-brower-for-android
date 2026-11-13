@@ -144,8 +144,12 @@ private fun TabCard(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            FaviconTile(if (tab.isHome) "A" else tab.title.take(1), size = 18.dp,
-                background = if (tab.isHome) null else accentFor(tab.url))
+            SiteFavicon(
+                host = BrowserViewModel.hostOf(tab.url),
+                letter = if (tab.isHome) "A" else tab.title.take(1),
+                size = 18.dp,
+                background = if (tab.isHome) null else accentFor(tab.url),
+            )
             Spacer(Modifier.width(8.dp))
             Text(
                 if (tab.isHome) "New tab" else tab.title,

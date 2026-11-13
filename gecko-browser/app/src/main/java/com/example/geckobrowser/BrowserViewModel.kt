@@ -14,6 +14,8 @@ import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
+import org.json.JSONArray
+import org.json.JSONObject
 
 /** One tab: its GeckoSession lives in BrowserViewModel, this is the data Compose sees. */
 data class TabInfo(
@@ -27,6 +29,16 @@ data class TabInfo(
 )
 
 enum class Overlay { None, Search, Menu, Tabs, Settings, SiteSettings, Account }
+
+/** A search engine: built in, or added by the user with a %s URL template. */
+data class SearchEngine(
+    val id: String,
+    val name: String,
+    val urlTemplate: String,
+    val host: String,
+    val color: Long = 0xFF2F5C69,
+    val custom: Boolean = false,
+)
 
 private class History {
     val urls = mutableListOf<String>()
@@ -93,6 +105,18 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     var settingsSearch by mutableStateOf("")
         private set
+
+    var searchEngineId by mutableStateOf(prefs.getString("search_engine", "duckduckgo") ?: "duckduckgo")
+        private set
+
+    var customEngines by mutableStateOf(readCustomEngines())
+        private set
+
+    val engines: List<SearchEngine>
+        get() = BUILTIN_ENGINES + customEngines
+
+    val currentEngine: SearchEngine
+        get() = engines.firstOrNull { it.id == searchEngineId } ?: BUILTIN_ENGINES.first()
 
     var editingOverlayHeight by mutableStateOf(false)
 
@@ -493,6 +517,93 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         settingsSearch = value
     }
 
+    // ---- search engines ---------------------------------------------------
+
+    fun selectEngine(id: String) {
+        if (engines.none { it.id == id }) return
+        searchEngineId = id
+        prefs.edit().putString("search_engine", id).apply()
+    }
+
+    /** Adds and selects a custom engine. Returns false when the input is invalid. */
+    fun addCustomEngine(name: String, template: String): Boolean {
+        val label = name.trim()
+        var url = template.trim()
+        if (label.isEmpty() || !url.contains("%s")) return false
+        if (!url.startsWith("http://") && !url.startsWith("https://")) url = "https://$url"
+        val host = hostOfTemplate(url)
+        if (host.isEmpty() || !host.contains(".")) return false
+        val engine = SearchEngine(
+            id = "custom-${System.currentTimeMillis()}",
+            name = label,
+            urlTemplate = url,
+            host = host,
+            color = 0xFF2F5C69,
+            custom = true,
+        )
+        customEngines = customEngines + engine
+        persistCustomEngines()
+        selectEngine(engine.id)
+        return true
+    }
+
+    private fun readCustomEngines(): List<SearchEngine> {
+        val raw = prefs.getString("custom_engines", null) ?: return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            buildList {
+                for (i in 0 until arr.length()) {
+                    val o = arr.optJSONObject(i) ?: continue
+                    val id = o.optString("id")
+                    val name = o.optString("name")
+                    val url = o.optString("url")
+                    if (id.isBlank() || name.isBlank() || !url.contains("%s")) continue
+                    add(
+                        SearchEngine(
+                            id = id,
+                            name = name,
+                            urlTemplate = url,
+                            host = o.optString("host").ifBlank { hostOfTemplate(url) },
+                            color = o.optLong("color", 0xFF2F5C69),
+                            custom = true,
+                        )
+                    )
+                }
+            }
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
+    private fun persistCustomEngines() {
+        val arr = JSONArray()
+        customEngines.forEach { e ->
+            arr.put(
+                JSONObject().apply {
+                    put("id", e.id)
+                    put("name", e.name)
+                    put("url", e.urlTemplate)
+                    put("host", e.host)
+                    put("color", e.color)
+                }
+            )
+        }
+        prefs.edit().putString("custom_engines", arr.toString()).apply()
+    }
+
+    fun toUrl(input: String): String {
+        val t = input.trim()
+        if (t.startsWith("http://") || t.startsWith("https://") || t.startsWith("about:") ||
+            t.startsWith("file:")
+        ) return t
+        if (t.startsWith("www.")) return "https://$t"
+        val looksLikeHost = !t.contains(" ") &&
+            (t.contains(".") || t == "localhost") &&
+            !t.endsWith(".")
+        return if (looksLikeHost) "https://$t" else
+            currentEngine.urlTemplate.replace("%s", Uri.encode(t))
+    }
+
     fun showToast(message: String) {
         toastMessage = message
     }
@@ -535,17 +646,19 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         fun isBlankUrl(url: String): Boolean =
             url.isEmpty() || url == "about:blank" || url.startsWith("about:blank#")
 
-        fun toUrl(input: String): String {
-            val t = input.trim()
-            if (t.startsWith("http://") || t.startsWith("https://") || t.startsWith("about:") ||
-                t.startsWith("file:")
-            ) return t
-            if (t.startsWith("www.")) return "https://$t"
-            val looksLikeHost = !t.contains(" ") &&
-                (t.contains(".") || t == "localhost") &&
-                !t.endsWith(".")
-            return if (looksLikeHost) "https://$t" else
-                "https://duckduckgo.com/?q=" + Uri.encode(t)
+        val BUILTIN_ENGINES = listOf(
+            SearchEngine("duckduckgo", "DuckDuckGo", "https://duckduckgo.com/?q=%s", "duckduckgo.com", 0xFFDE5833),
+            SearchEngine("google", "Google", "https://www.google.com/search?q=%s", "google.com", 0xFF4285F4),
+            SearchEngine("bing", "Bing", "https://www.bing.com/search?q=%s", "bing.com", 0xFF008373),
+            SearchEngine("brave", "Brave", "https://search.brave.com/search?q=%s", "search.brave.com", 0xFFFB542B),
+            SearchEngine("ecosia", "Ecosia", "https://www.ecosia.org/search?q=%s", "ecosia.org", 0xFF008009),
+            SearchEngine("startpage", "Startpage", "https://www.startpage.com/sp/search?query=%s", "startpage.com", 0xFF6573FF),
+        )
+
+        fun hostOfTemplate(template: String): String = try {
+            Uri.parse(template.replace("%s", "")).host.orEmpty().removePrefix("www.")
+        } catch (_: Throwable) {
+            ""
         }
 
         fun hostOf(url: String): String {

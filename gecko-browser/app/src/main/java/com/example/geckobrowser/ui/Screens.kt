@@ -251,8 +251,8 @@ fun SettingsScreen(
                         if ("Search engine" in general) SettingsRow(
                             "Search engine",
                             icon = { Glyph(Ico.find, c.text, size = 20.dp, strokeWidth = 1.9f) },
-                            value = "DuckDuckGo",
-                            onClick = { vm.showToast("Search engine: DuckDuckGo") },
+                            value = vm.currentEngine.name,
+                            onClick = { vm.showToast("Search engine: ${vm.currentEngine.name}") },
                         )
                         if ("Language" in general) SettingsRow(
                             "Language",

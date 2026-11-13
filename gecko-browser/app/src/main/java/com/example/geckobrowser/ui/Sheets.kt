@@ -2,6 +2,7 @@ package com.example.geckobrowser.ui
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -74,8 +76,14 @@ fun DuckDuckGoBadge(size: Int = 26) {
 fun SearchSheet(vm: BrowserViewModel) {
     val c = LocalArc.current
     val query = vm.searchText
+    val engine = vm.currentEngine
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
+    var engineMenu by remember { mutableStateOf(false) }
+    var addingEngine by remember { mutableStateOf(false) }
+    var engineName by remember { mutableStateOf("") }
+    var engineUrl by remember { mutableStateOf("") }
+    var engineError by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) {
         focus.requestFocus()
         keyboard?.show()
@@ -83,7 +91,7 @@ fun SearchSheet(vm: BrowserViewModel) {
     val suggestions = buildList {
         if (query.isNotBlank()) {
             add(query)
-            add("$query duckduckgo")
+            add("$query ${engine.name.lowercase()}")
             add("$query github")
             add("$query news")
         }
@@ -112,7 +120,18 @@ fun SearchSheet(vm: BrowserViewModel) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.width(44.dp), contentAlignment = Alignment.CenterStart) {
-                DuckDuckGoBadge(26)
+                Box(
+                    Modifier
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable {
+                            engineMenu = !engineMenu
+                            if (!engineMenu) addingEngine = false
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    SiteFavicon(engine.host, engine.name, 26.dp)
+                }
             }
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 BasicTextField(
@@ -142,10 +161,138 @@ fun SearchSheet(vm: BrowserViewModel) {
             Box(Modifier.width(44.dp))
         }
 
-        if (suggestions.isNotEmpty()) {
+        if (engineMenu) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 6.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(c.sheet)
+                    .border(1.dp, c.stroke, RoundedCornerShape(16.dp))
+                    .padding(6.dp),
+            ) {
+                if (!addingEngine) {
+                    Column(Modifier.heightIn(max = 210.dp).verticalScroll(rememberScrollState())) {
+                        vm.engines.forEach { e ->
+                            val selected = e.id == engine.id
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(11.dp))
+                                    .background(if (selected) c.chip else Color.Transparent)
+                                    .clickable {
+                                        vm.selectEngine(e.id)
+                                        engineMenu = false
+                                        addingEngine = false
+                                    }
+                                    .padding(horizontal = 10.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                SiteFavicon(e.host, e.name, 20.dp)
+                                Spacer(Modifier.width(10.dp))
+                                Text(
+                                    e.name,
+                                    color = c.text,
+                                    fontSize = 13.5.sp,
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (e.custom) {
+                                    Text(
+                                        "Custom",
+                                        color = c.muted,
+                                        fontSize = 10.sp,
+                                        modifier = Modifier
+                                            .border(1.dp, c.stroke, RoundedCornerShape(6.dp))
+                                            .padding(horizontal = 5.dp, vertical = 1.dp),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                }
+                                Text(if (selected) "✓" else "", color = c.accent, fontSize = 13.sp)
+                            }
+                        }
+                    }
+                }
+
+                Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
+                if (!addingEngine) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(11.dp))
+                            .clickable {
+                                addingEngine = true
+                                engineError = null
+                            }
+                            .padding(horizontal = 10.dp, vertical = 9.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("＋", color = c.accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Add search engine", color = c.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                } else {
+                    Column(Modifier.padding(horizontal = 6.dp, vertical = 6.dp)) {
+                        EngineField(engineName, { engineName = it; engineError = null }, "Name")
+                        EngineField(engineUrl, { engineUrl = it; engineError = null },
+                            "https://example.com/search?q=%s")
+                        engineError?.let {
+                            Spacer(Modifier.height(6.dp))
+                            Text(it, color = Color(0xFFC0392B), fontSize = 11.sp)
+                        }
+                        Row(
+                            Modifier.fillMaxWidth().padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "Cancel",
+                                color = c.text,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(9.dp))
+                                    .background(c.chip)
+                                    .clickable {
+                                        addingEngine = false
+                                        engineError = null
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "Add",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(9.dp))
+                                    .background(c.accent)
+                                    .clickable {
+                                        if (vm.addCustomEngine(engineName, engineUrl)) {
+                                            engineName = ""
+                                            engineUrl = ""
+                                            engineError = null
+                                            addingEngine = false
+                                            engineMenu = false
+                                        } else {
+                                            engineError = "Enter a name and a URL containing %s."
+                                        }
+                                    }
+                                    .padding(horizontal = 12.dp, vertical = 7.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        if (suggestions.isNotEmpty() && !engineMenu) {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                 Spacer(Modifier.height(8.dp))
-                suggestions.forEach { s ->
+                suggestions.forEachIndexed { index, s ->
                     Row(
                         Modifier
                             .fillMaxWidth()
@@ -154,7 +301,11 @@ fun SearchSheet(vm: BrowserViewModel) {
                             .padding(horizontal = 12.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Glyph(Ico.find, c.muted, size = 17.dp, strokeWidth = 2f)
+                        if (index == 0) {
+                            SiteFavicon(engine.host, engine.name, 17.dp)
+                        } else {
+                            Glyph(Ico.find, c.muted, size = 17.dp, strokeWidth = 2f)
+                        }
                         Spacer(Modifier.width(12.dp))
                         Text(
                             s,
@@ -169,6 +320,33 @@ fun SearchSheet(vm: BrowserViewModel) {
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun EngineField(value: String, onValueChange: (String) -> Unit, placeholder: String) {
+    val c = LocalArc.current
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(c.chip)
+            .border(1.dp, c.stroke, RoundedCornerShape(10.dp))
+            .padding(horizontal = 11.dp, vertical = 10.dp),
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = TextStyle(color = c.text, fontSize = 12.5.sp),
+            cursorBrush = SolidColor(c.accent),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (value.isEmpty()) {
+            Text(placeholder, color = c.muted, fontSize = 12.5.sp, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
         }
     }
 }

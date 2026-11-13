@@ -180,8 +180,15 @@
     .fav-in-nav {
       width: 22px; height: 22px; border-radius: 7px; background: #fff; display:flex; align-items:center; justify-content:center;
       font-size: 11px; font-weight: 700; color: #2f5c69; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+      position: relative;
     }
-    .fav-in-nav img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .fav-in-nav .fav-letter {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    }
+    .fav-in-nav img {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: contain; background: #fff; display: block;
+    }
     .tabs-icon-wrap { width: 28px; height: 28px; border-radius: 9px; background: var(--tabs-wrap); border: none; display:flex; align-items:center; justify-content:center; }
     .url-row { display:flex; align-items:center; gap: 8px; margin: 4px 0 10px; }
     .url-box { flex:1; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,0.4); font-size: 14px; color: #234; word-break: break-all; text-align: center; }
@@ -653,12 +660,76 @@
     }
     .input:focus { border: 0; outline: none; box-shadow: none; background: transparent; }
     .input::placeholder { text-align: center; }
-    /* Search-engine badge (DuckDuckGo) pinned inside the left of the field */
+    /* Search-engine badge (current engine's favicon) pinned inside the field.
+       Clicking it opens the engine switcher. */
     .engine-ico {
-      position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
-      width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; pointer-events: none;
+      position: absolute; left: 14px; top: 50%; transform: translateY(-50%); z-index: 2;
+      width: 28px; height: 28px; padding: 0; border: 0; border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent; cursor: pointer; pointer-events: auto;
     }
-    .engine-ico svg { width: 22px; height: 22px; display: block; }
+    .engine-ico:hover { background: var(--chip); }
+    .engine-ico .eng-ico { width: 22px; height: 22px; flex: 0 0 22px; border-radius: 7px; }
+    .eng-ico {
+      position: relative; border-radius: 7px; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--chip); color: var(--accent);
+      font-size: 10px; font-weight: 700; line-height: 1;
+    }
+    .eng-ico img {
+      position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: contain; background: #fff; display: block;
+    }
+    /* Engine switcher: a small dropdown tucked under the search field. */
+    .engine-menu {
+      position: absolute; top: calc(100% + 4px); left: 0; z-index: 12;
+      width: min(292px, calc(100% - 4px)); padding: 6px; text-align: left;
+      border-radius: 16px; background: var(--sheet-bg);
+      border: 1px solid var(--stroke); box-shadow: var(--shadow);
+      display: none;
+    }
+    .engine-menu.open { display: block; }
+    /* Adding an engine swaps the list for the form so it fits the sheet. */
+    .engine-menu.adding #engine-list,
+    .engine-menu.adding .engine-add-btn { display: none; }
+    /* The engine list takes over the sheet while it is open. */
+    #search-overlay.engine-open .suggestions { display: none; }
+    .eng-row {
+      width: 100%; display: flex; align-items: center; gap: 10px;
+      padding: 9px 10px; border: 0; border-radius: 11px; background: transparent;
+      font: inherit; font-size: 13.5px; color: var(--text); cursor: pointer; text-align: left;
+    }
+    .eng-row:hover, .eng-row:active { background: var(--chip); }
+    .eng-row.on { background: var(--chip); font-weight: 600; }
+    .eng-row .eng-ico { width: 20px; height: 20px; flex: 0 0 20px; }
+    .sug-ico .eng-ico { width: 20px; height: 20px; flex: 0 0 20px; }
+    .eng-row-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .eng-tag { font-size: 10px; color: var(--muted); border: 1px solid var(--stroke); border-radius: 6px; padding: 1px 5px; }
+    .eng-check { color: var(--accent); font-size: 13px; font-weight: 700; }
+    .engine-add { border-top: 1px solid var(--hairline); margin-top: 4px; padding-top: 4px; }
+    .engine-add-btn {
+      width: 100%; display: flex; align-items: center; gap: 8px;
+      padding: 9px 10px; border: 0; border-radius: 11px; background: transparent;
+      color: var(--accent); font: inherit; font-size: 13px; font-weight: 600;
+      cursor: pointer; text-align: left;
+    }
+    .engine-add-btn:hover { background: var(--chip); }
+    .engine-form { display: none; padding: 2px 6px 6px; }
+    .engine-form.open { display: block; }
+    .eng-field {
+      width: 100%; margin-top: 6px; padding: 9px 11px; border-radius: 10px;
+      border: 1px solid var(--stroke); background: var(--field); color: var(--text);
+      font: inherit; font-size: 12.5px; outline: none;
+    }
+    .eng-field::placeholder { color: var(--muted); }
+    .eng-form-row { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+    .eng-form-btn {
+      border: 0; border-radius: 9px; padding: 7px 12px; font: inherit; font-size: 12px;
+      font-weight: 600; cursor: pointer; background: var(--chip); color: var(--text);
+    }
+    .eng-form-btn.primary { background: var(--accent); color: #fff; }
+    .eng-error { display: none; margin-top: 6px; font-size: 11px; color: #c0392b; }
+    .eng-error.show { display: block; }
     .suggestions { padding: 4px 0 2px; }
     .sug-row {
       display: flex; align-items: center; gap: 12px; padding: 13px 12px; border-radius: 14px;
@@ -811,16 +882,26 @@
           <div class="sheet glass" onclick="event.stopPropagation()">
             <div class="handle"></div>
             <div class="input-wrap">
-              <span class="engine-ico" title="Search engine: DuckDuckGo" aria-label="Search engine: DuckDuckGo">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="12" cy="12" r="11" fill="#DE5833"/>
-                  <path fill="#fff" d="M12.6 5.4a4.9 4.9 0 0 0-4.1 7.6l-.9 3.4c-.1.5.4.9.9.7l2.9-1.2a4.9 4.9 0 1 0 1.2-10.5z"/>
-                  <circle cx="14.6" cy="9.7" r="1" fill="#1F3B43"/>
-                  <path fill="#F5A623" d="M16.8 11.4l2.9 1.2-3 1.1z"/>
-                </svg>
-              </span>
+              <button class="engine-ico" type="button" id="engine-btn"
+                title="Search engine: DuckDuckGo" aria-label="Search engine: DuckDuckGo"
+                aria-haspopup="menu" aria-expanded="false" onclick="toggleEngineMenu(event)"></button>
               <input id="search-input" class="input" type="text" placeholder="Search or enter a site" autocomplete="off" spellcheck="false"
                 oninput="renderSuggestions()" onkeydown="if(event.key==='Enter'){event.preventDefault();runSearch(this.value);}" />
+              <div class="engine-menu" id="engine-menu" role="menu" aria-label="Search engines">
+                <div id="engine-list"></div>
+                <div class="engine-add">
+                  <button class="engine-add-btn" type="button" onclick="toggleEngineForm(event)">＋ Add search engine</button>
+                  <div class="engine-form" id="engine-form">
+                    <input id="engine-name" class="eng-field" type="text" placeholder="Name" autocomplete="off" spellcheck="false">
+                    <input id="engine-url" class="eng-field" type="text" placeholder="https://example.com/search?q=%s" autocomplete="off" spellcheck="false">
+                    <div class="eng-form-row">
+                      <button class="eng-form-btn" type="button" onclick="hideEngineForm()">Cancel</button>
+                      <button class="eng-form-btn primary" type="button" onclick="addCustomEngine()">Add</button>
+                    </div>
+                    <div class="eng-error" id="engine-error">Enter a name and a URL containing %s.</div>
+                  </div>
+                </div>
+              </div>
             </div>
             <div class="suggestions" id="search-suggestions" onclick="pickSuggestion(event)"></div>
           </div>
@@ -1251,6 +1332,181 @@
     ];
     let currentTab = 4;
 
+    /* ---------- Favicons ---------- */
+    function faviconSrc(host) {
+      if (!host || host === 'New Tab') return '';
+      return 'https://icons.duckduckgo.com/ip3/' + encodeURIComponent(host.replace(/^www\./, '')) + '.ico';
+    }
+    function faviconInner(t) {
+      const host = t && t.url && t.url !== 'home' ? hostOf(t.url) : '';
+      const src = faviconSrc(host);
+      const letter = `<span class="fav-letter">${t && t.favicon ? t.favicon : 'A'}</span>`;
+      return src ? letter + `<img src="${src}" alt="" onerror="this.remove()">` : letter;
+    }
+    function faviconTileHTML(t) {
+      return `<span class="fav-in-nav" style="background:${t.color || '#7aa2b8'};color:#fff">${faviconInner(t)}</span>`;
+    }
+
+    /* ---------- Search engines ---------- */
+    const BUILTIN_ENGINES = [
+      { id: 'duckduckgo', name: 'DuckDuckGo', host: 'duckduckgo.com', url: 'https://duckduckgo.com/?q=%s', color: '#de5833' },
+      { id: 'google', name: 'Google', host: 'google.com', url: 'https://www.google.com/search?q=%s', color: '#4285f4' },
+      { id: 'bing', name: 'Bing', host: 'bing.com', url: 'https://www.bing.com/search?q=%s', color: '#008373' },
+      { id: 'brave', name: 'Brave', host: 'search.brave.com', url: 'https://search.brave.com/search?q=%s', color: '#fb542b' },
+      { id: 'ecosia', name: 'Ecosia', host: 'ecosia.org', url: 'https://www.ecosia.org/search?q=%s', color: '#008009' },
+      { id: 'startpage', name: 'Startpage', host: 'startpage.com', url: 'https://www.startpage.com/sp/search?query=%s', color: '#6573ff' }
+    ];
+    function readStored(key, fallback) {
+      try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
+      catch { return fallback; }
+    }
+    function storeValue(key, value) {
+      try { localStorage.setItem(key, typeof value === 'string' ? value : JSON.stringify(value)); } catch {}
+    }
+    let customEngines = readStored('arc-engines', []);
+    if (!Array.isArray(customEngines)) customEngines = [];
+    let engineId = (() => {
+      try { return localStorage.getItem('arc-engine') || 'duckduckgo'; } catch { return 'duckduckgo'; }
+    })();
+    function allEngines() { return BUILTIN_ENGINES.concat(customEngines); }
+    function currentEngine() {
+      return allEngines().find(e => e.id === engineId) || BUILTIN_ENGINES[0];
+    }
+    function hostFromTemplate(template) {
+      try { return new URL(String(template).replace('%s', '')).hostname.replace(/^www\./, ''); }
+      catch { return ''; }
+    }
+    function engineHost(e) { return e.host || hostFromTemplate(e.url); }
+    function engineLetter(e) { return (e.name || '?').trim().charAt(0).toUpperCase(); }
+    function engineIconHTML(e) {
+      const src = faviconSrc(engineHost(e));
+      return `<span class="eng-ico" style="background:${e.color || '#2f5c69'};color:#fff">${engineLetter(e)}` +
+        (src ? `<img src="${src}" alt="" onerror="this.remove()">` : '') + `</span>`;
+    }
+    function escapeHTML(s) {
+      return String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+    }
+    function engineSearchUrl(e, q) {
+      return e.url.includes('%s') ? e.url.replace('%s', encodeURIComponent(q)) : e.url + encodeURIComponent(q);
+    }
+    function isSearchTab(t) {
+      if (!t || !t.url || t.url === 'home') return false;
+      const host = hostOf(t.url);
+      return allEngines().some(e => engineHost(e) === host);
+    }
+    function renderEngineBadge() {
+      const btn = document.getElementById('engine-btn');
+      if (!btn) return;
+      const e = currentEngine();
+      btn.innerHTML = engineIconHTML(e);
+      const label = 'Search engine: ' + e.name;
+      btn.title = label;
+      btn.setAttribute('aria-label', label);
+    }
+    function renderEngineMenu() {
+      const list = document.getElementById('engine-list');
+      if (!list) return;
+      list.innerHTML = allEngines().map(e => `
+        <button class="eng-row${e.id === engineId ? ' on' : ''}" type="button" role="menuitemradio"
+          aria-checked="${e.id === engineId}" onclick="selectEngine('${e.id}')">
+          ${engineIconHTML(e)}
+          <span class="eng-row-name">${escapeHTML(e.name)}</span>
+          ${e.custom ? '<span class="eng-tag">Custom</span>' : ''}
+          <span class="eng-check">${e.id === engineId ? '✓' : ''}</span>
+        </button>`).join('');
+    }
+    function toggleEngineMenu(event) {
+      if (event) event.stopPropagation();
+      const menu = document.getElementById('engine-menu');
+      const btn = document.getElementById('engine-btn');
+      if (!menu) return;
+      const open = !menu.classList.contains('open');
+      menu.classList.toggle('open', open);
+      document.getElementById('search-overlay').classList.toggle('engine-open', open);
+      if (btn) btn.setAttribute('aria-expanded', String(open));
+      if (open) { renderEngineMenu(); hideEngineForm(); }
+      else hideEngineForm();
+    }
+    function closeEngineMenu() {
+      const menu = document.getElementById('engine-menu');
+      const btn = document.getElementById('engine-btn');
+      if (menu) menu.classList.remove('open');
+      const overlay = document.getElementById('search-overlay');
+      if (overlay) overlay.classList.remove('engine-open');
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+      hideEngineForm();
+    }
+    function selectEngine(id) {
+      if (!allEngines().some(e => e.id === id)) return;
+      engineId = id;
+      storeValue('arc-engine', id);
+      renderEngineBadge();
+      renderSuggestions();
+      closeEngineMenu();
+      const input = document.getElementById('search-input');
+      if (input) input.focus({ preventScroll: true });
+      log('Search engine: ' + currentEngine().name);
+    }
+    function toggleEngineForm(event) {
+      if (event) event.stopPropagation();
+      const form = document.getElementById('engine-form');
+      if (!form) return;
+      const open = !form.classList.contains('open');
+      form.classList.toggle('open', open);
+      document.getElementById('engine-menu').classList.toggle('adding', open);
+      document.getElementById('engine-error').classList.remove('show');
+      if (open) setTimeout(() => document.getElementById('engine-name').focus({ preventScroll: true }), 30);
+    }
+    function hideEngineForm() {
+      const form = document.getElementById('engine-form');
+      if (form) form.classList.remove('open');
+      const menu = document.getElementById('engine-menu');
+      if (menu) menu.classList.remove('adding');
+      const err = document.getElementById('engine-error');
+      if (err) err.classList.remove('show');
+    }
+    function addCustomEngine() {
+      const nameEl = document.getElementById('engine-name');
+      const urlEl = document.getElementById('engine-url');
+      const err = document.getElementById('engine-error');
+      const name = (nameEl.value || '').trim();
+      let template = (urlEl.value || '').trim();
+      const fail = (msg) => {
+        err.textContent = msg;
+        err.classList.add('show');
+      };
+      if (!name) { fail('Enter a name for this engine.'); nameEl.focus(); return; }
+      if (!template.includes('%s')) { fail('The URL must contain %s where the query goes.'); urlEl.focus(); return; }
+      if (!/^https?:\/\//i.test(template)) template = 'https://' + template;
+      const host = hostFromTemplate(template);
+      if (!host) { fail('Enter a valid http(s) URL.'); urlEl.focus(); return; }
+      const engine = {
+        id: 'custom-' + Date.now(),
+        name,
+        host,
+        url: template,
+        color: '#2f5c69',
+        custom: true
+      };
+      customEngines.push(engine);
+      storeValue('arc-engines', customEngines);
+      engineId = engine.id;
+      storeValue('arc-engine', engine.id);
+      renderEngineBadge();
+      renderSuggestions();
+      hideEngineForm();
+      closeEngineMenu();
+      log('Added search engine: ' + name);
+      const input = document.getElementById('search-input');
+      if (input) input.focus({ preventScroll: true });
+    }
+    document.addEventListener('pointerdown', (e) => {
+      const menu = document.getElementById('engine-menu');
+      if (!menu || !menu.classList.contains('open')) return;
+      if (menu.contains(e.target) || e.target.closest('#engine-btn')) return;
+      closeEngineMenu();
+    }, true);
+
     /* ---------- Theme ---------- */
     let darkMode = false;
     function syncThemeToggles() {
@@ -1294,12 +1550,14 @@
       if (host === 'github.com') return githubHTML();
       if (host === 'mail.google.com') return gmailHTML();
       if (host === 'addons.mozilla.org') return amoHTML();
-      if (host === 'duckduckgo.com') return duckduckgoHTML(t);
+      const engine = allEngines().find(e => engineHost(e) === host.replace(/^www\./, ''));
+      if (engine) return searchHTML(t, engine);
       return genericHTML(t);
     }
-    function duckduckgoHTML(t) {
-      const m = /[?&]q=([^&]*)/.exec(t.url || '');
-      const q = m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : '';
+    function searchHTML(t, eng) {
+      const engine = eng || currentEngine();
+      const m = /[?&](?:q|query)=([^&]*)/.exec(t.url || '');
+      const q = m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : (t.title || '');
       const topic = (q || 'firefox android').replace(/[<>&]/g, '');
       const cap = topic.charAt(0).toUpperCase() + topic.slice(1);
       const results = [
@@ -1330,13 +1588,13 @@
       ];
       return `<div class="ddg">
         <div class="ddg-top">
-          <div class="ddg-logo">D</div>
+          <div class="ddg-logo" style="background:${engine.color || '#de5833'}">${engineLetter(engine)}</div>
           <div class="ddg-field"><span class="q">${topic}</span><span class="x">×</span></div>
         </div>
-        <div class="ddg-tabs"><span class="on">All</span><span>Images</span><span>Videos</span><span>News</span><span>Maps</span></div>
+        <div class="ddg-tabs"><span class="on" style="border-color:${engine.color || '#de5833'}">All</span><span>Images</span><span>Videos</span><span>News</span><span>Maps</span></div>
         <div class="ddg-answer">
           <b>${cap}</b>
-          <p>A quick answer card stands in for the instant-answer module: definitions, dates and links appear here when DuckDuckGo can resolve the query directly.</p>
+          <p>A quick answer card stands in for the instant-answer module: definitions, dates and links appear here when ${engine.name} can resolve the query directly.</p>
         </div>
         <div class="ddg-count">About 1,240,000 results (0.32 seconds)</div>
         ${results.map(r => `<div class="ddg-res" onclick="log('Result: ${r.host.replace(/'/g, '')}')">
@@ -1613,7 +1871,7 @@
     function updateChrome() {
       const t = tabs[currentTab];
       const fav = document.getElementById('nav-favicon');
-      fav.textContent = t.favicon;
+      fav.innerHTML = faviconInner(t);
       fav.style.background = t.color;
       fav.style.color = '#fff';
       document.getElementById('menu-url').textContent = t.url === 'home' ? 'New Tab' : t.url;
@@ -1791,7 +2049,7 @@
         card.onclick = () => openTab(i);
         const top = document.createElement('div');
         top.className = 'tp-top';
-        top.innerHTML = `<span class="fav-in-nav" style="background:${t.color};color:#fff">${t.favicon}</span><span>${t.title}</span>`;
+        top.innerHTML = `${faviconTileHTML(t)}<span>${t.title}</span>`;
         const page = document.createElement('div');
         page.className = 'tp-page';
         page.appendChild(miniWebview(t));
@@ -1861,7 +2119,7 @@
         { type: 'history', value: 'firefox android extensions', label: 'firefox android extensions', kind: 'Recent' },
         { type: 'url', value: 'addons.mozilla.org', label: 'addons.mozilla.org', kind: 'Site' }
       ];
-      const items = [{ type: 'search', value: q, label: 'Search \u201c' + q + '\u201d', kind: 'DuckDuckGo' }];
+      const items = [{ type: 'search', value: q, label: 'Search \u201c' + q + '\u201d', kind: currentEngine().name }];
       if (/^[^\s.]+\.[^\s]{2,}$/.test(q)) {
         items.push({ type: 'url', value: q, label: q, kind: 'Open site' });
       } else {
@@ -1882,7 +2140,7 @@
         row.dataset.type = it.type;
         const ico = document.createElement('span');
         ico.className = 'sug-ico';
-        ico.innerHTML = SUG_ICONS[it.type] || SUG_ICONS.search;
+        ico.innerHTML = it.type === 'search' ? engineIconHTML(currentEngine()) : (SUG_ICONS[it.type] || SUG_ICONS.search);
         const text = document.createElement('span');
         text.className = 'sug-text';
         text.textContent = it.label;
@@ -1903,13 +2161,14 @@
     function runSearch(q) {
       q = (q || '').trim();
       if (!q) return;
-      log('Search: ' + q);
-      const url = 'duckduckgo.com/?q=' + encodeURIComponent(q);
-      const existing = tabs.findIndex(t => t.url.indexOf('duckduckgo.com') === 0);
-      if (existing < 0) { visit(url, q, 'D', '#de5833'); return; }
+      const engine = currentEngine();
+      log('Search (' + engine.name + '): ' + q);
+      const url = engineSearchUrl(engine, q);
+      const existing = tabs.findIndex(isSearchTab);
+      if (existing < 0) { visit(url, q, engineLetter(engine), engine.color); return; }
       // Reuse the search tab so repeated queries do not pile up in the switcher.
       closeOverlays();
-      tabs[existing] = { title: q, url, favicon: 'D', color: '#de5833' };
+      tabs[existing] = { title: q, url, favicon: engineLetter(engine), color: engine.color };
       currentTab = existing;
       updateChrome();
       const canvas = document.getElementById('web-canvas');
@@ -1971,7 +2230,9 @@
       const bar = document.getElementById('bottom-bar');
       bar.classList.remove('sheet-closing', 'scrolled', 'loading');
       document.getElementById('search-input').value = '';
+      renderEngineBadge();
       renderSuggestions();
+      closeEngineMenu();
       document.getElementById('search-overlay').classList.add('open');
       positionSearchPill();
       document.getElementById('bottom-bar').classList.add('search-open');
@@ -1996,6 +2257,7 @@
     }
     function closeSearch() {
       const wasOpen = document.getElementById('search-overlay').classList.contains('open');
+      closeEngineMenu();
       document.getElementById('search-overlay').classList.remove('open');
       document.getElementById('bottom-bar').classList.remove('search-open');
       if (wasOpen) markSheetClosing();
@@ -2322,6 +2584,7 @@
        it moves and let it expand again once scrolling settles. */
     document.getElementById('web-canvas').addEventListener('scroll', onCanvasScroll, { passive: true });
     updateChrome();
+    renderEngineBadge();
     syncThemeToggles();
     log('Mockup v2 ready');
   </script>

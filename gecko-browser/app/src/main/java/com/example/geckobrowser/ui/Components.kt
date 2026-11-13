@@ -1,5 +1,7 @@
 package com.example.geckobrowser.ui
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateDpAsState
@@ -9,6 +11,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,8 +44,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.withTransform
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +55,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 
 /* ------------------------------------------------------------------ icons */
 
@@ -474,6 +484,73 @@ fun FaviconTile(letter: String, size: Dp = 22.dp, background: Color? = null) {
         )
     }
 }
+
+/**
+ * Favicon for a site host. Loads the real icon from DuckDuckGo's icon service and
+ * falls back to the letter tile when the site has no icon (or while it loads).
+ * Results are cached in memory for the whole process.
+ */
+@Composable
+fun SiteFavicon(host: String, letter: String, size: Dp = 22.dp, background: Color? = null) {
+    val bitmap by produceState(initialValue = FaviconCache.peek(host), key1 = host) {
+        value = FaviconCache.load(host)
+    }
+    val bmp = bitmap
+    if (bmp == null) {
+        FaviconTile(letter, size, background)
+        return
+    }
+    Box(
+        Modifier
+            .size(size)
+            .clip(RoundedCornerShape(size / 3))
+            .background(Color.White)
+            .border(1.dp, LocalArc.current.stroke, RoundedCornerShape(size / 3))
+            .padding(size * 0.1f),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            bitmap = bmp.asImageBitmap(),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+private object FaviconCache {
+    private val lock = Any()
+    private val icons = HashMap<String, Bitmap?>()
+
+    private fun key(host: String): String =
+        host.trim().lowercase().removePrefix("www.")
+
+    fun peek(host: String): Bitmap? = synchronized(lock) { icons[key(host)] }
+
+    suspend fun load(host: String): Bitmap? {
+        val key = key(host)
+        if (key.isBlank() || key == "new tab" || key == "home") return null
+        synchronized(lock) {
+            if (icons.containsKey(key)) return icons[key]
+        }
+        val bitmap = withContext(Dispatchers.IO) {
+            try {
+                val conn = URL("https://icons.duckduckgo.com/ip3/$key.ico")
+                    .openConnection() as HttpURLConnection
+                conn.connectTimeout = 4000
+                conn.readTimeout = 4000
+                conn.instanceFollowRedirects = true
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) ArcBrowser")
+                conn.inputStream.use { BitmapFactory.decodeStream(it) }
+            } catch (_: Throwable) {
+                null
+            }
+        }
+        synchronized(lock) { icons[key] = bitmap }
+        return bitmap
+    }
+}
+
 
 @Composable
 fun PillAvatar(text: String = "M", size: Dp = 26.dp) {
