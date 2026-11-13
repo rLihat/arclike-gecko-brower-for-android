@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Downloads saved by the app on API < 29. -->
+    <external-files-path
+        name="downloads"
+        path="Download/" />
+    <files-path
+        name="internal_downloads"
+        path="Downloads/" />
+</paths>

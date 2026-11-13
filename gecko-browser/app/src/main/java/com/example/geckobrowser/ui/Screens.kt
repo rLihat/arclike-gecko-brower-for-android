@@ -1,12 +1,17 @@
 package com.example.geckobrowser.ui
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -26,6 +31,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
@@ -38,6 +44,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.geckobrowser.BrowserViewModel
+import com.example.geckobrowser.DownloadItem
+import com.example.geckobrowser.DownloadStatus
+import com.example.geckobrowser.formatBytes
+import com.example.geckobrowser.formatWhen
 
 /* ------------------------------------------------------------------ home */
 
@@ -269,7 +279,7 @@ fun SettingsScreen(
                         if ("Downloads" in general) SettingsRow(
                             "Downloads",
                             icon = { Glyph(Ico.download, c.text, size = 20.dp, strokeWidth = 1.9f) },
-                            onClick = { vm.showToast("No downloads yet") },
+                            onClick = { vm.openDownloads() },
                         )
                     }
                 }
@@ -390,6 +400,7 @@ fun SettingsHeader(
     title: String,
     leading: @Composable () -> Unit,
     icon: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val c = LocalArc.current
     Row(
@@ -413,6 +424,10 @@ fun SettingsHeader(
             fontWeight = FontWeight.Bold,
             letterSpacing = (-0.4).sp,
         )
+        if (trailing != null) {
+            Spacer(Modifier.weight(1f))
+            trailing()
+        }
     }
 }
 
@@ -508,6 +523,240 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 )
             }
         }
+    }
+}
+
+/* -------------------------------------------------------------- downloads */
+
+@Composable
+fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
+    val c = LocalArc.current
+    val active = vm.downloads.filter { it.status == DownloadStatus.Downloading }
+    val finished = vm.downloads.filter { it.status != DownloadStatus.Downloading }
+
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(c.settingsBg),
+    ) {
+        SettingsHeader(
+            title = "Downloads",
+            leading = {
+                Box(
+                    Modifier.size(34.dp).clip(CircleShape).clickable { onBack() },
+                    contentAlignment = Alignment.Center,
+                ) { Glyph(Ico.chevronLeft, c.text, size = 20.dp, strokeWidth = 2.2f) }
+            },
+            icon = { Glyph(Ico.download, c.text, size = 19.dp, strokeWidth = 1.9f) },
+            trailing = {
+                if (vm.downloads.isNotEmpty()) {
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(9.dp))
+                            .clickable { vm.clearDownloads() }
+                            .padding(horizontal = 9.dp, vertical = 7.dp),
+                    ) {
+                        Text(
+                            "Clear",
+                            color = c.accent,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
+                }
+            },
+        )
+
+        Column(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
+        ) {
+            Text(
+                vm.downloadSummary,
+                color = c.muted,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(start = 4.dp, bottom = 12.dp),
+            )
+            if (vm.downloads.isEmpty()) {
+                EmptyDownloads(vm, Modifier.fillMaxWidth())
+            } else {
+                if (active.isNotEmpty()) {
+                    DownloadGroupLabel("Downloading")
+                    active.forEach { DownloadRow(vm, it) }
+                }
+                if (finished.isNotEmpty()) {
+                    DownloadGroupLabel(if (active.isNotEmpty()) "Completed" else "Downloads")
+                    finished.forEach { DownloadRow(vm, it) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DownloadGroupLabel(text: String) {
+    val c = LocalArc.current
+    Text(
+        text.uppercase(),
+        color = c.muted,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 0.8.sp,
+        modifier = Modifier.padding(start = 4.dp, top = 10.dp, bottom = 8.dp),
+    )
+}
+
+@Composable
+private fun EmptyDownloads(vm: BrowserViewModel, modifier: Modifier = Modifier) {
+    val c = LocalArc.current
+    Column(
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = 30.dp)
+            .padding(top = 46.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier
+                .size(54.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(c.chip),
+            contentAlignment = Alignment.Center,
+        ) {
+            Glyph(Ico.download, c.accent, size = 26.dp, strokeWidth = 1.8f)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("No downloads yet", color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(5.dp))
+        Text(
+            "Files you download appear here. Start a download from any page.",
+            color = c.muted,
+            fontSize = 12.sp,
+            lineHeight = 18.sp,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(16.dp))
+        Box(
+            Modifier
+                .clip(RoundedCornerShape(11.dp))
+                .background(c.accent)
+                .clickable {
+                    vm.closeDownloads()
+                    vm.openSearch()
+                }
+                .padding(horizontal = 14.dp, vertical = 9.dp),
+        ) {
+            Text(
+                "Browse the web",
+                color = Color.White,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DownloadRow(vm: BrowserViewModel, d: DownloadItem) {
+    val c = LocalArc.current
+    val active = d.status == DownloadStatus.Downloading
+    val canceled = d.status == DownloadStatus.Canceled
+    val pct = if (d.size > 0) ((d.done * 100) / d.size).toInt().coerceIn(0, 100) else 0
+    val barTarget = when {
+        active -> if (d.size > 0) d.done.toFloat() / d.size else 0.06f
+        canceled -> pct / 100f
+        else -> 1f
+    }
+    val bar by animateFloatAsState(barTarget.coerceIn(0f, 1f), tween(180, easing = LinearEasing), label = "dlbar")
+    val meta = when {
+        active -> "${if (d.size > 0) formatBytes(d.size) else "Unknown size"} · ${d.host}"
+        canceled -> "Canceled · ${formatBytes(if (d.size > 0) d.size else d.done)} · ${formatWhen(d.ended)}"
+        else -> "Downloaded · ${formatBytes(d.size)} · ${formatWhen(d.ended)}"
+    }
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 9.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(c.field)
+            .border(1.dp, c.stroke, RoundedCornerShape(16.dp))
+            .alpha(if (canceled) 0.72f else 1f)
+            .padding(11.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        DownloadFileTile(d.name)
+        Spacer(Modifier.width(11.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                d.name,
+                color = c.text,
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                meta,
+                color = c.muted,
+                fontSize = 11.5.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(9.dp))
+            Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(c.chip)) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(bar.coerceIn(0.01f, 1f))
+                        .fillMaxHeight()
+                        .clip(CircleShape)
+                        .background(c.accent.copy(alpha = if (active) 1f else if (canceled) 0.38f else 0.55f)),
+                )
+            }
+            if (active) {
+                Spacer(Modifier.height(5.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("$pct%", color = c.muted, fontSize = 10.5.sp)
+                    Text(
+                        if (d.size > 0) "${formatBytes(d.done)} of ${formatBytes(d.size)}"
+                        else "${formatBytes(d.done)} downloaded",
+                        color = c.muted,
+                        fontSize = 10.5.sp,
+                    )
+                }
+            }
+        }
+        Row(Modifier.padding(top = 2.dp)) {
+            when {
+                active -> DlAction(Ico.close) { vm.cancelDownload(d.id) }
+                canceled -> {
+                    DlAction(Ico.refresh) { vm.retryDownload(d.id) }
+                    DlAction(Ico.trash) { vm.removeDownload(d.id) }
+                }
+                else -> {
+                    DlAction(Ico.open) { vm.openDownload(d.id) }
+                    DlAction(Ico.trash) { vm.removeDownload(d.id) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DlAction(icon: List<androidx.compose.ui.graphics.Path>, onClick: () -> Unit) {
+    val c = LocalArc.current
+    Box(
+        Modifier
+            .size(30.dp)
+            .clip(RoundedCornerShape(9.dp))
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Glyph(icon, c.muted, size = 16.dp, strokeWidth = 1.9f)
     }
 }
 

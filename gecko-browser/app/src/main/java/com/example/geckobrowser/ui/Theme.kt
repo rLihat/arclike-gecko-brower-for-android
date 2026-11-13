@@ -14,6 +14,8 @@ data class ArcColors(
     val muted: Color,
     val surface: Color,
     val surfaceStrong: Color,
+    /** Card/row fill used by settings groups and download rows. */
+    val field: Color,
     val navSurface: Color,
     /** Translucent surfaces used only by the nav pill and the search/menu sheets. */
     val navSoft: Color,
@@ -44,6 +46,7 @@ val LightArc = ArcColors(
     muted = Color(0x8C101314),
     surface = Color(0xFFF4F4F2),
     surfaceStrong = Color(0xFFEBEBEA),
+    field = Color(0xFFFFFFFF),
     navSurface = Color(0xFFF2F2F0),
     navSoft = Color(0xCCF6F6F4),
     sheetSoft = Color(0xE0F9F9F7),
@@ -73,6 +76,7 @@ val DarkArc = ArcColors(
     muted = Color(0x94EEF3F2),
     surface = Color(0xFF1A2024),
     surfaceStrong = Color(0xFF232A2E),
+    field = Color(0xFF232A2E),
     navSurface = Color(0xFF1C2226),
     navSoft = Color(0xCC1C2226),
     sheetSoft = Color(0xE0181E22),

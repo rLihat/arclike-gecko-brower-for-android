@@ -1,21 +1,50 @@
 package com.example.geckobrowser
 
 import android.app.Application
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
 import android.os.SystemClock
+import android.provider.MediaStore
+import android.webkit.MimeTypeMap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
-import org.json.JSONArray
-import org.json.JSONObject
+import org.mozilla.geckoview.GeckoWebExecutor
+import org.mozilla.geckoview.WebRequest
+import org.mozilla.geckoview.WebResponse
+import java.io.File
+import java.io.FileOutputStream
+import java.io.InputStream
+import java.io.OutputStream
+import java.net.HttpURLConnection
+import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /** One tab: its GeckoSession lives in BrowserViewModel, this is the data Compose sees. */
 data class TabInfo(
@@ -28,7 +57,66 @@ data class TabInfo(
     val canGoForward: Boolean = false,
 )
 
-enum class Overlay { None, Search, Menu, Tabs, Settings, SiteSettings, Account }
+enum class DownloadStatus { Downloading, Done, Canceled }
+
+/** A download as Compose sees it; the bytes are streamed by BrowserViewModel. */
+data class DownloadItem(
+    val id: Long,
+    val name: String,
+    val size: Long = 0L,
+    val done: Long = 0L,
+    val status: DownloadStatus = DownloadStatus.Downloading,
+    val host: String = "",
+    val url: String = "",
+    val mime: String = "",
+    val localUri: String? = null,
+    val started: Long = System.currentTimeMillis(),
+    val ended: Long = 0L,
+)
+
+/** A response that GeckoView handed us, waiting for the confirm prompt. */
+data class PendingDownload(
+    val name: String,
+    val size: Long,
+    val mime: String,
+    val host: String,
+    val url: String,
+    val body: InputStream?,
+    val originX: Float? = null,
+    val originY: Float? = null,
+)
+
+/** The tile that jumps from the tap point into the live chip. */
+data class DownloadFlight(
+    val id: Long,
+    val name: String,
+    val startX: Float,
+    val startY: Float,
+)
+
+/** Long-press target, already flattened out of GeckoView's ContextElement. */
+data class ContextMenuState(
+    val link: String? = null,
+    val src: String? = null,
+    val isImage: Boolean = false,
+    val title: String? = null,
+    val alt: String? = null,
+    val text: String? = null,
+    val x: Float = 0f,
+    val y: Float = 0f,
+) {
+    val head: String
+        get() = when {
+            isImage -> alt?.takeIf { it.isNotBlank() }
+                ?: title?.takeIf { it.isNotBlank() }
+                ?: src?.substringAfterLast('/')?.substringBefore('?').orEmpty().ifBlank { "Image" }
+            else -> title?.takeIf { it.isNotBlank() }
+                ?: link?.let { BrowserViewModel.hostOf(it) }.orEmpty().ifBlank { "Link" }
+        }
+}
+
+enum class Overlay { None, Search, Menu, Tabs, Settings, SiteSettings, Account, Downloads }
+
 
 /** A search engine: built in, or added by the user with a %s URL template. */
 data class SearchEngine(
@@ -112,6 +200,81 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var customEngines by mutableStateOf(readCustomEngines())
         private set
 
+    // ---- downloads --------------------------------------------------------
+
+    var downloads by mutableStateOf<List<DownloadItem>>(emptyList())
+        private set
+
+    var pendingDownload by mutableStateOf<PendingDownload?>(null)
+        private set
+
+    var contextMenu by mutableStateOf<ContextMenuState?>(null)
+        private set
+
+    var flight by mutableStateOf<DownloadFlight?>(null)
+        private set
+
+    /** Bumped when a download lands so the chip can do its little bounce. */
+    var chipPulse by mutableStateOf(0)
+        private set
+
+    private var downloadsReturn = Overlay.Menu
+    private var nextDownloadId = 1L
+    private val downloadJobs = HashMap<Long, Job>()
+    private val downloadStreams = HashMap<Long, InputStream>()
+    private val saveTargets = HashMap<Long, SaveTarget>()
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val webExecutor by lazy { GeckoWebExecutor(runtime) }
+
+    val activeDownloads: List<DownloadItem>
+        get() = downloads.filter { it.status == DownloadStatus.Downloading }
+
+    /** 2..100, the average progress of everything currently downloading. */
+    val downloadRingProgress: Int
+        get() {
+            val active = activeDownloads
+            if (active.isEmpty()) return 100
+            val sum = active.sumOf { d ->
+                if (d.size > 0) d.done.toDouble() / d.size.toDouble() else 0.05
+            }
+            return (sum / active.size * 100).toInt().coerceIn(2, 100)
+        }
+
+    val downloadSummary: String
+        get() {
+            if (downloads.isEmpty()) return "Nothing downloaded yet"
+            val active = activeDownloads
+            if (active.isNotEmpty()) {
+                return "${active.size} downloading · $downloadRingProgress% overall"
+            }
+            val done = downloads.filter { it.status == DownloadStatus.Done }
+            val canceled = downloads.size - done.size
+            if (done.isEmpty()) return "${downloads.size} canceled"
+            val total = done.sumOf { it.size }
+            val tail = if (canceled > 0) " · $canceled canceled" else ""
+            return "${done.size} file${if (done.size == 1) "" else "s"} · ${formatBytes(total)}$tail"
+        }
+
+    val menuDownloadSummary: String
+        get() {
+            if (downloads.isEmpty()) return "No downloads yet"
+            val active = activeDownloads
+            if (active.isNotEmpty()) return "${active.size} downloading · $downloadRingProgress%"
+            val done = downloads.filter { it.status == DownloadStatus.Done }
+            if (done.isEmpty()) return "${downloads.size} canceled"
+            return "${done.size} file${if (done.size == 1) "" else "s"} · ${formatBytes(done.sumOf { it.size })}"
+        }
+
+    val menuDownloadCount: Int
+        get() {
+            val active = activeDownloads
+            if (active.isNotEmpty()) return active.size
+            val done = downloads.count { it.status == DownloadStatus.Done }
+            return if (done > 0) done else downloads.size
+        }
+
+    val menuDownloadHot: Boolean get() = activeDownloads.isNotEmpty()
+
     val engines: List<SearchEngine>
         get() = BUILTIN_ENGINES + customEngines
 
@@ -183,6 +346,34 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             override fun onTitleChange(session: GeckoSession, title: String?) {
                 if (title.isNullOrBlank()) return
                 updateTab(id) { if (it.isHome) it else it.copy(title = title) }
+            }
+
+            override fun onContextMenu(
+                session: GeckoSession,
+                screenX: Int,
+                screenY: Int,
+                element: GeckoSession.ContentDelegate.ContextElement,
+            ) {
+                if (id != activeId) return
+                showContextMenu(element, screenX.toFloat(), screenY.toFloat())
+            }
+
+            override fun onExternalResponse(session: GeckoSession, response: WebResponse) {
+                val body = response.body
+                if (body == null) {
+                    showToast("Couldn't start this download")
+                    return
+                }
+                val headers = response.headers
+                val name = fileNameFor(headers, response.uri)
+                val size = sizeFor(headers)
+                val mime = mimeFor(headers, name)
+                val host = hostOf(response.uri)
+                val url = response.uri
+                val origin = if (id == activeId) recentTapOrigin() else null
+                offerDownload(
+                    PendingDownload(name, size, mime, host, url, body, origin?.first, origin?.second)
+                )
             }
         }
 
@@ -256,6 +447,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun submit(input: String) {
         val text = input.trim()
         if (text.isEmpty()) return
+        cancelDownloadPrompt()
+        dismissContextMenu()
         val url = toUrl(text)
         val tab = activeTab ?: return
         val h = histories.getOrPut(tab.id) { History() }
@@ -393,9 +586,344 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    // ---- downloads --------------------------------------------------------
+
+    /** Where the last page tap landed, in dp; the flight starts from here. */
+    private var lastTapX = -1f
+    private var lastTapY = -1f
+    private var lastTapAt = 0L
+
+    fun recordPageTap(x: Float, y: Float) {
+        if (x < 0f || y < 0f) return
+        lastTapX = x
+        lastTapY = y
+        lastTapAt = SystemClock.uptimeMillis()
+    }
+
+    private fun recentTapOrigin(): Pair<Float, Float>? {
+        if (lastTapX < 0f || lastTapY < 0f) return null
+        if (SystemClock.uptimeMillis() - lastTapAt > 10_000L) return null
+        return lastTapX to lastTapY
+    }
+
+    private fun showContextMenu(
+        element: GeckoSession.ContentDelegate.ContextElement,
+        x: Float,
+        y: Float,
+    ) {
+        if (overlay != Overlay.None) return
+        val link = element.linkUri?.takeIf { it.isNotBlank() }
+        val src = element.srcUri?.takeIf { it.isNotBlank() }
+        if (link == null && src == null) return
+        val image = element.type == GeckoSession.ContentDelegate.ContextElement.TYPE_IMAGE ||
+            (src != null && link == null)
+        contextMenu = ContextMenuState(
+            link = link,
+            src = src,
+            isImage = image,
+            title = element.title?.takeIf { it.isNotBlank() },
+            alt = element.altText?.takeIf { it.isNotBlank() },
+            text = element.textContent?.trim()?.take(70)?.takeIf { it.isNotBlank() },
+            x = x,
+            y = y,
+        )
+        compactPill = false
+    }
+
+    fun dismissContextMenu() {
+        contextMenu = null
+    }
+
+    fun offerDownload(pending: PendingDownload) {
+        pendingDownload?.body?.safeClose()
+        pendingDownload = pending
+    }
+
+    fun cancelDownloadPrompt() {
+        val p = pendingDownload ?: return
+        p.body?.safeClose()
+        pendingDownload = null
+    }
+
+    fun confirmDownloadPrompt() {
+        val p = pendingDownload ?: return
+        pendingDownload = null
+        val id = nextDownloadId++
+        val mime = p.mime.ifBlank { mimeFor(emptyMap(), p.name) }
+        val item = DownloadItem(
+            id = id,
+            name = p.name,
+            size = p.size.coerceAtLeast(0L),
+            status = DownloadStatus.Downloading,
+            host = p.host,
+            url = p.url,
+            mime = mime,
+            started = System.currentTimeMillis(),
+        )
+        downloads = listOf(item) + downloads
+        if (p.originX != null && p.originY != null) {
+            flight = DownloadFlight(id, item.name, p.originX, p.originY)
+        } else {
+            chipPulse++
+        }
+        streamDownload(id, p.body, p.url, mime)
+    }
+
+    /** Fetches a link from the context menu, then shows the same confirm prompt. */
+    fun downloadLink(url: String, suggestedName: String?, originX: Float?, originY: Float?) {
+        dismissContextMenu()
+        if (url.isBlank() || !(url.startsWith("http://") || url.startsWith("https://"))) {
+            showToast("This link can't be downloaded")
+            return
+        }
+        try {
+            webExecutor.fetch(WebRequest.Builder(url).method("GET").build()).accept(
+                { response ->
+                    val body = response?.body
+                    if (body == null) {
+                        showToast("Couldn't download this file")
+                        return@accept
+                    }
+                    val name = if (!suggestedName.isNullOrBlank()) sanitizeName(suggestedName)
+                    else fileNameFor(response.headers, response.uri)
+                    offerDownload(
+                        PendingDownload(
+                            name = name,
+                            size = sizeFor(response.headers),
+                            mime = mimeFor(response.headers, name),
+                            host = hostOf(response.uri),
+                            url = response.uri.ifBlank { url },
+                            body = body,
+                            originX = originX,
+                            originY = originY,
+                        )
+                    )
+                },
+                { showToast("Couldn't download this file") },
+            )
+        } catch (_: Throwable) {
+            showToast("Couldn't download this file")
+        }
+    }
+
+    private fun streamDownload(id: Long, body: InputStream?, url: String, mime: String) {
+        val job = scope.launch {
+            val item = downloads.firstOrNull { it.id == id && it.status == DownloadStatus.Downloading }
+                ?: return@launch
+            var input: InputStream? = body
+            var target: SaveTarget? = null
+            var finished = false
+            try {
+                val sink = withContext(Dispatchers.IO) { createSaveTarget(item.name, mime) }
+                target = sink
+                saveTargets[id] = sink
+                if (input == null) {
+                    input = withContext(Dispatchers.IO) { openUrlStream(url) }
+                }
+                val stream = input ?: throw IllegalStateException("No download stream")
+                downloadStreams[id] = stream
+                withContext(Dispatchers.IO) {
+                    val buffer = ByteArray(64 * 1024)
+                    var done = 0L
+                    var last = 0L
+                    while (true) {
+                        ensureActive()
+                        val read = stream.read(buffer)
+                        if (read < 0) break
+                        sink.output.write(buffer, 0, read)
+                        done += read
+                        val now = SystemClock.uptimeMillis()
+                        if (now - last >= 120L) {
+                            last = now
+                            withContext(Dispatchers.Main) { updateDownloadProgress(id, done) }
+                        }
+                    }
+                    sink.output.flush()
+                }
+                val uri = withContext(Dispatchers.IO) {
+                    sink.finish()
+                    sink.uriString
+                }
+                finished = true
+                markDownloadDone(id, uri)
+            } catch (_: CancellationException) {
+                // cancelDownload() already marked the row and closed the streams.
+            } catch (_: Throwable) {
+                if (downloads.firstOrNull { it.id == id }?.status == DownloadStatus.Downloading) {
+                    markDownloadCanceled(id)
+                    showToast("Download failed")
+                }
+            } finally {
+                input?.safeClose()
+                if (!finished) target?.discard()
+                downloadStreams.remove(id)
+                saveTargets.remove(id)
+                downloadJobs.remove(id)
+            }
+        }
+        downloadJobs[id] = job
+    }
+
+    fun cancelDownload(id: Long) {
+        val item = downloads.firstOrNull { it.id == id } ?: return
+        if (item.status != DownloadStatus.Downloading) return
+        markDownloadCanceled(id)
+        downloadJobs.remove(id)?.cancel()
+        downloadStreams.remove(id)?.safeClose()
+        saveTargets.remove(id)?.discard()
+    }
+
+    fun retryDownload(id: Long) {
+        val item = downloads.firstOrNull { it.id == id } ?: return
+        if (item.status == DownloadStatus.Downloading) return
+        downloads = downloads.map {
+            if (it.id == id) it.copy(
+                status = DownloadStatus.Downloading,
+                done = 0L,
+                ended = 0L,
+                localUri = null,
+                started = System.currentTimeMillis(),
+            ) else it
+        }
+        streamDownload(id, null, item.url, item.mime)
+    }
+
+    fun removeDownload(id: Long) {
+        cancelDownload(id)
+        downloads = downloads.filterNot { it.id == id }
+    }
+
+    fun clearDownloads() {
+        downloads.forEach { cancelDownload(it.id) }
+        downloads = emptyList()
+    }
+
+    fun openDownload(id: Long) {
+        val item = downloads.firstOrNull { it.id == id } ?: return
+        val uri = item.localUri
+        if (item.status != DownloadStatus.Done || uri.isNullOrBlank()) {
+            showToast("This file isn't ready yet")
+            return
+        }
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(Uri.parse(uri), item.mime.ifBlank { "*/*" })
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        try {
+            getApplication<Application>().startActivity(intent)
+        } catch (_: Throwable) {
+            showToast("No app can open this file")
+        }
+    }
+
+    private fun updateDownloadProgress(id: Long, done: Long) {
+        downloads = downloads.map {
+            if (it.id == id && it.status == DownloadStatus.Downloading) {
+                it.copy(done = if (it.size > 0) done.coerceAtMost(it.size) else done)
+            } else it
+        }
+    }
+
+    private fun markDownloadDone(id: Long, uri: String?) {
+        val item = downloads.firstOrNull { it.id == id } ?: return
+        val finalSize = if (item.size > 0) item.size else item.done
+        downloads = downloads.map {
+            if (it.id == id) it.copy(
+                status = DownloadStatus.Done,
+                done = finalSize,
+                size = finalSize,
+                ended = System.currentTimeMillis(),
+                localUri = uri,
+            ) else it
+        }
+        if (flight == null) chipPulse++
+        showToast("Downloaded ${item.name}")
+    }
+
+    private fun markDownloadCanceled(id: Long) {
+        downloads = downloads.map {
+            if (it.id == id && it.status == DownloadStatus.Downloading) it.copy(
+                status = DownloadStatus.Canceled,
+                ended = System.currentTimeMillis(),
+            ) else it
+        }
+    }
+
+    fun finishFlight(id: Long) {
+        val f = flight ?: return
+        if (f.id != id) return
+        flight = null
+        chipPulse++
+    }
+
+    private fun openUrlStream(url: String): InputStream {
+        val conn = URL(url).openConnection() as HttpURLConnection
+        conn.connectTimeout = 15_000
+        conn.readTimeout = 30_000
+        conn.instanceFollowRedirects = true
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) ArcBrowser")
+        conn.setRequestProperty("Accept", "*/*")
+        val code = conn.responseCode
+        if (code !in 200..299) throw IllegalStateException("HTTP $code")
+        return conn.inputStream
+    }
+
+    private fun downloadsDir(): File {
+        val app = getApplication<Application>()
+        val external = app.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+        return external ?: File(app.filesDir, "Downloads")
+    }
+
+    @Suppress("DEPRECATION")
+    private fun createSaveTarget(name: String, mime: String): SaveTarget {
+        val app = getApplication<Application>()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            val resolver = app.contentResolver
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, name)
+                put(MediaStore.Downloads.MIME_TYPE, mime)
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                put(MediaStore.Downloads.IS_PENDING, 1)
+            }
+            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                ?: throw IllegalStateException("Couldn't create the download")
+            val out = try {
+                resolver.openOutputStream(uri)
+            } catch (t: Throwable) {
+                resolver.delete(uri, null, null)
+                throw t
+            } ?: run {
+                resolver.delete(uri, null, null)
+                throw IllegalStateException("Couldn't open the download")
+            }
+            return SaveTarget(out, resolver, uri, null, uri.toString())
+        }
+        val dir = downloadsDir()
+        if (!dir.exists()) dir.mkdirs()
+        val file = uniqueFile(dir, name)
+        val out = FileOutputStream(file)
+        val uri = FileProvider.getUriForFile(app, "${app.packageName}.fileprovider", file)
+        return SaveTarget(out, null, null, file, uri.toString())
+    }
+
+    private fun uniqueFile(dir: File, name: String): File {
+        val first = File(dir, name)
+        if (!first.exists()) return first
+        val base = name.substringBeforeLast('.', name)
+        val ext = name.substringAfterLast('.', "")
+        var i = 1
+        while (true) {
+            val candidate = File(dir, "$base ($i)${if (ext.isBlank()) "" else ".$ext"}")
+            if (!candidate.exists()) return candidate
+            i++
+        }
+    }
+
     // ---- tabs -------------------------------------------------------------
 
     fun newTab() {
+        cancelDownloadPrompt()
+        dismissContextMenu()
         val id = createSession()
         tabs = tabs + TabInfo(id)
         activeId = id
@@ -405,6 +933,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun selectTab(id: Long) {
         if (!sessions.containsKey(id)) return
+        cancelDownloadPrompt()
+        dismissContextMenu()
         activeId = id
         closeOverlay()
         expandPill()
@@ -413,6 +943,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun closeTab(id: Long) {
         val idx = tabs.indexOfFirst { it.id == id }
         if (idx < 0) return
+        cancelDownloadPrompt()
+        dismissContextMenu()
         val closing = sessions.remove(id)
         histories.remove(id)
         closing?.close()
@@ -433,17 +965,23 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private fun getSafeIndex(index: Int, size: Int) = (index - 1).coerceAtLeast(0).coerceAtMost(size - 1)
 
     fun closeOverlay() {
+        cancelDownloadPrompt()
+        dismissContextMenu()
         overlay = Overlay.None
         compactPill = false
     }
 
     fun openSearch() {
+        cancelDownloadPrompt()
+        dismissContextMenu()
         searchText = ""
         overlay = Overlay.Search
         compactPill = false
     }
 
     fun openMenu() {
+        cancelDownloadPrompt()
+        dismissContextMenu()
         overlay = Overlay.Menu
         compactPill = false
     }
@@ -459,6 +997,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openTabs() {
+        cancelDownloadPrompt()
+        dismissContextMenu()
         overlay = Overlay.Tabs
         compactPill = false
     }
@@ -468,15 +1008,40 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openSettings() {
+        cancelDownloadPrompt()
+        dismissContextMenu()
         overlay = Overlay.Settings
         compactPill = false
     }
 
     fun openSiteSettings() {
+        cancelDownloadPrompt()
         overlay = Overlay.SiteSettings
     }
 
+    fun openDownloads() {
+        val current = overlay
+        if (current == Overlay.Downloads) return
+        downloadsReturn = when (current) {
+            Overlay.Menu, Overlay.Settings, Overlay.SiteSettings, Overlay.Account -> current
+            else -> Overlay.None
+        }
+        cancelDownloadPrompt()
+        dismissContextMenu()
+        overlay = Overlay.Downloads
+        compactPill = false
+    }
+
+    fun closeDownloads() {
+        if (overlay != Overlay.Downloads) return
+        overlay = downloadsReturn
+        downloadsReturn = Overlay.Menu
+        compactPill = false
+    }
+
     fun openAccount() {
+        cancelDownloadPrompt()
+        dismissContextMenu()
         accountReturn = when (overlay) {
             Overlay.Settings -> Overlay.Settings
             Overlay.Menu -> Overlay.Menu
@@ -487,6 +1052,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Handles the system back button; returns true when it was consumed. */
     fun onBackPressed(): Boolean {
+        if (pendingDownload != null) {
+            cancelDownloadPrompt()
+            return true
+        }
+        if (contextMenu != null) {
+            dismissContextMenu()
+            return true
+        }
         return when (overlay) {
             Overlay.None -> false
             Overlay.Account -> {
@@ -495,6 +1068,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             }
             Overlay.Settings, Overlay.SiteSettings -> {
                 overlay = Overlay.Menu
+                true
+            }
+            Overlay.Downloads -> {
+                closeDownloads()
                 true
             }
             else -> {
@@ -605,7 +1182,29 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun showToast(message: String) {
+        // The manager shows live state; a floating toast on top of it only competes.
+        if (overlay == Overlay.Downloads) return
         toastMessage = message
+    }
+
+    fun copyText(value: String, message: String) {
+        if (value.isBlank()) return
+        val cm = getApplication<Application>()
+            .getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        cm.setPrimaryClip(ClipData.newPlainText("link", value))
+        showToast(message)
+    }
+
+    fun shareText(value: String) {
+        if (value.isBlank()) return
+        val send = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, value)
+        }
+        val chooser = Intent.createChooser(send, "Share").apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        getApplication<Application>().startActivity(chooser)
     }
 
     fun clearToast() {
@@ -624,6 +1223,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openInNewTab(url: String) {
+        if (url.isBlank()) return
+        dismissContextMenu()
         val id = createSession()
         tabs = tabs + TabInfo(id, url = url, isHome = false, title = hostOf(url))
         val h = histories.getOrPut(id) { History() }
@@ -637,6 +1238,15 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     override fun onCleared() {
+        pendingDownload?.body?.safeClose()
+        pendingDownload = null
+        downloadJobs.values.forEach { it.cancel() }
+        downloadJobs.clear()
+        downloadStreams.values.forEach { it.safeClose() }
+        downloadStreams.clear()
+        saveTargets.values.forEach { it.discard() }
+        saveTargets.clear()
+        scope.cancel()
         sessions.values.forEach { it.close() }
         sessions.clear()
         super.onCleared()
@@ -655,6 +1265,69 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             SearchEngine("startpage", "Startpage", "https://www.startpage.com/sp/search?query=%s", "startpage.com", 0xFF6573FF),
         )
 
+        fun fileNameFor(headers: Map<String, String>, url: String): String {
+            val disposition = headerOf(headers, "content-disposition")
+            if (disposition != null) {
+                val star = Regex("filename\\*\\s*=\\s*(?:UTF-8'')?([^;]+)", RegexOption.IGNORE_CASE)
+                    .find(disposition)?.groupValues?.getOrNull(1)
+                val plain = Regex("filename\\s*=\\s*\"?([^\";]+)\"?", RegexOption.IGNORE_CASE)
+                    .find(disposition)?.groupValues?.getOrNull(1)
+                val raw = (star ?: plain)?.trim()
+                if (!raw.isNullOrBlank()) {
+                    val decoded = try {
+                        java.net.URLDecoder.decode(raw.trim('"'), "UTF-8")
+                    } catch (_: Throwable) {
+                        raw
+                    }
+                    return sanitizeName(decoded)
+                }
+            }
+            val last = Uri.parse(url).lastPathSegment
+            return sanitizeName(last ?: "download.bin")
+        }
+
+        fun sanitizeName(value: String): String {
+            val base = value.substringAfterLast('/').substringAfterLast('\\').trim().trim('"')
+            val cleaned = base
+                .replace(Regex("[\\\\/:*?\"<>|\\u0000-\\u001F]"), "_")
+                .trim()
+                .trimEnd('.')
+            return cleaned.ifBlank { "download.bin" }.take(120)
+        }
+
+        fun sizeFor(headers: Map<String, String>): Long {
+            val length = headerOf(headers, "content-length")?.toLongOrNull()
+            if (length != null && length > 0) return length
+            val range = headerOf(headers, "content-range")
+            val total = range?.substringAfterLast('/')?.toLongOrNull()
+            return if (total != null && total > 0) total else 0L
+        }
+
+        fun mimeFor(headers: Map<String, String>, name: String): String {
+            val type = headerOf(headers, "content-type")?.substringBefore(';')?.trim()
+            if (!type.isNullOrBlank() && type.contains('/')) return type
+            val ext = downExt(name)
+            return when (ext) {
+                "xpi" -> "application/x-xpinstall"
+                "apk" -> "application/vnd.android.package-archive"
+                "zip" -> "application/zip"
+                "pdf" -> "application/pdf"
+                "png" -> "image/png"
+                "jpg", "jpeg" -> "image/jpeg"
+                "gif" -> "image/gif"
+                "webp" -> "image/webp"
+                "svg" -> "image/svg+xml"
+                "mp4" -> "video/mp4"
+                "txt" -> "text/plain"
+                "json" -> "application/json"
+                else -> MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
+                    ?: "application/octet-stream"
+            }
+        }
+
+        fun headerOf(headers: Map<String, String>, name: String): String? =
+            headers.entries.firstOrNull { it.key.equals(name, ignoreCase = true) }?.value
+
         fun hostOfTemplate(template: String): String = try {
             Uri.parse(template.replace("%s", "")).host.orEmpty().removePrefix("www.")
         } catch (_: Throwable) {
@@ -668,3 +1341,93 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 }
+
+/* ------------------------------------------------------- download helpers */
+
+/** A partially written file plus the bits needed to publish or delete it. */
+private class SaveTarget(
+    val output: OutputStream,
+    private val resolver: android.content.ContentResolver?,
+    private val mediaUri: Uri?,
+    private val file: File?,
+    val uriString: String,
+) {
+    private var discarded = false
+
+    fun finish() {
+        output.flush()
+        output.close()
+        if (mediaUri != null && resolver != null) {
+            val values = ContentValues()
+            values.put(MediaStore.Downloads.IS_PENDING, 0)
+            resolver.update(mediaUri, values, null, null)
+        }
+    }
+
+    fun discard() {
+        if (discarded) return
+        discarded = true
+        output.safeClose()
+        if (mediaUri != null && resolver != null) {
+            try {
+                resolver.delete(mediaUri, null, null)
+            } catch (_: Throwable) {
+                // The row may already be gone.
+            }
+        }
+        file?.delete()
+    }
+}
+
+private fun InputStream.safeClose() {
+    try {
+        close()
+    } catch (_: Throwable) {
+        // Nothing left to do.
+    }
+}
+
+private fun OutputStream.safeClose() {
+    try {
+        close()
+    } catch (_: Throwable) {
+        // Nothing left to do.
+    }
+}
+
+private val DOWNLOAD_KINDS = mapOf(
+    "zip" to "ZIP", "pdf" to "PDF", "png" to "PNG", "jpg" to "JPG", "jpeg" to "JPG",
+    "gif" to "GIF", "webp" to "WEBP", "svg" to "SVG", "xpi" to "XPI", "apk" to "APK",
+    "mp4" to "MP4", "txt" to "TXT", "json" to "JSON",
+)
+
+fun downExt(name: String): String {
+    val m = Regex("\\.([a-zA-Z0-9]+)(?:[?#].*)?$").find(name) ?: return "bin"
+    return m.groupValues[1].lowercase(Locale.US)
+}
+
+fun downKindLabel(name: String): String {
+    val ext = downExt(name)
+    return DOWNLOAD_KINDS[ext] ?: ext.take(3).uppercase(Locale.US)
+}
+
+fun formatBytes(bytes: Long): String {
+    val value = bytes.coerceAtLeast(0L)
+    return when {
+        value >= 1_073_741_824L -> String.format(Locale.US, "%.1f GB", value / 1_073_741_824.0)
+        value >= 1_048_576L -> String.format(Locale.US, "%.1f MB", value / 1_048_576.0)
+        value >= 1024L -> "${(value + 512L) / 1024L} KB"
+        else -> "$value B"
+    }
+}
+
+fun formatWhen(timestamp: Long): String {
+    if (timestamp <= 0L) return "just now"
+    val seconds = ((System.currentTimeMillis() - timestamp) / 1000L).coerceAtLeast(0L)
+    if (seconds < 20L) return "just now"
+    if (seconds < 90L) return "$seconds sec ago"
+    val minutes = Math.round(seconds / 60.0)
+    if (minutes < 60L) return "$minutes min ago"
+    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
+}
+

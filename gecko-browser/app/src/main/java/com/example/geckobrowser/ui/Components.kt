@@ -55,6 +55,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.geckobrowser.downExt
+import com.example.geckobrowser.downKindLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
@@ -262,6 +264,22 @@ private val IcoPin: List<Path> = listOf(
         close()
     }
 )
+private val IcoOpen: List<Path> = listOf(
+    p {
+        moveTo(14f, 4f); lineTo(20f, 4f); lineTo(20f, 10f)
+        moveTo(20f, 4f); lineTo(12f, 12f)
+        moveTo(18f, 14f); lineTo(18f, 19f)
+        lineTo(5f, 19f); lineTo(5f, 6f); lineTo(10f, 6f)
+    }
+)
+private val IcoImage: List<Path> = listOf(
+    p {
+        moveTo(3f, 4f); lineTo(21f, 4f); lineTo(21f, 20f); lineTo(3f, 20f); close()
+        moveTo(8.5f, 8f)
+        arcTo(Rect(7f, 6.5f, 10f, 9.5f), 180f, -360f, false)
+        moveTo(3f, 17f); lineTo(8f, 12f); lineTo(12f, 16f); lineTo(15f, 13f); lineTo(21f, 19f)
+    }
+)
 
 @Composable
 fun Glyph(
@@ -309,6 +327,65 @@ object Ico {
     val lock = IcoLock
     val person = IcoPerson
     val pin = IcoPin
+    val open = IcoOpen
+    val image = IcoImage
+}
+
+/* -------------------------------------------------------- download tiles */
+
+enum class FileKind { Zip, Pdf, Image, Xpi, Other }
+
+fun fileKindOf(name: String): FileKind = when (downExt(name)) {
+    "png", "jpg", "jpeg", "gif", "webp", "svg" -> FileKind.Image
+    "pdf" -> FileKind.Pdf
+    "zip", "rar", "7z", "gz", "tar" -> FileKind.Zip
+    "xpi" -> FileKind.Xpi
+    else -> FileKind.Other
+}
+
+@Composable
+fun fileTileBg(kind: FileKind): Color {
+    val c = LocalArc.current
+    return when (kind) {
+        FileKind.Zip -> Color(0x294F93A8)
+        FileKind.Pdf -> Color(0x24D14C40)
+        FileKind.Image -> Color(0x267E62BE)
+        FileKind.Xpi -> Color(0x26DE5833)
+        FileKind.Other -> c.chip
+    }
+}
+
+@Composable
+fun fileTileInk(kind: FileKind): Color {
+    val c = LocalArc.current
+    val dark = c.dark
+    return when (kind) {
+        FileKind.Zip -> if (dark) Color(0xFF9FD0DF) else Color(0xFF2F6C7E)
+        FileKind.Pdf -> if (dark) Color(0xFFFF9D92) else Color(0xFFB64A3E)
+        FileKind.Image -> if (dark) Color(0xFFC1B0EF) else Color(0xFF6C58A8)
+        FileKind.Xpi -> if (dark) Color(0xFFFFAB8D) else Color(0xFFC0562F)
+        FileKind.Other -> c.muted
+    }
+}
+
+@Composable
+fun DownloadFileTile(name: String, size: Dp = 42.dp, modifier: Modifier = Modifier) {
+    val kind = fileKindOf(name)
+    Box(
+        modifier
+            .size(size)
+            .clip(RoundedCornerShape(size * 0.2857f))
+            .background(fileTileBg(kind)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            downKindLabel(name),
+            color = fileTileInk(kind),
+            fontSize = (size.value * 0.238f).sp,
+            fontWeight = FontWeight.ExtraBold,
+            letterSpacing = 0.3.sp,
+        )
+    }
 }
 
 /* --------------------------------------------------------------- switches */

@@ -821,6 +821,280 @@
       flex: 0 0 88%; display:flex; align-items:center; justify-content:center; font-size: 34px; color: var(--muted);
       background: var(--surface); border: 1px solid var(--stroke); box-shadow: var(--shadow);
     }
+    /* ================= Downloads ================= */
+    /* Live chip lives beside the pill (never inside it). The pill keeps its
+       70% width; the chip occupies the free gutter to the right of it. */
+    .dl-chip {
+      position: absolute; right: 6px; bottom: 24px; z-index: 49;
+      width: 46px; height: 46px; padding: 0; border: 0; background: transparent;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transform: translateX(-9px) scale(.78);
+      transition: opacity .2s ease, transform .34s cubic-bezier(0.32, 0.72, 0, 1), visibility .2s;
+    }
+    .dl-chip.show { opacity: 1; visibility: visible; pointer-events: auto; transform: none; }
+    .dl-chip.landing { opacity: 0 !important; visibility: hidden !important; pointer-events: none; transform: none !important; transition: none; }
+    .dl-chip.landed { animation: dl-chip-land .52s cubic-bezier(0.2, 0.9, 0.25, 1.08); }
+    @keyframes dl-chip-land {
+      0% { transform: scale(1.22); }
+      55% { transform: scale(.94); }
+      100% { transform: scale(1); }
+    }
+    .dl-ring {
+      position: absolute; inset: 0; border-radius: 50%;
+      background: conic-gradient(var(--accent) calc(var(--p, 0) * 1%), var(--stroke) 0);
+      transition: background .18s linear;
+    }
+    .dl-chip.idle .dl-ring { opacity: .48; }
+    .dl-core {
+      position: absolute; inset: 4px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--nav-soft); border: 1px solid var(--stroke); color: var(--text);
+      -webkit-backdrop-filter: blur(12px) saturate(1.12); backdrop-filter: blur(12px) saturate(1.12);
+      box-shadow: 0 6px 18px rgba(20, 30, 35, 0.14);
+    }
+    .dl-core svg { width: 19px; height: 19px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .dl-chip.active .dl-core { color: var(--accent); }
+    .dl-chip.active .dl-core svg { animation: dl-bob 1.35s ease-in-out infinite; }
+    @keyframes dl-bob {
+      0%, 100% { transform: translateY(0); }
+      45% { transform: translateY(2px); }
+      60% { transform: translateY(0); }
+    }
+    .dl-chip.idle .dl-core { color: var(--accent); opacity: .82; }
+    .dl-badge {
+      position: absolute; top: -4px; right: -5px; min-width: 17px; height: 17px; padding: 0 4px;
+      border-radius: 9px; background: var(--accent); color: #fff;
+      font-size: 10px; font-weight: 700; line-height: 17px; text-align: center;
+      box-shadow: 0 0 0 2px var(--bg1);
+      display: none;
+    }
+    .dl-chip.multi .dl-badge { display: block; }
+    /* File tile used by the prompt, the flying file, the manager and the demo page */
+    .dl-ftile {
+      width: 42px; height: 42px; flex: 0 0 42px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--chip); color: var(--muted);
+      font-size: 10px; font-weight: 800; letter-spacing: .03em;
+    }
+    .dl-ftile.t-zip { background: rgba(79,147,168,.16); color: #2f6c7e; }
+    .dl-ftile.t-pdf { background: rgba(209,76,64,.14); color: #b64a3e; }
+    .dl-ftile.t-img { background: rgba(126,98,190,.15); color: #6c58a8; }
+    .dl-ftile.t-xpi { background: rgba(222,88,51,.15); color: #c0562f; }
+    .dl-ftile.t-file { background: var(--chip); color: var(--muted); }
+    .dark .dl-ftile.t-zip { color: #9fd0df; }
+    .dark .dl-ftile.t-pdf { color: #ff9d92; }
+    .dark .dl-ftile.t-img { color: #c1b0ef; }
+    .dark .dl-ftile.t-xpi { color: #ffab8d; }
+
+    /* The file that jumps from the click point into the live chip */
+    .dl-fly {
+      position: fixed; z-index: 120; display: flex; align-items: center; justify-content: center;
+      padding: 0; background: var(--sheet-bg); border: 1px solid var(--stroke);
+      border-radius: 15px; box-shadow: 0 20px 50px rgba(20, 30, 35, 0.28);
+      overflow: hidden; pointer-events: none;
+    }
+    .dl-fly .dl-ftile { width: 100%; height: 100%; flex: 1 1 auto; border-radius: inherit; font-size: 10px; }
+    .dl-fly .df-shine {
+      position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+      background: linear-gradient(115deg, rgba(255,255,255,.5), rgba(255,255,255,0) 46%);
+      opacity: .55;
+    }
+
+    /* Download prompt: a compact card above the pill */
+    .dl-prompt-layer {
+      position: absolute; inset: 0; z-index: 56; display: flex; align-items: flex-end; justify-content: center;
+      pointer-events: none;
+    }
+    .dl-prompt-layer.open { pointer-events: auto; }
+    .dl-prompt {
+      position: relative; width: calc(100% - 28px); margin-bottom: 88px; padding: 14px;
+      background: var(--sheet-bg); border: 1px solid var(--stroke); border-radius: 22px;
+      box-shadow: 0 24px 60px rgba(20, 30, 35, 0.26);
+      opacity: 0; transform: translateY(18px) scale(.965);
+      transition: opacity .2s ease, transform .3s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .dl-prompt-layer.open .dl-prompt { opacity: 1; transform: none; }
+    .dlp-head { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 10px; }
+    .dlp-head span { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+    .dlp-x {
+      width: 26px; height: 26px; border: 0; border-radius: 9px; background: transparent; color: var(--muted);
+      display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+    }
+    .dlp-x:hover { background: var(--chip); color: var(--text); }
+    .dlp-x svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; }
+    .dlp-file { display: flex; align-items: center; gap: 11px; padding: 2px 2px 12px; }
+    .dlp-meta { flex: 1; min-width: 0; }
+    .dlp-meta b { display: block; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dlp-meta span { display: block; margin-top: 3px; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dlp-actions { display: flex; gap: 8px; }
+    .dlp-btn {
+      flex: 1; height: 38px; border: 0; border-radius: 12px; background: var(--chip); color: var(--text);
+      font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .dlp-btn:active { transform: scale(.985); }
+    .dlp-btn.primary { background: var(--accent); color: #fff; }
+
+    /* Small floating confirmation inside the phone */
+    .dl-toast {
+      position: absolute; left: 50%; bottom: 92px; z-index: 58; max-width: 64%;
+      padding: 8px 13px; border-radius: 12px; background: var(--sheet-bg);
+      border: 1px solid var(--stroke); box-shadow: var(--shadow); color: var(--text);
+      font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      opacity: 0; pointer-events: none; transform: translate(-50%, 8px);
+      transition: opacity .2s ease, transform .24s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    .dl-toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+    /* Context menu (long press / right click) */
+    .ctx-menu {
+      position: absolute; z-index: 59; min-width: 198px; max-width: 248px; padding: 6px;
+      background: var(--sheet-bg); border: 1px solid var(--stroke); border-radius: 16px;
+      box-shadow: 0 20px 54px rgba(20, 30, 35, 0.26);
+      opacity: 0; visibility: hidden; transform: scale(.86);
+      transition: opacity .15s ease, transform .22s cubic-bezier(0.2, 0.9, 0.25, 1.04), visibility .15s;
+    }
+    .ctx-menu.open { opacity: 1; visibility: visible; transform: none; }
+    .ctx-head {
+      padding: 7px 10px 6px; font-size: 10.5px; color: var(--muted);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ctx-row {
+      width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+      border: 0; border-radius: 10px; background: transparent; color: var(--text);
+      font: inherit; font-size: 13.5px; text-align: left; cursor: pointer;
+    }
+    .ctx-row:hover, .ctx-row:active { background: var(--chip); }
+    .ctx-row svg { width: 17px; height: 17px; flex: 0 0 17px; stroke: var(--menu-ico); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .ctx-sep { height: 1px; margin: 4px 6px; background: var(--hairline); }
+
+    /* Menu downloads strip: always present, no card of its own */
+    .menu-downloads {
+      display: flex; align-items: center; gap: 11px; padding: 10px 6px; margin-top: 3px;
+      border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline);
+      cursor: pointer;
+    }
+    .menu-downloads:active { opacity: .72; }
+    .menu-downloads .menu-ico { color: var(--menu-ico); }
+    .mdl-main { flex: 1; min-width: 0; }
+    .mdl-main b { display: block; font-size: 14px; font-weight: 600; }
+    .mdl-main span { display: block; margin-top: 1px; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .mdl-count {
+      min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px;
+      background: var(--chip); color: var(--muted); font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .mdl-count.hot { background: var(--accent); color: #fff; }
+    .mdl-count.zero { display: none; }
+
+    /* Full-height downloads manager, grown from the menu sheet */
+    #menu-overlay.downloads-mode .sheet {
+      height: 100%; max-height: none; overflow: hidden; border-radius: 0;
+      background: var(--settings-bg); -webkit-backdrop-filter: none; backdrop-filter: none;
+    }
+    #menu-overlay.downloads-mode .menu-view { opacity: 0; pointer-events: none; transition-delay: 0s; }
+    #menu-overlay.closing-downloads .menu-view,
+    #menu-overlay.closing-downloads .downloads-view { opacity: 0 !important; transition: none !important; }
+    .downloads-view {
+      position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column;
+      background: var(--settings-bg); overflow: hidden; visibility: hidden;
+      opacity: 0; pointer-events: none; transform: translateY(14px);
+      transition: opacity .22s ease, transform .35s cubic-bezier(0.32, 0.72, 0, 1), visibility .22s;
+    }
+    #menu-overlay.downloads-mode .downloads-view { opacity: 1; pointer-events: auto; transform: translateY(0); visibility: visible; }
+    body:has(#menu-overlay.downloads-mode) .bottom-bar,
+    body:has(#menu-overlay.downloads-mode) .bottom-bar .nav-set,
+    body:has(#menu-overlay.downloads-mode) .bottom-bar .nav-btn { opacity: 0; pointer-events: none; }
+    .dl-header-ico { width: 30px; height: 30px; flex: 0 0 30px; display: flex; align-items: center; justify-content: center; color: var(--accent); }
+    .dl-header-ico svg { width: 21px; height: 21px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .dl-clear {
+      margin-left: auto; padding: 7px 9px; border: 0; border-radius: 9px; background: transparent;
+      color: var(--accent); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .dl-clear:hover { background: var(--row-hover); }
+    .dl-scroll { flex: 1; overflow-y: auto; padding: 12px 16px 40px; scrollbar-width: none; }
+    .dl-scroll::-webkit-scrollbar { display: none; }
+    .dl-summary { font-size: 12px; color: var(--muted); padding: 0 4px 12px; }
+    .dl-group-label {
+      font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+      color: var(--muted); margin: 10px 4px 8px;
+    }
+    .dl-row {
+      display: flex; align-items: flex-start; gap: 11px; padding: 11px;
+      background: var(--field); border: 1px solid var(--stroke); border-radius: 16px;
+      margin-bottom: 9px;
+    }
+    .dl-row.canceled { opacity: .72; }
+    .dl-row-main { flex: 1; min-width: 0; }
+    .dl-name { font-size: 13.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dl-meta { margin-top: 2px; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dl-bar { height: 4px; border-radius: 2px; background: var(--chip); overflow: hidden; margin-top: 9px; }
+    .dl-bar span { display: block; height: 100%; border-radius: 2px; background: var(--accent); width: 0; transition: width .16s linear; }
+    .dl-bar.done { opacity: .55; }
+    .dl-bar.canceled { opacity: .38; }
+    .dl-sub { display: flex; justify-content: space-between; gap: 8px; margin-top: 5px; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .dl-row-acts { display: flex; gap: 1px; flex: 0 0 auto; margin-top: 2px; }
+    .dl-act {
+      width: 30px; height: 30px; border: 0; border-radius: 9px; background: transparent;
+      color: var(--muted); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+    }
+    .dl-act:hover { background: var(--chip); color: var(--text); }
+    .dl-act svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .dl-empty { text-align: center; padding: 46px 26px 20px; }
+    .dl-empty-ico {
+      width: 54px; height: 54px; margin: 0 auto 12px; border-radius: 18px;
+      background: var(--chip); color: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .dl-empty-ico svg { width: 26px; height: 26px; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .dl-empty b { display: block; font-size: 15px; margin-bottom: 4px; }
+    .dl-empty p { margin: 0 auto 16px; max-width: 250px; font-size: 12px; line-height: 1.5; color: var(--muted); }
+    .dl-empty-btn {
+      border: 0; border-radius: 11px; padding: 9px 14px; background: var(--accent); color: #fff;
+      font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    }
+
+    /* files.example demo page */
+    .files { background: var(--site-bg); min-height: 100%; padding-bottom: 30px; }
+    .files-top { display: flex; align-items: center; gap: 9px; padding: 16px 15px 11px; }
+    .files-logo {
+      width: 28px; height: 28px; flex: 0 0 28px; border-radius: 9px; background: #2f5c69; color: #fff;
+      display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800;
+    }
+    .files-brand { font-size: 15px; font-weight: 700; letter-spacing: -.02em; }
+    .files-tag { margin-left: auto; font-size: 10px; font-weight: 600; color: var(--accent); border: 1px solid var(--stroke); border-radius: 7px; padding: 2px 6px; }
+    .files-hero {
+      margin: 2px 14px 16px; padding: 16px; border-radius: 16px; color: #fff;
+      background: linear-gradient(135deg, #2f5c69, #5f9fa8);
+    }
+    .files-hero b { display: block; font-size: 17px; margin-bottom: 5px; letter-spacing: -.01em; }
+    .files-hero span { display: block; font-size: 11.5px; line-height: 1.5; opacity: .86; }
+    .files-label { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 4px 16px 2px; }
+    .files-row { display: flex; align-items: center; gap: 10px; padding: 10px 8px; margin: 0 8px; border-bottom: 1px solid var(--hairline); cursor: context-menu; }
+    .files-row:last-of-type { border-bottom: 0; }
+    .files-main { flex: 1; min-width: 0; }
+    .files-main b { display: block; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .files-main small { display: block; margin-top: 2px; font-size: 10.5px; color: var(--muted); }
+    .files-dl {
+      width: 32px; height: 32px; flex: 0 0 32px; border: 1px solid var(--stroke); border-radius: 10px;
+      background: var(--field); color: var(--accent); font-size: 17px; line-height: 1;
+      display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
+    }
+    .files-dl:active { background: var(--chip); }
+    .files-shot {
+      position: relative; height: 112px; margin: 8px 14px 0; border-radius: 14px; overflow: hidden;
+      background: linear-gradient(135deg, #1b2831 0%, #2f5c69 45%, #8fb3c2 100%);
+      display: flex; align-items: flex-end; padding: 10px 12px; cursor: context-menu;
+    }
+    .files-shot span { font-size: 10.5px; font-weight: 600; color: #fff; opacity: .85; }
+    .files-note { margin: 14px 16px 0; font-size: 10.5px; line-height: 1.5; color: var(--muted); }
+    .debug-row small { display: block; margin-top: 2px; font-size: 10.5px; color: #8b8b86; }
+    .debug-btn {
+      flex: 0 0 auto; border: 0; border-radius: 10px; padding: 8px 12px;
+      background: var(--accent); color: #fff; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .debug-btn:active { transform: scale(.97); }
+
     .panel {
       width: 340px; flex: 0 0 340px; background: #fff; border-radius: 20px; padding: 18px 18px 8px; box-shadow: var(--shadow);
       position: sticky; top: 20px;
@@ -858,8 +1132,11 @@
               <div class="pin" onclick="visit('calendar.example','Calendar','C','#f6a04d')"><div class="icon">C</div><span>Calendar</span></div>
               <div class="pin" onclick="visit('news.example','News','N','#7bc96f')"><div class="icon">N</div><span>News</span></div>
               <div class="pin" onclick="visit('music.example','Music','♪','#e66a8b')"><div class="icon">♪</div><span>Music</span></div>
+              <div class="pin" onclick="visit('files.example','Files','F','#4f93a8')"><div class="icon" style="color:#fff;background:#2f5c69">F</div><span>Files</span></div>
+              <div class="pin" onclick="openDownloads('page')"><div class="icon">↓</div><span>Downloads</span></div>
             </div>
             <div class="section-title">Recent</div>
+            <div class="card glass" onclick="visit('files.example','Files','F','#4f93a8')"><b>Files</b><small style="display:block;text-align:center">files.example</small></div>
             <div class="card glass" onclick="visit('example.com','Example','E','#7aa2b8')"><b>Example</b><small style="display:block;text-align:center">example.com</small></div>
             <div class="card glass" onclick="visit('github.com','GitHub','G','#24292f')"><b>GitHub</b><small style="display:block;text-align:center">github.com</small></div>
             <div class="card glass" onclick="visit('addons.mozilla.org','Add-ons','A','#ff7a59')"><b>Add-ons</b><small style="display:block;text-align:center">addons.mozilla.org</small></div>
@@ -904,6 +1181,14 @@
           </div>
         </div>
 
+        <button class="dl-chip" id="dl-chip" onclick="openDownloads('chip')" title="Downloads" aria-label="Downloads">
+          <span class="dl-ring" id="dl-ring"></span>
+          <span class="dl-core">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v9"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg>
+          </span>
+          <span class="dl-badge" id="dl-badge">0</span>
+        </button>
+
         <div class="imm-banner" id="imm-banner" role="status" aria-live="polite">
           <span class="imm-banner-ico" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M9 4H4v5"/><path d="M15 4h5v5"/><path d="M9 20H4v-5"/><path d="M15 20h5v-5"/><path d="M4 4l5 5"/><path d="M20 4l-5 5"/><path d="M4 20l5-5"/><path d="M20 20l-5-5"/></svg>
@@ -913,6 +1198,31 @@
             <small>Pinch out to bring the pill back</small>
           </span>
         </div>
+
+        <div class="dl-prompt-layer" id="dl-prompt-layer" onclick="if(event.target===this) cancelDownloadPrompt()">
+          <div class="dl-prompt" role="dialog" aria-modal="true" aria-labelledby="dlp-name">
+            <div class="dlp-head">
+              <span>Download file?</span>
+              <button class="dlp-x" type="button" onclick="cancelDownloadPrompt()" title="Close" aria-label="Close">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+              </button>
+            </div>
+            <div class="dlp-file">
+              <span class="dl-ftile t-zip" id="dlp-tile">ZIP</span>
+              <div class="dlp-meta">
+                <b id="dlp-name">file.zip</b>
+                <span id="dlp-meta">4.2 MB · files.example</span>
+              </div>
+            </div>
+            <div class="dlp-actions">
+              <button class="dlp-btn" type="button" onclick="cancelDownloadPrompt()">Cancel</button>
+              <button class="dlp-btn primary" type="button" onclick="confirmDownload()">Download</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dl-toast" id="dl-toast" role="status" aria-live="polite"></div>
+        <div class="ctx-menu" id="ctx-menu" role="menu" aria-label="Link actions"></div>
 
         <div class="overlay" id="tab-overlay">
           <div class="sheet tab-switcher" onclick="if(event.target===this || event.target.id==='tab-stack') closeOverlays()">
@@ -992,6 +1302,15 @@
               </button>
             </div>
 
+            <div class="menu-downloads" id="menu-downloads" role="button" tabindex="0" onclick="openDownloads('menu')" aria-label="Open downloads">
+              <span class="menu-ico">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/><path d="M5 19h14"/></svg>
+              </span>
+              <div class="mdl-main"><b>Downloads</b><span id="mdl-summary">No downloads yet</span></div>
+              <span class="mdl-count zero" id="mdl-count">0</span>
+              <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+            </div>
+
             <div class="menu-label">Page</div>
             <div class="menu-group">
               <div class="menu-row">
@@ -1021,6 +1340,24 @@
               </div>
             </div>
             </div><!-- /menu-view -->
+
+            <!-- Downloads manager: full-height page grown from the same sheet -->
+            <div class="downloads-view" id="downloads-view" aria-label="Downloads">
+              <div class="settings-header">
+                <button class="settings-back" onclick="closeDownloads()" title="Back" aria-label="Back">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
+                </button>
+                <span class="dl-header-ico" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/><path d="M5 19h14"/></svg>
+                </span>
+                <div class="settings-title">Downloads</div>
+                <button class="dl-clear" id="dl-clear" onclick="clearDownloads()" title="Remove all downloads">Clear</button>
+              </div>
+              <div class="dl-scroll">
+                <div class="dl-summary" id="dl-summary">No downloads yet</div>
+                <div id="dl-list"></div>
+              </div>
+            </div>
 
             <!-- Firefox-style settings, expands out of this sheet -->
             <div class="settings-view" aria-label="Settings">
@@ -1072,7 +1409,7 @@
                 <span class="label">Open links in apps</span>
                 <span class="switch on" role="switch" aria-checked="true"><span></span></span>
               </div>
-              <div class="settings-row" onclick="settingTap('Downloads')">
+              <div class="settings-row" onclick="openDownloads('settings')">
                 <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/><path d="M4 19h16"/></svg></span>
                 <span class="label">Downloads</span>
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
@@ -1360,6 +1697,10 @@
         <span>Immersive mode</span>
         <span class="switch" id="debug-immersive-switch" role="switch" aria-checked="false" onclick="toggleImmersive()" title="Hide the nav pill"><span></span></span>
       </div>
+      <div class="debug-row">
+        <span>Test download<small>Tap twice to see the count badge</small></span>
+        <button class="debug-btn" type="button" onclick="debugTestDownload(event)">Download</button>
+      </div>
       <div class="section-title">Interaction log</div>
       <div class="log" id="log"></div>
     </div>
@@ -1598,6 +1939,7 @@
       if (host === 'github.com') return githubHTML();
       if (host === 'mail.google.com') return gmailHTML();
       if (host === 'addons.mozilla.org') return amoHTML();
+      if (host === 'files.example') return filesHTML();
       const engine = allEngines().find(e => engineHost(e) === host.replace(/^www\./, ''));
       if (engine) return searchHTML(t, engine);
       return genericHTML(t);
@@ -1833,6 +2175,30 @@
         </div>`).join('')}
       </div>`;
     }
+    function filesHTML() {
+      const files = [
+        ['gecko-browser-1.4.2.zip', '48.2 MB', 'ZIP', 't-zip'],
+        ['design-notes.pdf', '1.8 MB', 'PDF', 't-pdf'],
+        ['arc-wallpaper-dark.png', '3.1 MB', 'PNG', 't-img'],
+        ['extensions-pack.xpi', '0.9 MB', 'XPI', 't-xpi'],
+        ['site-preview.jpg', '2.6 MB', 'JPG', 't-img']
+      ];
+      return `<div class="files">
+        <div class="files-top"><span class="files-logo">F</span><span class="files-brand">files.example</span><span class="files-tag">Demo server</span></div>
+        <div class="files-hero"><b>Your files, one tap away</b><span>Pick a file and accept the prompt. It flies into the download chip beside the nav pill.</span></div>
+        <div class="files-label">Files</div>
+        ${files.map(([n, s, k, cls]) => `<div class="files-row" data-link="https://files.example/${n}" data-download="${n}|${s}">
+          <span class="dl-ftile ${cls}">${k}</span>
+          <div class="files-main"><b>${n}</b><small>${s} · hosted on files.example</small></div>
+          <button class="files-dl" type="button" onclick="event.stopPropagation(); requestDownloadFromEvent(event,'${n}','${s}')" title="Download ${n}" aria-label="Download ${n}">↓</button>
+        </div>`).join('')}
+        <div class="files-label">Preview</div>
+        <div class="files-shot" data-image="arc-wallpaper-dark.png" data-link="https://files.example/arc-wallpaper-dark.png">
+          <span>arc-wallpaper-dark.png</span>
+        </div>
+        <p class="files-note">Long-press or right-click any file (or the preview) for the context menu: open, new tab, download, copy, share.</p>
+      </div>`;
+    }
     /* ---------- Loading glow + condensed pill ---------- */
     let loadTimer = null;
     function startLoading(ms) {
@@ -1890,17 +2256,19 @@
       const delta = y - lastScrollTop;
       lastScrollTop = y;
       updateScrollThumb();
-      if (t.url === 'home' || y <= 6) { bar.classList.remove('scrolled'); return; }
+      if (t.url === 'home' || y <= 6) { bar.classList.remove('scrolled'); syncDownloadChip(); return; }
       if (delta > 1.5) {
         if (!bar.classList.contains('scrolled')) { syncDomainChip(); bar.classList.add('scrolled'); }
       } else if (delta < -1.5) {
         bar.classList.remove('scrolled');
       }
+      syncDownloadChip();
     }
     function expandNavPill() {
       const canvas = document.getElementById('web-canvas');
       document.getElementById('bottom-bar').classList.remove('scrolled');
       lastScrollTop = canvas ? canvas.scrollTop : 0;
+      syncDownloadChip();
     }
     function refreshPage() {
       const t = tabs[currentTab];
@@ -1927,6 +2295,8 @@
       syncDomainChip();
       const thumb = document.getElementById('sb-thumb');
       if (thumb) thumb.classList.remove('show');
+      syncDownloadChip();
+      syncMenuDownloads();
     }
     function visit(url, title, favicon, color) {
       closeOverlays();
@@ -1952,6 +2322,7 @@
       if (!ov.classList.contains('open')) return;
       ov.classList.remove('open');
       document.getElementById('bottom-bar').classList.remove('blend');
+      syncDownloadChip();
     }
     function toggleMenu() {
       if (document.getElementById('menu-overlay').classList.contains('open')) closeMenuOnly();
@@ -1966,6 +2337,7 @@
       document.getElementById('bottom-bar').classList.add('blend');
       layoutTabThumbs();
       setTimeout(shrinkPageIntoPreview, 30);
+      syncDownloadChip();
       log('Opened tab switcher (swipe horizontally)');
     }
     /* FLIP between the live page and the miniature in its tab card. A moving
@@ -2240,7 +2612,8 @@
         'mail.google.com': ['Gmail', 'M', '#d93b30'],
         'addons.mozilla.org': ['Add-ons', 'A', '#ff7a59'],
         'duckduckgo.com': ['DuckDuckGo', 'D', '#de5833'],
-        'example.com': ['Example', 'E', '#7aa2b8']
+        'example.com': ['Example', 'E', '#7aa2b8'],
+        'files.example': ['Files', 'F', '#4f93a8']
       };
       const k = known[host];
       if (k) { visit(host, k[0], k[1], k[2]); return; }
@@ -2289,6 +2662,7 @@
       positionSearchPill();
       document.getElementById('bottom-bar').classList.add('search-open');
       setTimeout(() => document.getElementById('search-input').focus({ preventScroll: true }), 50);
+      syncDownloadChip();
       log('Search opened (+ → ×)');
     }
     let sheetCloseTimer = null;
@@ -2313,6 +2687,7 @@
       document.getElementById('search-overlay').classList.remove('open');
       document.getElementById('bottom-bar').classList.remove('search-open');
       if (wasOpen) markSheetClosing();
+      syncDownloadChip();
       log('Search closed (× → +)');
     }
     function toggleSearch() {
@@ -2322,16 +2697,17 @@
     function closeMenuOnly() {
       const menu = document.getElementById('menu-overlay');
       const wasOpen = menu.classList.contains('open');
-      menu.classList.remove('open', 'settings-mode', 'site-mode', 'account-mode');
+      menu.classList.remove('open', 'settings-mode', 'site-mode', 'account-mode', 'downloads-mode', 'closing-downloads');
       document.getElementById('bottom-bar').classList.remove('menu-open');
       if (wasOpen) markSheetClosing();
+      syncDownloadChip();
     }
     function openMenu() {
       dismissTabOverlay();
       if (document.getElementById('search-overlay').classList.contains('open')) closeSearch();
       document.getElementById('bottom-bar').classList.remove('sheet-closing', 'scrolled', 'loading');
       const menu = document.getElementById('menu-overlay');
-      menu.classList.remove('settings-mode', 'site-mode', 'account-mode');
+      menu.classList.remove('settings-mode', 'site-mode', 'account-mode', 'downloads-mode', 'closing-downloads');
       menu.classList.add('open');
       document.getElementById('bottom-bar').classList.add('menu-open');
       const toast = document.getElementById('copy-toast');
@@ -2339,6 +2715,8 @@
       if (toast) toast.textContent = '';
       if (btn) btn.classList.remove('copied');
       syncImmersiveToggle();
+      syncMenuDownloads();
+      syncDownloadChip();
       log('Menu opened');
     }
     /* ---------- Settings screen (grows out of the menu sheet) ---------- */
@@ -2524,6 +2902,715 @@
       if (mobileIco) mobileIco.classList.toggle('is-desktop', desktopSite);
       log('Site mode: ' + (desktopSite ? 'Desktop' : 'Mobile'));
     }
+    /* ---------- Downloads ---------- */
+    const DL_EXT = { zip:'ZIP', pdf:'PDF', png:'PNG', jpg:'JPG', jpeg:'JPG', gif:'GIF', webp:'WEBP', svg:'SVG', xpi:'XPI', apk:'APK', mp4:'MP4', txt:'TXT', json:'JSON' };
+    const DL_ICON = {
+      cancel: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>',
+      open: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-8 8"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+      trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6.5 7l1 13h9l1-13"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>',
+      retry: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/></svg>'
+    };
+    let downloads = [];
+    let dlSeq = 0;
+    let dlPending = null;
+    let dlTicker = null;
+    let dlToastTimer = null;
+    let debugPick = 0;
+    let downloadsReturnTo = 'menu';
+    let ctxInfo = null;
+    let ctxOrigin = null;
+    let ctxTimer = null;
+    let ctxPressStart = null;
+    let ctxSuppressClick = false;
+
+    function dlExt(name) {
+      const m = /\.([a-z0-9]+)(?:[?#].*)?$/i.exec(name || '');
+      return m ? m[1].toLowerCase() : 'bin';
+    }
+    function dlKind(name) {
+      const e = dlExt(name);
+      return DL_EXT[e] || e.slice(0, 3).toUpperCase();
+    }
+    function dlKindClass(name) {
+      const e = dlExt(name);
+      if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(e)) return 't-img';
+      if (e === 'pdf') return 't-pdf';
+      if (['zip', 'rar', '7z', 'gz', 'tar'].includes(e)) return 't-zip';
+      if (e === 'xpi') return 't-xpi';
+      return 't-file';
+    }
+    function formatBytes(n) {
+      n = Number(n) || 0;
+      if (n >= 1073741824) return (n / 1073741824).toFixed(1) + ' GB';
+      if (n >= 1048576) return (n / 1048576).toFixed(1) + ' MB';
+      if (n >= 1024) return Math.round(n / 1024) + ' KB';
+      return Math.round(n) + ' B';
+    }
+    function parseSize(s) {
+      const m = /^([\d.]+)\s*(B|KB|MB|GB)$/i.exec((s || '').trim());
+      if (!m) return 4.2 * 1048576;
+      return parseFloat(m[1]) * ({ B: 1, KB: 1024, MB: 1048576, GB: 1073741824 }[m[2].toUpperCase()] || 1);
+    }
+    function fileNameFromUrl(url) {
+      try {
+        const u = new URL(url);
+        const last = u.pathname.split('/').filter(Boolean).pop();
+        return decodeURIComponent(last || 'download.bin');
+      } catch { return 'download.bin'; }
+    }
+    function dlTime(ts) {
+      if (!ts) return 'just now';
+      const s = Math.max(0, Math.round((Date.now() - ts) / 1000));
+      if (s < 20) return 'just now';
+      if (s < 90) return s + ' sec ago';
+      const m = Math.round(s / 60);
+      if (m < 60) return m + ' min ago';
+      return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+    function dlActive() { return downloads.filter(d => d.status === 'downloading'); }
+    function dlActiveProgress() {
+      const active = dlActive();
+      if (!active.length) return 100;
+      const sum = active.reduce((acc, d) => acc + d.done / Math.max(1, d.size), 0);
+      return Math.max(2, Math.min(100, Math.round((sum / active.length) * 100)));
+    }
+    function dlOriginFrom(src) {
+      if (!src) return chipCenter();
+      if (typeof src.clientX === 'number' && (src.clientX || src.clientY)) {
+        return { x: src.clientX, y: src.clientY };
+      }
+      // Plain {x, y} objects (not events, which also expose x/y aliases).
+      if (typeof src.clientX !== 'number' && typeof src.x === 'number' && typeof src.y === 'number') {
+        return { x: src.x, y: src.y };
+      }
+      const el = (src.currentTarget && src.currentTarget.getBoundingClientRect)
+        ? src.currentTarget
+        : (src.getBoundingClientRect ? src : null);
+      if (el) {
+        const r = el.getBoundingClientRect();
+        if (r.width) return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      }
+      return chipCenter();
+    }
+    function chipCenter() {
+      const chip = document.getElementById('dl-chip');
+      const r = chip.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    }
+
+    function toast(msg) {
+      const el = document.getElementById('dl-toast');
+      if (!el) return;
+      // The manager shows its own live state; a floating toast over it just
+      // competes with the rows.
+      if (document.getElementById('menu-overlay').classList.contains('downloads-mode')) return;
+      el.textContent = msg;
+      el.classList.add('show');
+      clearTimeout(dlToastTimer);
+      dlToastTimer = setTimeout(() => el.classList.remove('show'), 1900);
+    }
+
+    function requestDownload(spec, src) {
+      const name = spec.name || fileNameFromUrl(spec.url || '');
+      dlPending = {
+        name,
+        size: Number(spec.size) || parseSize(spec.sizeText || '4.2 MB'),
+        host: spec.host || hostOf(spec.url || '') || 'files.example',
+        url: spec.url || '',
+        origin: dlOriginFrom(src)
+      };
+      document.getElementById('dlp-name').textContent = dlPending.name;
+      document.getElementById('dlp-meta').textContent = formatBytes(dlPending.size) + ' · ' + dlPending.host;
+      const tile = document.getElementById('dlp-tile');
+      tile.textContent = dlKind(dlPending.name);
+      tile.className = 'dl-ftile ' + dlKindClass(dlPending.name);
+      document.getElementById('dl-prompt-layer').classList.add('open');
+      log('Download prompt: ' + dlPending.name);
+    }
+    function requestDownloadFromEvent(e, name, sizeText) {
+      if (e) e.stopPropagation();
+      requestDownload({ name, size: parseSize(sizeText), host: 'files.example', url: 'https://files.example/' + name }, e);
+    }
+    function debugTestDownload(e) {
+      const demos = [
+        ['gecko-browser-1.4.2.zip', '48.2 MB'],
+        ['arc-wallpaper-dark.png', '3.1 MB'],
+        ['design-notes.pdf', '1.8 MB'],
+        ['notes-export.json', '640 KB'],
+        ['extensions-pack.xpi', '0.9 MB']
+      ];
+      const pick = demos[debugPick % demos.length];
+      debugPick++;
+      requestDownload({ name: pick[0], size: parseSize(pick[1]), host: 'files.example', url: 'https://files.example/' + pick[0] }, e);
+    }
+    function closeDownloadPrompt() {
+      document.getElementById('dl-prompt-layer').classList.remove('open');
+    }
+    function cancelDownloadPrompt() {
+      dlPending = null;
+      closeDownloadPrompt();
+      log('Download canceled');
+    }
+    function confirmDownload() {
+      const pending = dlPending;
+      if (!pending) return;
+      dlPending = null;
+      closeDownloadPrompt();
+      startDownload(pending);
+    }
+
+    function startDownload(spec) {
+      const item = {
+        id: 'dl-' + (++dlSeq),
+        name: spec.name,
+        size: spec.size || 4.2 * 1048576,
+        done: 0,
+        status: 'downloading',
+        host: spec.host || 'files.example',
+        url: spec.url || '',
+        started: Date.now(),
+        ended: 0,
+        speed: 0.014 + Math.random() * 0.014
+      };
+      downloads.unshift(item);
+      const chip = document.getElementById('dl-chip');
+      chip.classList.add('landing');
+      syncDownloadChip();
+      flyFileToChip(item, spec.origin);
+      ensureDlTicker();
+      renderDownloads();
+      syncMenuDownloads();
+      log('Download started: ' + item.name);
+    }
+
+    function ensureDlTicker() {
+      if (dlTicker) return;
+      dlTicker = setInterval(tickDownloads, 150);
+    }
+    function tickDownloads() {
+      let anyActive = false;
+      downloads.forEach(d => {
+        if (d.status !== 'downloading') return;
+        anyActive = true;
+        d.done = Math.min(d.size, d.done + d.size * d.speed * (0.65 + Math.random() * 0.9));
+        if (d.done >= d.size) {
+          d.status = 'done';
+          d.done = d.size;
+          d.ended = Date.now();
+          const chip = document.getElementById('dl-chip');
+          chip.classList.add('landed');
+          setTimeout(() => chip.classList.remove('landed'), 520);
+          toast('Downloaded ' + d.name);
+          log('Download complete: ' + d.name);
+        }
+      });
+      if (!anyActive) {
+        clearInterval(dlTicker);
+        dlTicker = null;
+      }
+      renderDownloads();
+      syncMenuDownloads();
+      syncDownloadChip();
+    }
+
+    function flyFileToChip(item, origin) {
+      const chip = document.getElementById('dl-chip');
+      const target = chip.getBoundingClientRect();
+      const size = 42;
+      const startX = Math.max(6, (origin ? origin.x : target.left) - size / 2);
+      const startY = Math.max(6, (origin ? origin.y : target.top) - size / 2);
+      const fly = document.createElement('div');
+      fly.className = 'dl-fly' + (darkMode ? ' dark' : '');
+      fly.innerHTML = '<span class="dl-ftile ' + dlKindClass(item.name) + '">' + dlKind(item.name) + '</span>' +
+        '<span class="df-shine"></span>';
+      fly.style.cssText = 'left:' + startX + 'px;top:' + startY + 'px;width:' + size + 'px;height:' + size + 'px;';
+      document.body.appendChild(fly);
+      const midX = startX + (target.left - startX) * 0.46;
+      const midY = Math.min(startY, target.top) - 34;
+      const anim = fly.animate([
+        { left: startX + 'px', top: startY + 'px', width: size + 'px', height: size + 'px', borderRadius: '12px', opacity: 0, transform: 'scale(.62)', offset: 0 },
+        { opacity: 1, transform: 'scale(1)', offset: 0.16 },
+        { left: midX + 'px', top: midY + 'px', width: '50px', height: '50px', borderRadius: '15px', opacity: 1, transform: 'scale(1.04)', offset: 0.56 },
+        { left: target.left + 'px', top: target.top + 'px', width: target.width + 'px', height: target.height + 'px', borderRadius: '50%', opacity: 0.9, transform: 'scale(1)', offset: 1 }
+      ], { duration: 720, easing: 'cubic-bezier(0.42, 0.06, 0.18, 1)', fill: 'forwards' });
+      anim.onfinish = () => {
+        fly.remove();
+        chip.classList.remove('landing');
+        syncDownloadChip(true);
+        chip.classList.add('landed');
+        setTimeout(() => chip.classList.remove('landed'), 520);
+      };
+    }
+
+    function syncDownloadChip(reveal) {
+      const chip = document.getElementById('dl-chip');
+      if (!chip) return;
+      const bar = document.getElementById('bottom-bar');
+      const menu = document.getElementById('menu-overlay');
+      const active = dlActive();
+      const blocked = !!(document.querySelector('#tab-overlay.open, #search-overlay.open') ||
+        bar.classList.contains('scrolled') || bar.classList.contains('immersive') ||
+        bar.classList.contains('menu-open') || menu.classList.contains('downloads-mode') ||
+        menu.classList.contains('settings-mode') || menu.classList.contains('site-mode') ||
+        menu.classList.contains('account-mode'));
+      const show = downloads.length > 0 && !blocked && !chip.classList.contains('landing');
+      chip.classList.toggle('show', show);
+      chip.classList.toggle('active', active.length > 0);
+      chip.classList.toggle('idle', active.length === 0);
+      chip.classList.toggle('multi', active.length > 1);
+      chip.style.setProperty('--p', String(dlActiveProgress()));
+      const badge = document.getElementById('dl-badge');
+      if (badge) badge.textContent = String(active.length);
+      chip.title = active.length
+        ? active.length + ' download' + (active.length === 1 ? '' : 's') + ' in progress'
+        : downloads.length + ' download' + (downloads.length === 1 ? '' : 's');
+      chip.setAttribute('aria-label', chip.title);
+      if (reveal) {
+        chip.classList.add('landed');
+        setTimeout(() => chip.classList.remove('landed'), 520);
+      }
+    }
+
+    function syncMenuDownloads() {
+      const summary = document.getElementById('mdl-summary');
+      const count = document.getElementById('mdl-count');
+      if (!summary || !count) return;
+      const active = dlActive();
+      if (!downloads.length) {
+        summary.textContent = 'No downloads yet';
+        count.textContent = '0';
+        count.classList.add('zero');
+        count.classList.remove('hot');
+        return;
+      }
+      if (active.length) {
+        summary.textContent = active.length + ' downloading · ' + dlActiveProgress() + '%';
+        count.textContent = String(active.length);
+        count.classList.add('hot');
+        count.classList.remove('zero');
+        return;
+      }
+      const done = downloads.filter(d => d.status === 'done');
+      const total = done.reduce((acc, d) => acc + d.size, 0);
+      summary.textContent = done.length
+        ? done.length + ' file' + (done.length === 1 ? '' : 's') + ' · ' + formatBytes(total)
+        : downloads.length + ' canceled';
+      count.textContent = String(done.length || downloads.length);
+      count.classList.remove('hot', 'zero');
+    }
+
+    function dlRowHTML(d) {
+      const active = d.status === 'downloading';
+      const canceled = d.status === 'canceled';
+      const pct = Math.max(1, Math.min(99, Math.round(d.done / Math.max(1, d.size) * 100)));
+      const meta = active
+        ? formatBytes(d.size) + ' · ' + escapeHTML(d.host)
+        : (canceled ? 'Canceled · ' : 'Downloaded · ') + formatBytes(d.size) + ' · ' + dlTime(d.ended);
+      const action = active
+        ? '<button class="dl-act" data-dl-act="cancel" data-id="' + d.id + '" title="Cancel" aria-label="Cancel download">' + DL_ICON.cancel + '</button>'
+        : canceled
+          ? '<button class="dl-act" data-dl-act="retry" data-id="' + d.id + '" title="Retry" aria-label="Retry download">' + DL_ICON.retry + '</button>' +
+            '<button class="dl-act" data-dl-act="remove" data-id="' + d.id + '" title="Remove" aria-label="Remove download">' + DL_ICON.trash + '</button>'
+          : '<button class="dl-act" data-dl-act="open" data-id="' + d.id + '" title="Open" aria-label="Open download">' + DL_ICON.open + '</button>' +
+            '<button class="dl-act" data-dl-act="remove" data-id="' + d.id + '" title="Remove" aria-label="Remove download">' + DL_ICON.trash + '</button>';
+      return '<div class="dl-row' + (canceled ? ' canceled' : '') + '">' +
+        '<span class="dl-ftile ' + dlKindClass(d.name) + '">' + dlKind(d.name) + '</span>' +
+        '<div class="dl-row-main">' +
+          '<div class="dl-name">' + escapeHTML(d.name) + '</div>' +
+          '<div class="dl-meta">' + meta + '</div>' +
+          (active
+            ? '<div class="dl-bar"><span style="width:' + pct + '%"></span></div>' +
+              '<div class="dl-sub"><span>' + pct + '%</span><span>' + formatBytes(d.done) + ' of ' + formatBytes(d.size) + '</span></div>'
+            : '<div class="dl-bar ' + (canceled ? 'canceled' : 'done') + '"><span style="width:' + (canceled ? pct : 100) + '%"></span></div>') +
+        '</div>' +
+        '<div class="dl-row-acts">' + action + '</div>' +
+      '</div>';
+    }
+
+    function renderDownloads() {
+      const list = document.getElementById('dl-list');
+      if (!list) return;
+      const summary = document.getElementById('dl-summary');
+      const clear = document.getElementById('dl-clear');
+      if (clear) clear.style.visibility = downloads.length ? 'visible' : 'hidden';
+      if (!downloads.length) {
+        summary.textContent = 'Nothing downloaded yet';
+        list.innerHTML = '<div class="dl-empty">' +
+          '<span class="dl-empty-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/><path d="M5 19h14"/></svg></span>' +
+          '<b>No downloads yet</b>' +
+          '<p>Files you download appear here. Try the demo server to see the prompt and the live chip.</p>' +
+          '<button class="dl-empty-btn" type="button" onclick="visit(\'files.example\',\'Files\',\'F\',\'#4f93a8\')">Browse files.example</button>' +
+        '</div>';
+        return;
+      }
+      const active = downloads.filter(d => d.status === 'downloading');
+      const finished = downloads.filter(d => d.status !== 'downloading');
+      const done = downloads.filter(d => d.status === 'done');
+      const canceled = downloads.length - done.length - active.length;
+      const totalDone = done.reduce((acc, d) => acc + d.size, 0);
+      summary.textContent = active.length
+        ? active.length + ' downloading · ' + dlActiveProgress() + '% overall'
+        : done.length
+          ? done.length + ' file' + (done.length === 1 ? '' : 's') + ' · ' + formatBytes(totalDone) + (canceled ? ' · ' + canceled + ' canceled' : '')
+          : downloads.length + ' canceled';
+      list.innerHTML =
+        (active.length ? '<div class="dl-group-label">Downloading</div>' + active.map(dlRowHTML).join('') : '') +
+        (finished.length ? '<div class="dl-group-label">' + (active.length ? 'Completed' : 'Downloads') + '</div>' + finished.map(dlRowHTML).join('') : '');
+    }
+
+    function clearDownloads() {
+      if (!downloads.length) return;
+      const n = downloads.length;
+      downloads = [];
+      if (dlTicker) { clearInterval(dlTicker); dlTicker = null; }
+      renderDownloads();
+      syncMenuDownloads();
+      syncDownloadChip();
+      log('Cleared ' + n + ' download' + (n === 1 ? '' : 's'));
+    }
+
+    document.getElementById('dl-list').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-dl-act]');
+      if (!btn) return;
+      const d = downloads.find(x => x.id === btn.dataset.id);
+      if (!d) return;
+      const act = btn.dataset.dlAct;
+      if (act === 'cancel') {
+        d.status = 'canceled';
+        d.ended = Date.now();
+        log('Download canceled: ' + d.name);
+      } else if (act === 'remove') {
+        downloads = downloads.filter(x => x.id !== d.id);
+        log('Removed download: ' + d.name);
+      } else if (act === 'open') {
+        toast('Opening ' + d.name);
+        log('Opening download: ' + d.name);
+      } else if (act === 'retry') {
+        d.status = 'downloading';
+        d.done = 0;
+        d.started = Date.now();
+        d.ended = 0;
+        ensureDlTicker();
+        log('Retrying download: ' + d.name);
+      }
+      renderDownloads();
+      syncMenuDownloads();
+      syncDownloadChip();
+    });
+
+    /* ---------- Downloads manager (grows out of the menu sheet) ---------- */
+    function openDownloads(source) {
+      const menu = document.getElementById('menu-overlay');
+      const bar = document.getElementById('bottom-bar');
+      if (menu.classList.contains('downloads-mode')) { renderDownloads(); return; }
+      closeContextMenu();
+      dismissTabOverlay();
+      if (document.getElementById('search-overlay').classList.contains('open')) closeSearch();
+      const wasOpen = menu.classList.contains('open');
+      if (wasOpen) {
+        downloadsReturnTo = menu.classList.contains('settings-mode') ? 'settings'
+          : menu.classList.contains('site-mode') ? 'site'
+          : menu.classList.contains('account-mode') ? 'account' : 'menu';
+      } else {
+        downloadsReturnTo = 'page';
+        menu.classList.add('open');
+        bar.classList.add('menu-open');
+      }
+      menu.classList.remove('settings-mode', 'site-mode', 'account-mode', 'closing-downloads');
+      menu.classList.add('downloads-mode');
+      bar.classList.remove('sheet-closing', 'scrolled', 'loading');
+      renderDownloads();
+      syncMenuDownloads();
+      syncDownloadChip();
+      const sc = document.querySelector('.dl-scroll');
+      if (sc) sc.scrollTop = 0;
+      log('Downloads manager opened (' + downloadsReturnTo + ')');
+    }
+    function closeDownloads() {
+      const menu = document.getElementById('menu-overlay');
+      if (!menu.classList.contains('downloads-mode')) return;
+      const bar = document.getElementById('bottom-bar');
+      const back = downloadsReturnTo;
+      menu.classList.remove('downloads-mode');
+      if (back === 'settings') {
+        menu.classList.add('settings-mode');
+      } else if (back === 'site') {
+        menu.classList.add('site-mode');
+      } else if (back === 'account') {
+        menu.classList.add('account-mode');
+      } else if (back === 'page') {
+        // Collapse the full-height page straight back to the pill, hiding both
+        // contents so no menu flashes during the 100% -> 58px morph.
+        menu.classList.add('closing-downloads');
+        bar.classList.remove('menu-open');
+        menu.classList.remove('open');
+        markSheetClosing();
+        setTimeout(() => menu.classList.remove('closing-downloads'), 430);
+      }
+      downloadsReturnTo = 'menu';
+      syncDownloadChip();
+      log('Downloads manager closed');
+    }
+
+    /* ---------- Context menu: link / image / file actions ---------- */
+    const CTX_ICONS = {
+      open: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-8 8"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+      tab: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M3 9h18"/><path d="M12 12v4"/><path d="M10 14h4"/></svg>',
+      download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/><path d="M5 19h14"/></svg>',
+      copy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 13.5a4.5 4.5 0 0 0 6.36 0l2.12-2.12a4.5 4.5 0 1 0-6.36-6.36L11.2 6.44"/><path d="M13.5 10.5a4.5 4.5 0 0 0-6.36 0L5.02 12.62a4.5 4.5 0 1 0 6.36 6.36l1.42-1.42"/></svg>',
+      share: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M5 13v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6"/></svg>',
+      save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h11l3 3v11H5z"/><path d="M9 5v5h6V5"/><path d="M9 19v-5h6v5"/></svg>',
+      image: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M4 17l5-5 4 4 3-3 4 4"/></svg>'
+    };
+    function ctxInfoFor(el) {
+      if (!el || !el.closest) return null;
+      const file = el.closest('[data-download]');
+      if (file) {
+        const parts = (file.dataset.download || '').split('|');
+        const name = parts[0] || 'download.bin';
+        return {
+          type: 'file',
+          name,
+          size: parts[1] ? parseSize(parts[1]) : 4.2 * 1048576,
+          link: file.dataset.link || ('https://files.example/' + name),
+          host: 'files.example'
+        };
+      }
+      const shot = el.closest('[data-image]');
+      if (shot) {
+        const name = shot.dataset.image || 'image.png';
+        return { type: 'image', name, link: shot.dataset.link || ('https://files.example/' + name), host: 'files.example' };
+      }
+      const img = el.closest('img');
+      if (img) {
+        const name = (img.getAttribute('src') || '').split('/').pop() || 'image';
+        const link = img.getAttribute('src') || '';
+        return { type: 'image', name, link, host: hostOf(link) };
+      }
+      const anchor = el.closest('a[href], [data-link]');
+      if (anchor) {
+        const href = anchor.getAttribute('href') || anchor.dataset.link || '';
+        return {
+          type: 'link',
+          link: href,
+          name: fileNameFromUrl(href),
+          title: (anchor.textContent || '').trim().slice(0, 60),
+          host: hostOf(href)
+        };
+      }
+      const card = el.closest('.ddg-res, .yt-card, .gh-file, .amo-row, .gm-row');
+      if (card) {
+        let link = '';
+        if (card.classList.contains('ddg-res')) {
+          const host = ((card.querySelector('.host') || {}).textContent || 'example.com').split('›')[0].trim();
+          link = 'https://' + host;
+        } else if (card.classList.contains('yt-card')) {
+          link = 'https://youtube.com/watch?v=demo';
+        } else if (card.classList.contains('gh-file')) {
+          const name = ((card.querySelector('span:not(.gh-fico)') || {}).textContent || 'README.md').trim();
+          link = 'https://github.com/tahil/arc-browser/blob/main/' + name;
+        } else if (card.classList.contains('amo-row')) {
+          link = 'https://addons.mozilla.org/android/';
+        } else {
+          link = 'https://mail.google.com/mail/u/0/#inbox';
+        }
+        return { type: 'link', link, name: fileNameFromUrl(link), title: (card.textContent || '').trim().slice(0, 50), host: hostOf(link) };
+      }
+      return null;
+    }
+    function openContextMenu(info, clientX, clientY) {
+      ctxInfo = info;
+      const menu = document.getElementById('ctx-menu');
+      const phone = document.getElementById('phone');
+      const phoneRect = phone.getBoundingClientRect();
+      const bx = phone.clientLeft || 0;
+      const by = phone.clientTop || 0;
+      const items = info.type === 'image'
+        ? [['open', 'Open image'], ['save', 'Save image'], ['copy', 'Copy image address'], ['share', 'Share image']]
+        : info.type === 'file'
+          ? [['download', 'Download file'], ['tab', 'Open in new tab'], ['copy', 'Copy link'], ['share', 'Share']]
+          : [['open', 'Open link'], ['tab', 'Open in new tab'], ['download', 'Download link'], ['copy', 'Copy link'], ['share', 'Share link']];
+      const head = info.type === 'link' ? (info.host || 'Link') : info.name;
+      menu.innerHTML = '<div class="ctx-head">' + escapeHTML(head) + '</div>' +
+        items.map(([act, label]) =>
+          (act === 'download' || act === 'save' ? '<div class="ctx-sep"></div>' : '') +
+          '<button class="ctx-row" type="button" data-ctx="' + act + '"><span>' + (CTX_ICONS[act] || CTX_ICONS.open) + '</span>' + label + '</button>'
+        ).join('');
+      menu.classList.remove('open');
+      menu.style.left = '0px';
+      menu.style.top = '0px';
+      const mw = menu.offsetWidth || 210;
+      const mh = menu.offsetHeight || 220;
+      let left = clientX - phoneRect.left - bx + 5;
+      let top = clientY - phoneRect.top - by + 5;
+      left = Math.max(8, Math.min(phone.clientWidth - mw - 8, left));
+      top = Math.max(8, Math.min(phone.clientHeight - mh - 8, top));
+      menu.style.left = left + 'px';
+      menu.style.top = top + 'px';
+      const ox = Math.max(6, Math.min(mw - 6, clientX - phoneRect.left - bx - left));
+      const oy = Math.max(6, Math.min(mh - 6, clientY - phoneRect.top - by - top));
+      menu.style.transformOrigin = ox + 'px ' + oy + 'px';
+      requestAnimationFrame(() => menu.classList.add('open'));
+      ctxOrigin = { x: clientX, y: clientY };
+    }
+    function closeContextMenu() {
+      const menu = document.getElementById('ctx-menu');
+      if (menu) menu.classList.remove('open');
+      ctxInfo = null;
+    }
+    function openLinkInNewTab(link) {
+      if (!link) return;
+      const host = hostOf(link);
+      const known = {
+        'youtube.com': ['YouTube', '▶', '#ff0033'],
+        'github.com': ['GitHub', 'G', '#24292f'],
+        'mail.google.com': ['Gmail', 'M', '#d93b30'],
+        'addons.mozilla.org': ['Add-ons', 'A', '#ff7a59'],
+        'files.example': ['Files', 'F', '#4f93a8']
+      };
+      const k = known[host] || [host, (host[0] || 'L').toUpperCase(), '#7aa2b8'];
+      tabs.push({ title: k[0], url: link, favicon: k[1], color: k[2] });
+      currentTab = tabs.length - 1;
+      closeOverlays();
+      updateChrome();
+      const canvas = document.getElementById('web-canvas');
+      if (canvas) canvas.scrollTop = 0;
+      lastScrollTop = 0;
+      expandNavPill();
+      startLoading(900);
+      log('Opened in new tab: ' + link);
+    }
+    async function copyText(text, label) {
+      if (!text) return;
+      let ok = false;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(text);
+          ok = true;
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          document.body.appendChild(ta);
+          ta.select();
+          ok = document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+      } catch {
+        log('Clipboard blocked (file://) - showing feedback only');
+      }
+      toast(label + ' · ' + text);
+      log(label + (ok ? '' : ' (demo)') + ': ' + text);
+    }
+    function shareLink(link) {
+      if (!link) return;
+      if (navigator.share) {
+        navigator.share({ url: link }).then(() => log('Shared link: ' + link)).catch(() => {});
+      } else {
+        copyText(link, 'Link copied to share');
+      }
+    }
+    function handleCtxAction(action, src) {
+      const info = ctxInfo;
+      if (!info) return;
+      const link = info.link || '';
+      closeContextMenu();
+      if (action === 'open') {
+        if (info.type === 'image') {
+          toast('Opening ' + info.name);
+          log('Open image: ' + info.name);
+        } else if (link) {
+          visitAsSite(link);
+        }
+      } else if (action === 'tab') {
+        openLinkInNewTab(link);
+      } else if (action === 'download' || action === 'save') {
+        const origin = (src && typeof src.clientX === 'number' && (src.clientX || src.clientY))
+          ? src
+          : ctxOrigin;
+        requestDownload({
+          name: info.name || fileNameFromUrl(link),
+          size: info.type === 'image' ? 3.1 * 1048576 : (info.size || 4.2 * 1048576),
+          host: info.host || 'files.example',
+          url: link
+        }, origin);
+      } else if (action === 'copy') {
+        copyText(link, info.type === 'image' ? 'Copied image address' : 'Copied link');
+      } else if (action === 'share') {
+        shareLink(link);
+      }
+    }
+    document.getElementById('ctx-menu').addEventListener('click', (e) => {
+      const row = e.target.closest('[data-ctx]');
+      if (!row) return;
+      handleCtxAction(row.dataset.ctx, e);
+    });
+    document.addEventListener('pointerdown', (e) => {
+      const menu = document.getElementById('ctx-menu');
+      if (menu.classList.contains('open') && !menu.contains(e.target)) closeContextMenu();
+    }, true);
+    document.addEventListener('click', (e) => {
+      if (!ctxSuppressClick) return;
+      ctxSuppressClick = false;
+      // Taps inside the context menu are never the trailing click of a
+      // long-press; let them through even if the flag was still armed.
+      if (document.getElementById('ctx-menu').contains(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+    }, true);
+
+    (function bindWebContextMenu() {
+      const body = document.getElementById('web-body');
+      if (!body) return;
+      body.addEventListener('contextmenu', (e) => {
+        const info = ctxInfoFor(e.target);
+        if (!info) return;
+        e.preventDefault();
+        openContextMenu(info, e.clientX, e.clientY);
+      });
+      body.addEventListener('pointerdown', (e) => {
+        if (e.pointerType !== 'touch') return;
+        const info = ctxInfoFor(e.target);
+        if (!info) return;
+        ctxPressStart = { x: e.clientX, y: e.clientY };
+        clearTimeout(ctxTimer);
+        ctxTimer = setTimeout(() => {
+          if (!ctxPressStart) return;
+          ctxSuppressClick = true;
+          if (navigator.vibrate) navigator.vibrate(8);
+          openContextMenu(info, ctxPressStart.x, ctxPressStart.y);
+          ctxPressStart = null;
+        }, 520);
+      }, { passive: true });
+      body.addEventListener('pointermove', (e) => {
+        if (!ctxPressStart) return;
+        if (Math.abs(e.clientX - ctxPressStart.x) > 8 || Math.abs(e.clientY - ctxPressStart.y) > 8) {
+          ctxPressStart = null;
+          clearTimeout(ctxTimer);
+        }
+      }, { passive: true });
+      ['pointerup', 'pointercancel'].forEach(type => {
+        body.addEventListener(type, () => {
+          ctxPressStart = null;
+          clearTimeout(ctxTimer);
+          // Release the trailing-click guard shortly after the finger lifts
+          // so a later tap on the context menu is never swallowed.
+          if (ctxSuppressClick) {
+            setTimeout(() => { ctxSuppressClick = false; }, 420);
+          }
+        }, { passive: true });
+      });
+    })();
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (document.getElementById('ctx-menu').classList.contains('open')) { closeContextMenu(); return; }
+      if (document.getElementById('dl-prompt-layer').classList.contains('open')) { cancelDownloadPrompt(); return; }
+      const menu = document.getElementById('menu-overlay');
+      if (menu.classList.contains('downloads-mode')) { closeDownloads(); return; }
+      if (document.getElementById('search-overlay').classList.contains('open')) { closeSearch(); return; }
+      if (menu.classList.contains('open')) closeMenuOnly();
+    });
+
     /* ---------- Immersive mode: pinch out to hide the pill ---------- */
     let immersive = false;
     let immBannerTimer = null;
@@ -2563,6 +3650,7 @@
       }
       if (on) showImmersiveBanner(); else hideImmersiveBanner();
       syncImmersiveToggle();
+      syncDownloadChip();
       if (!silent) log(on ? 'Immersive: pinch out again to bring the pill back' : 'Immersive off');
     }
     function toggleImmersive() {
@@ -2620,9 +3708,15 @@
     function closeOverlays() {
       const hadOpen = document.querySelectorAll('.overlay.open').length > 0;
       document.querySelectorAll('.overlay').forEach(o => o.classList.remove('open'));
-      document.getElementById('menu-overlay').classList.remove('settings-mode', 'site-mode', 'account-mode');
+      document.getElementById('menu-overlay').classList.remove('settings-mode', 'site-mode', 'account-mode', 'downloads-mode', 'closing-downloads');
       document.getElementById('bottom-bar').classList.remove('blend', 'search-open', 'menu-open');
+      closeContextMenu();
+      if (document.getElementById('dl-prompt-layer').classList.contains('open')) {
+        dlPending = null;
+        closeDownloadPrompt();
+      }
       if (hadOpen) markSheetClosing();
+      syncDownloadChip();
     }
     function overlayBackdrop(e,id){ if(e.target.id===id) closeOverlays(); }
     function submitTo(val){ log('Search: '+val); visit('example.com','Example','E','#7aa2b8'); }
@@ -2635,9 +3729,21 @@
     /* The page scrolls, not the window: condense the pill to the domain while
        it moves and let it expand again once scrolling settles. */
     document.getElementById('web-canvas').addEventListener('scroll', onCanvasScroll, { passive: true });
+    const menuDownloads = document.getElementById('menu-downloads');
+    if (menuDownloads) {
+      menuDownloads.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openDownloads('menu');
+        }
+      });
+    }
     updateChrome();
     renderEngineBadge();
     syncThemeToggles();
+    renderDownloads();
+    syncMenuDownloads();
+    syncDownloadChip();
     log('Mockup v2 ready');
   </script>
 </body>
