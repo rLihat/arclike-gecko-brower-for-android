@@ -13,7 +13,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -465,22 +464,18 @@ fun LoadingGlow(active: Boolean, radius: Dp, modifier: Modifier = Modifier) {
     )
 }
 
-/** Small letter tile used as the site favicon. */
+/** Small letter glyph used when a site has no favicon. No tile or background. */
 @Composable
-fun FaviconTile(letter: String, size: Dp = 22.dp, background: Color? = null) {
+fun FaviconTile(letter: String, size: Dp = 22.dp) {
     val c = LocalArc.current
     Box(
-        Modifier
-            .size(size)
-            .clip(RoundedCornerShape(size / 3))
-            .background(background ?: c.chip)
-            .border(1.dp, c.stroke, RoundedCornerShape(size / 3)),
+        Modifier.size(size),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             letter.uppercase().take(1),
             color = c.accent,
-            fontSize = (size.value * 0.5f).sp,
+            fontSize = (size.value * 0.55f).sp,
             fontWeight = FontWeight.Bold,
         )
     }
@@ -492,13 +487,13 @@ fun FaviconTile(letter: String, size: Dp = 22.dp, background: Color? = null) {
  * Results are cached in memory for the whole process.
  */
 @Composable
-fun SiteFavicon(host: String, letter: String, size: Dp = 22.dp, background: Color? = null) {
+fun SiteFavicon(host: String, letter: String, size: Dp = 22.dp) {
     val bitmap by produceState(initialValue = FaviconCache.peek(host), key1 = host) {
         value = FaviconCache.load(host)
     }
     val bmp = bitmap
     if (bmp == null) {
-        FaviconTile(letter, size, background)
+        FaviconTile(letter, size)
         return
     }
     Box(

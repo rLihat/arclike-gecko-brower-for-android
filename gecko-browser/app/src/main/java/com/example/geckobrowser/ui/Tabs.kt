@@ -148,7 +148,6 @@ private fun TabCard(
                 host = BrowserViewModel.hostOf(tab.url),
                 letter = if (tab.isHome) "A" else tab.title.take(1),
                 size = 18.dp,
-                background = if (tab.isHome) null else accentFor(tab.url),
             )
             Spacer(Modifier.width(8.dp))
             Text(
