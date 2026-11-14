@@ -1,9 +1,12 @@
 package com.example.geckobrowser.ui
 
+import android.provider.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 
 /** The mockup's design tokens, transcribed for native Compose. */
 data class ArcColors(
@@ -99,6 +102,22 @@ val DarkArc = ArcColors(
 )
 
 val LocalArc = staticCompositionLocalOf { LightArc }
+
+/**
+ * Mirrors the mockup's `prefers-reduced-motion` gate: when the system animator
+ * scale is 0, new transitions collapse to their end state instead of playing.
+ */
+@Composable
+fun rememberReduceMotion(): Boolean {
+    val context = LocalContext.current
+    return remember(context) {
+        Settings.Global.getFloat(
+            context.contentResolver,
+            Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f,
+        ) == 0f
+    }
+}
 
 @Composable
 fun ArcTheme(dark: Boolean, content: @Composable () -> Unit) {

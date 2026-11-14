@@ -97,6 +97,14 @@
       box-shadow: 0 30px 80px rgba(0,0,0,0.3); border: 8px solid #111;
       background: radial-gradient(120% 80% at 10% 0%, var(--page-top) 0%, var(--bg1) 40%, var(--bg2) 100%);
     }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .001ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
     .screen { position: absolute; inset: 0; display: none; flex-direction: column; }
     .screen.active { display: flex; }
     .content { flex: 1; overflow: auto; padding: 56px 20px 120px; }
@@ -150,6 +158,15 @@
       background: transparent; border-color: transparent; box-shadow: none;
       -webkit-backdrop-filter: none; backdrop-filter: none;
       transition: background .12s ease, border-color .12s ease, box-shadow .12s ease;
+    }
+    /* In the menu the pill stays visible as a capsule seated in the sheet's
+       base: chip fill, hairline stroke, and a slow colour handover. */
+    .bottom-bar.menu-open {
+      background: var(--chip); border-color: var(--stroke); box-shadow: none;
+      transition: width .42s cubic-bezier(0.32, 0.72, 0, 1),
+                  transform .42s cubic-bezier(0.32, 0.72, 0, 1) .08s,
+                  background .42s cubic-bezier(0.32, 0.72, 0, 1),
+                  border-color .42s cubic-bezier(0.32, 0.72, 0, 1);
     }
     /* Two fixed, centered sets crossfade instead of reflowing, so icons never drift. */
     .nav-set {
@@ -568,8 +585,8 @@
       padding: 0 12px; opacity: 1; visibility: visible; pointer-events: auto; transition-delay: .1s;
     }
     .bottom-bar.scrolled #nd-text { min-width: 0; }
-    /* Immersive mode: pinch out and the whole pill (expanded or condensed)
-       drops away so the page owns the screen. Pinch out again to bring it back. */
+    /* Immersive mode: pinch in and the whole pill (expanded or condensed)
+       drops away so the page owns the screen. Pinch in again to bring it back. */
     .bottom-bar.immersive {
       opacity: 0; pointer-events: none;
       transform: translate(-50%, 22px) scale(.92);
@@ -640,6 +657,15 @@
     }
     .screen.tab-slide-next { animation: tab-slide-from-right .34s cubic-bezier(0.32, 0.72, 0, 1); }
     .screen.tab-slide-prev { animation: tab-slide-from-left .34s cubic-bezier(0.32, 0.72, 0, 1); }
+    /* Closing the switcher: the whole carousel shrinks back into the pill at
+       the bottom centre instead of just fading out. */
+    #tab-overlay.closing {
+      visibility: visible; pointer-events: none;
+      transform-origin: 50% 100%;
+      transform: translateY(36%) scale(.14);
+      opacity: 0;
+      transition: transform .4s cubic-bezier(0.32, 0.72, 0, 1), opacity .3s ease, visibility .4s;
+    }
     .overlay.open { display: block; }
     .sheet {
       position: absolute; left: 0; right: 0; bottom: 0; border-top-left-radius: 30px; border-top-right-radius: 30px;
@@ -674,11 +700,14 @@
       left: 0; width: 100%; bottom: 0; height: 47%;
       border-radius: 30px 30px 0 0; overflow: auto;
     }
-    /* Panel content fades in only once the surface has mostly grown */
-    .menu-view { opacity: 0; transition: opacity .12s ease; }
-    #menu-overlay.open .menu-view { opacity: 1; transition: opacity .2s ease .16s; }
-    #search-overlay .sheet > * { opacity: 0; transition: opacity .12s ease; }
-    #search-overlay.open .sheet > * { opacity: 1; transition: opacity .2s ease .16s; }
+    /* Panel content fades in only once the surface has mostly grown, rising a
+       little so it isn't a bare fade. */
+    .menu-view { opacity: 0; transform: translateY(26px); transition: opacity .12s ease, transform .12s ease; }
+    #menu-overlay.open .menu-view { opacity: 1; transform: none; transition: opacity .2s ease .1s, transform .42s cubic-bezier(0.32, 0.72, 0, 1) .1s; }
+    #search-overlay .sheet > * { opacity: 0; transform: translateY(26px); transition: opacity .12s ease, transform .12s ease; }
+    #search-overlay.open .sheet > * { opacity: 1; transform: none; transition: opacity .2s ease .1s, transform .42s cubic-bezier(0.32, 0.72, 0, 1) .1s; }
+    /* Leave room under the menu rows for the capsule sitting in the sheet base. */
+    #menu-overlay.open .menu-view { padding-bottom: 68px; }
     /* The menu sheet itself grows into the full-height settings page.
        Those pages stay fully opaque; only the menu/search sheets are soft. */
     #menu-overlay.settings-mode .sheet,
@@ -827,9 +856,20 @@
     .stack::-webkit-scrollbar { display: none; }
     .tab-preview {
       flex: 0 0 88%; height: 604px; border-radius: 30px; padding: 14px; cursor: pointer; position: relative;
-      scroll-snap-align: center; transition: transform .2s ease;
+      scroll-snap-align: center; transition: transform .24s cubic-bezier(0.32, 0.72, 0, 1), opacity .24s ease;
       /* The card is just a frame for the miniature: no surface of its own. */
       background: transparent; border: none; box-shadow: none;
+      /* Neighbours sit a touch smaller and dimmed; the focused card owns the row. */
+      transform: scale(.93); opacity: .68;
+    }
+    .tab-preview.active { transform: scale(1); opacity: 1; }
+    /* Swipe up dismisses a card: it lifts away, then the row closes the gap. */
+    @keyframes tab-dismiss-up {
+      to { transform: translateY(-64px) scale(.9); opacity: 0; }
+    }
+    .tab-preview.tab-dismissing {
+      animation: tab-dismiss-up .26s cubic-bezier(0.32, 0.72, 0, 1) forwards;
+      pointer-events: none;
     }
     .tab-preview .tp-top { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom: 10px; font-size: 14px; color: var(--muted); font-weight: 600; }
     /* A real miniature of the tab's webview, cropped to the card */
@@ -983,50 +1023,63 @@
       opacity: .55;
     }
 
-    /* Download prompt: a compact card above the pill */
+    /* Download prompt: a pill-sized question in the pill's footprint. The nav
+       pill steps aside while it shows, exactly like the back/forward notice. */
     .dl-prompt-layer {
       position: absolute; inset: 0; z-index: 56; display: flex; align-items: flex-end; justify-content: center;
-      pointer-events: none;
+      padding-bottom: 18px; pointer-events: none;
     }
     .dl-prompt-layer.open { pointer-events: auto; }
     .dl-prompt {
-      position: relative; width: calc(100% - 28px); margin-bottom: 88px; padding: 14px;
-      background: var(--sheet-bg); border: 1px solid var(--stroke); border-radius: 22px;
-      box-shadow: 0 24px 60px rgba(20, 30, 35, 0.26);
-      opacity: 0; transform: translateY(18px) scale(.965);
-      transition: opacity .2s ease, transform .3s cubic-bezier(0.32, 0.72, 0, 1);
+      position: relative; width: 70%; height: 58px; padding: 0 8px 0 10px;
+      display: flex; align-items: center; gap: 8px;
+      background: var(--nav-surface); border: 1px solid var(--stroke); border-radius: 29px;
+      box-shadow: var(--shadow);
+      opacity: 0; transform: translateY(14px) scale(.96);
+      transition: opacity .26s ease, transform .32s cubic-bezier(0.32, 0.72, 0, 1);
     }
     .dl-prompt-layer.open .dl-prompt { opacity: 1; transform: none; }
-    .dlp-head { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 10px; }
-    .dlp-head span { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+    .dl-prompt .dl-ftile { width: 32px; height: 32px; flex: 0 0 32px; border-radius: 10px; font-size: 9px; }
+    .dlp-meta { flex: 1; min-width: 0; }
+    .dlp-meta b { display: block; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dlp-meta span { display: block; margin-top: 1px; font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .dlp-x {
-      width: 26px; height: 26px; border: 0; border-radius: 9px; background: transparent; color: var(--muted);
+      width: 26px; height: 26px; flex: 0 0 26px; border: 0; border-radius: 9px; background: transparent; color: var(--muted);
       display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0;
     }
     .dlp-x:hover { background: var(--chip); color: var(--text); }
-    .dlp-x svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; }
-    .dlp-file { display: flex; align-items: center; gap: 11px; padding: 2px 2px 12px; }
-    .dlp-meta { flex: 1; min-width: 0; }
-    .dlp-meta b { display: block; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .dlp-meta span { display: block; margin-top: 3px; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .dlp-actions { display: flex; gap: 8px; }
-    .dlp-btn {
-      flex: 1; height: 38px; border: 0; border-radius: 12px; background: var(--chip); color: var(--text);
-      font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer;
+    .dlp-x svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; }
+    .dlp-dl {
+      width: 34px; height: 34px; flex: 0 0 34px; border: 0; border-radius: 17px; padding: 0;
+      background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer;
+      transition: transform .16s ease;
     }
-    .dlp-btn:active { transform: scale(.985); }
-    .dlp-btn.primary { background: var(--accent); color: #fff; }
+    .dlp-dl:active { transform: scale(.95); }
+    .dlp-dl svg { width: 17px; height: 17px; stroke: #fff; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    /* The pill hands its footprint to the prompt while it is up. */
+    .bottom-bar.prompt-open {
+      opacity: 0; pointer-events: none;
+      transform: translate(-50%, 22px) scale(.92);
+    }
 
-    /* Small floating confirmation inside the phone */
+    /* Small messages reuse the same pill-sized popup; over a sheet they sit
+       just above the capsule instead of in its footprint. */
     .dl-toast {
-      position: absolute; left: 50%; bottom: 92px; z-index: 58; max-width: 64%;
-      padding: 8px 13px; border-radius: 12px; background: var(--sheet-bg);
-      border: 1px solid var(--stroke); box-shadow: var(--shadow); color: var(--text);
-      font-size: 11.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-      opacity: 0; pointer-events: none; transform: translate(-50%, 8px);
-      transition: opacity .2s ease, transform .24s cubic-bezier(0.32, 0.72, 0, 1);
+      position: absolute; left: 50%; bottom: 18px; z-index: 58; width: 70%; height: 58px;
+      padding: 0 18px; display: flex; align-items: center; justify-content: center;
+      border-radius: 29px; background: var(--nav-surface); border: 1px solid var(--stroke);
+      box-shadow: var(--shadow); color: var(--text);
+      font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      opacity: 0; pointer-events: none; transform: translate(-50%, 14px) scale(.96);
+      transition: opacity .26s ease, transform .32s cubic-bezier(0.32, 0.72, 0, 1);
     }
-    .dl-toast.show { opacity: 1; transform: translate(-50%, 0); }
+    .dl-toast.show { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    .dl-toast.raised { bottom: 92px; }
+    /* The pill yields its footprint to the toast on the page. */
+    .bottom-bar.toast-open {
+      opacity: 0; pointer-events: none;
+      transform: translate(-50%, 22px) scale(.92);
+    }
 
     /* Context menu (long press / right click) */
     .ctx-menu {
@@ -1296,29 +1349,23 @@
           </span>
           <span>
             <b>Immersive mode</b>
-            <small>Pinch out to bring the pill back</small>
+            <small>Pinch in again to bring the pill back</small>
           </span>
         </div>
 
         <div class="dl-prompt-layer" id="dl-prompt-layer" onclick="if(event.target===this) cancelDownloadPrompt()">
           <div class="dl-prompt" role="dialog" aria-modal="true" aria-labelledby="dlp-name">
-            <div class="dlp-head">
-              <span>Download file?</span>
-              <button class="dlp-x" type="button" onclick="cancelDownloadPrompt()" title="Close" aria-label="Close">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
-              </button>
+            <span class="dl-ftile t-zip" id="dlp-tile">ZIP</span>
+            <div class="dlp-meta">
+              <b id="dlp-name">file.zip</b>
+              <span id="dlp-meta">4.2 MB · files.example</span>
             </div>
-            <div class="dlp-file">
-              <span class="dl-ftile t-zip" id="dlp-tile">ZIP</span>
-              <div class="dlp-meta">
-                <b id="dlp-name">file.zip</b>
-                <span id="dlp-meta">4.2 MB · files.example</span>
-              </div>
-            </div>
-            <div class="dlp-actions">
-              <button class="dlp-btn" type="button" onclick="cancelDownloadPrompt()">Cancel</button>
-              <button class="dlp-btn primary" type="button" onclick="confirmDownload()">Download</button>
-            </div>
+            <button class="dlp-x" type="button" onclick="cancelDownloadPrompt()" title="Cancel download" aria-label="Cancel download">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+            </button>
+            <button class="dlp-dl" type="button" onclick="confirmDownload()" title="Download" aria-label="Download">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/><path d="M5 19h14"/></svg>
+            </button>
           </div>
         </div>
 
@@ -1781,6 +1828,8 @@
       <p>Arc-inspired GeckoView concept. Click around, then tell me what to change.</p>
       <div class="note"><b>Tabs:</b> favicon in navbar; tap for horizontal recents-style previews. <b>Search (+):</b> expands input only; queries open a DuckDuckGo results page. <b>Menu (⌃):</b> URL with copy, back/forward/refresh, share, extensions, settings + Mozilla pfp.</div>
       <div class="note"><b>Sites:</b> YouTube, GitHub, Gmail and Add-ons clones are long enough to scroll — page content runs edge-to-edge behind the pill, which glows while loading, condenses to a bare domain chip as you scroll down, and hands the icons back the moment you scroll up. A 3px scroll indicator fades in on the page edge.</div>
+      <div class="note"><b>Immersive &amp; tabs:</b> pinch in on a page to hide the pill; pinch in again to bring it back (home and zoomed pages are ignored, trackpad pinch-in works too). In the carousel, swipe a card up to dismiss it (the row closes the gap) or down to focus it; horizontal drags still scroll. Page changes slide with the direction of travel, and reduced motion turns the transitions off.</div>
+      <div class="note"><b>Popups:</b> the download question and small messages like “Canceled” or “Opening” use the pill’s own footprint, and the pill steps aside while they show. Finished downloads don’t pop anything — the live chip already says it.</div>
       <div class="note"><b>Gestures:</b> swipe ↑ from the plus or menu arrow for the menu · ↓ from the plus, search ×, menu arrow or a sheet handle dismisses what’s open · ←/→ from the plus slides between tabs · ↑ from the tab icon opens previews (↓ closes them) · ←/→ from the tab icon goes back/forward · ← from the menu arrow goes back · ↑ from the live download chip cancels it and clears the row. Back and forward flash the same pill-sized notice as immersive mode.</div>
       <div class="section-title">Debug</div>
       <div class="debug-row">
@@ -1806,6 +1855,8 @@
           <button class="gesture-btn" type="button" onclick="debugGesture('tabs-down')" title="Swipe down from the tab icon"><span class="g-arrow">↓</span><span class="g-target">tabs dismiss</span></button>
           <button class="gesture-btn" type="button" onclick="debugGesture('tabs-left')" title="Swipe the tab icon left"><span class="g-arrow">←</span><span class="g-target">tab back</span></button>
           <button class="gesture-btn" type="button" onclick="debugGesture('tabs-right')" title="Swipe the tab icon right"><span class="g-arrow">→</span><span class="g-target">tab forward</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('card-up')" title="Swipe a tab card up"><span class="g-arrow">↑</span><span class="g-target">card dismiss</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('card-down')" title="Swipe a tab card down"><span class="g-arrow">↓</span><span class="g-target">card focus</span></button>
           <button class="gesture-btn" type="button" onclick="debugGesture('arrow-left')" title="Swipe the menu arrow left"><span class="g-arrow">←</span><span class="g-target">arrow back</span></button>
           <button class="gesture-btn" type="button" onclick="debugGesture('arrow-right')" title="Swipe the menu arrow right"><span class="g-arrow">→</span><span class="g-target">arrow forward</span></button>
           <button class="gesture-btn" type="button" onclick="debugGesture('dl-up')" title="Swipe up from the live download"><span class="g-arrow">↑</span><span class="g-target">chip cancel</span></button>
@@ -2478,6 +2529,7 @@
       if (target) {
         pageIndex -= 1;
         openHistoryEntry(target);
+        animatePageSlide(-1);
       }
       showNavBanner('back', target);
     }
@@ -2486,6 +2538,7 @@
       if (target) {
         pageIndex += 1;
         openHistoryEntry(target);
+        animatePageSlide(1);
       }
       showNavBanner('forward', target);
     }
@@ -2503,8 +2556,10 @@
       animateTabSwitch(dir);
       log('Tab: ' + tabs[currentTab].title);
     }
-    /* Slide the freshly swapped page in from the side the swipe came from. */
-    function animateTabSwitch(dir) {
+    /* Slide the freshly swapped page in from the side of travel: +1 means the
+       incoming page arrives from the right (next tab / forward), -1 from the
+       left (previous tab / back). */
+    function animatePageSlide(dir) {
       const screen = document.querySelector('#phone .screen.active');
       if (!screen) return;
       screen.classList.remove('tab-slide-next', 'tab-slide-prev');
@@ -2514,11 +2569,12 @@
         screen.classList.remove('tab-slide-next', 'tab-slide-prev');
       }, { once: true });
     }
+    function animateTabSwitch(dir) { animatePageSlide(dir); }
     /* Downward swipes undo the surface a pill gesture opened. */
     function closeSurface() {
       const menu = document.getElementById('menu-overlay');
       if (document.getElementById('tab-overlay').classList.contains('open')) {
-        dismissTabOverlay();
+        markTabClosing();
         return;
       }
       if (menu.classList.contains('downloads-mode')) { closeDownloads(); return; }
@@ -2536,6 +2592,19 @@
       if (!ov.classList.contains('open')) return;
       ov.classList.remove('open');
       document.getElementById('bottom-bar').classList.remove('blend');
+      syncDownloadChip();
+    }
+    let tabCloseTimer = null;
+    /* The carousel flies back into the pill: shrink toward its bottom-centre
+       footprint, then drop the class so it can zoom in normally next time. */
+    function markTabClosing() {
+      const ov = document.getElementById('tab-overlay');
+      if (!ov.classList.contains('open')) return;
+      ov.classList.remove('open');
+      ov.classList.add('closing');
+      document.getElementById('bottom-bar').classList.remove('blend');
+      clearTimeout(tabCloseTimer);
+      tabCloseTimer = setTimeout(() => ov.classList.remove('closing'), 430);
       syncDownloadChip();
     }
     function toggleMenu() {
@@ -2689,6 +2758,13 @@
         card.appendChild(top);
         card.appendChild(page);
         stack.appendChild(card);
+        // Cards take the same classified swipes as the pill controls: a
+        // downward swipe focuses the tab (like a tap), an upward swipe dismisses
+        // it. Horizontal drags fall through and keep scrolling the row.
+        attachSwipe(card, {
+          up: () => dismissTabCard(i, card),
+          down: () => openTab(i),
+        });
       });
       const plus = document.createElement('div');
       plus.className = 'tab-preview glass new-tab-card';
@@ -2714,6 +2790,30 @@
       lastScrollTop = 0;
       if (card && from && from.width) expandCardIntoPage(card, from);
       log('Switched tab: ' + tabs[i].title);
+    }
+    /* Swipe-up on a card: the card lifts away, then the row closes the gap.
+       Removing the focused tab focuses its neighbour; removing the last tab
+       leaves a fresh home tab behind. */
+    function dismissTabCard(index, card) {
+      if (!tabs[index]) return;
+      const wasActive = index === currentTab;
+      const removed = tabs[index];
+      if (card) card.classList.add('tab-dismissing');
+      log('Dismissing tab: ' + removed.title);
+      setTimeout(() => {
+        if (tabs.length <= 1) {
+          tabs.length = 0;
+          tabs.push({ title: 'Home', url: 'home', favicon: 'H', color: '#8fb3c2' });
+          currentTab = 0;
+        } else {
+          tabs.splice(index, 1);
+          if (wasActive) currentTab = Math.min(index, tabs.length - 1);
+          else if (index < currentTab) currentTab -= 1;
+        }
+        updateChrome();
+        renderTabStack();
+        syncDownloadChip();
+      }, 270);
     }
     /* Reverse FLIP: the chosen card's miniature expands into the focused page. */
     function expandCardIntoPage(card, from) {
@@ -3229,10 +3329,21 @@
       // The manager shows its own live state; a floating toast over it just
       // competes with the rows.
       if (document.getElementById('menu-overlay').classList.contains('downloads-mode')) return;
+      const sheetOpen = !!document.querySelector('#menu-overlay.open, #search-overlay.open, #tab-overlay.open');
+      const bar = document.getElementById('bottom-bar');
+      // Same pill-sized popup: in the pill's footprint, or 92px up when a sheet
+      // already owns the base of the screen.
+      el.classList.toggle('raised', sheetOpen);
+      bar.classList.toggle('toast-open', !sheetOpen);
       el.textContent = msg;
       el.classList.add('show');
+      syncDownloadChip();
       clearTimeout(dlToastTimer);
-      dlToastTimer = setTimeout(() => el.classList.remove('show'), 1900);
+      dlToastTimer = setTimeout(() => {
+        el.classList.remove('show', 'raised');
+        bar.classList.remove('toast-open');
+        syncDownloadChip();
+      }, 2000);
     }
 
     function requestDownload(spec, src) {
@@ -3250,6 +3361,7 @@
       tile.textContent = dlKind(dlPending.name);
       tile.className = 'dl-ftile ' + dlKindClass(dlPending.name);
       document.getElementById('dl-prompt-layer').classList.add('open');
+      document.getElementById('bottom-bar').classList.add('prompt-open');
       log('Download prompt: ' + dlPending.name);
     }
     function requestDownloadFromEvent(e, name, sizeText) {
@@ -3270,6 +3382,7 @@
     }
     function closeDownloadPrompt() {
       document.getElementById('dl-prompt-layer').classList.remove('open');
+      document.getElementById('bottom-bar').classList.remove('prompt-open');
     }
     function cancelDownloadPrompt() {
       dlPending = null;
@@ -3324,7 +3437,7 @@
           const chip = document.getElementById('dl-chip');
           chip.classList.add('landed');
           setTimeout(() => chip.classList.remove('landed'), 520);
-          toast('Downloaded ' + d.name);
+          // No completion popup: the live chip already announces the finish.
           log('Download complete: ' + d.name);
         }
       });
@@ -3374,6 +3487,7 @@
       const menuOpen = menu.classList.contains('open');
       const blocked = !!(document.querySelector('#tab-overlay.open, #search-overlay.open') ||
         bar.classList.contains('scrolled') || bar.classList.contains('immersive') ||
+        bar.classList.contains('toast-open') || bar.classList.contains('prompt-open') ||
         menu.classList.contains('downloads-mode') ||
         menu.classList.contains('settings-mode') || menu.classList.contains('site-mode') ||
         menu.classList.contains('account-mode'));
@@ -3904,7 +4018,7 @@
       if (menu.classList.contains('open')) closeMenuOnly();
     });
 
-    /* ---------- Immersive mode: pinch out to hide the pill ---------- */
+    /* ---------- Immersive mode: pinch in to hide the pill ---------- */
     let immersive = false;
     let immBannerTimer = null;
     let immZoomTimer = null;
@@ -3944,7 +4058,7 @@
       if (on) showImmersiveBanner(); else hideImmersiveBanner();
       syncImmersiveToggle();
       syncDownloadChip();
-      if (!silent) log(on ? 'Immersive: pinch out again to bring the pill back' : 'Immersive off');
+      if (!silent) log(on ? 'Immersive: pinch in again to bring the pill back' : 'Immersive off');
     }
     function toggleImmersive() {
       const next = !immersive;
@@ -3957,28 +4071,38 @@
       const browse = document.getElementById('screen-browse');
       if (!browse || !browse.classList.contains('active')) return false;
       if (document.querySelector('.overlay.open')) return false;
+      // Only at neutral page zoom; a user already pinching to zoom keeps zoom.
+      if (zoomLevel !== 100) return false;
       const t = tabs[currentTab];
       return !!t && t.url !== 'home';
     }
-    /* Two-finger pinch, measured from the moment the second finger lands.
-       Only an outward pinch toggles, so an accidental squeeze does nothing. */
+    /* Pinch in to hide the pill, pinch in again to bring it back. The start
+       distance is captured when the second finger lands; only an inward pinch
+       (below 0.82x of it) counts, and the fingers must start 90px apart so a
+       light two-finger tap doesn't toggle anything. Pinching out does nothing. */
     const pinchTouches = new Map();
     let pinchStart = 0;
+    let pinchConsumed = false;
     function pinchDistance() {
       const p = [...pinchTouches.values()];
       return Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y);
     }
     document.addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'touch') return;
+      if (pinchTouches.size === 0) pinchConsumed = false;
       pinchTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (pinchTouches.size === 2) pinchStart = pinchDistance();
+      if (pinchTouches.size === 2) {
+        pinchStart = pinchDistance();
+        pinchConsumed = false;
+      }
     }, { passive: true });
     document.addEventListener('pointermove', (e) => {
       if (!pinchTouches.has(e.pointerId)) return;
       pinchTouches.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (pinchTouches.size !== 2 || !pinchStart) return;
-      if (pinchDistance() > Math.max(140, pinchStart * 1.45) && canPinch()) {
-        pinchStart = 0;
+      if (pinchTouches.size !== 2 || !pinchStart || pinchConsumed) return;
+      if (pinchStart < 90) return;
+      if (pinchDistance() < pinchStart * 0.82 && canPinch()) {
+        pinchConsumed = true;
         toggleImmersive();
       }
     }, { passive: true });
@@ -3988,10 +4112,11 @@
     };
     document.addEventListener('pointerup', endPinch);
     document.addEventListener('pointercancel', endPinch);
-    /* Trackpad users: a pinch arrives as ctrl+wheel, so mirror the gesture. */
+    /* Trackpad users: a pinch arrives as ctrl+wheel with a positive deltaY, so
+       only that direction mirrors the gesture. */
     let lastPinchWheel = 0;
     document.addEventListener('wheel', (e) => {
-      if (!e.ctrlKey || e.deltaY >= 0 || !canPinch()) return;
+      if (!e.ctrlKey || e.deltaY <= 0 || !canPinch()) return;
       e.preventDefault();
       const now = performance.now();
       if (now - lastPinchWheel < 900) return;
@@ -3999,7 +4124,9 @@
       toggleImmersive();
     }, { passive: false });
     function closeOverlays() {
+      const tabsWereOpen = document.getElementById('tab-overlay').classList.contains('open');
       const hadOpen = document.querySelectorAll('.overlay.open').length > 0;
+      if (tabsWereOpen) markTabClosing();
       document.querySelectorAll('.overlay').forEach(o => o.classList.remove('open'));
       document.getElementById('menu-overlay').classList.remove('settings-mode', 'site-mode', 'account-mode', 'downloads-mode', 'closing-downloads');
       document.getElementById('bottom-bar').classList.remove('blend', 'search-open', 'menu-open');
@@ -4023,6 +4150,19 @@
        it moves and let it expand again once scrolling settles. */
     document.getElementById('web-canvas').addEventListener('scroll', onCanvasScroll, { passive: true });
     /* ---------- Nav swipe triggers (plus, tab icon, menu arrow) ---------- */
+    /* One classifier for every pill control:
+       - tap           under 24px -> fire the control's click ourselves, because
+                       Chrome drops the native click once a finger has moved
+                       ~15px; the native click is then swallowed.
+       - up/down       26px with a 1.25 vertical-to-horizontal ratio.
+       - horizontal    26px at 1.25, or a stricter 36px at 2.2 for back/forward
+                       so a diagonal doesn't navigate.
+       - ambiguous long diagonals do nothing. */
+    const TAP_MAX = 24;
+    const SWIPE_MIN = 26;
+    const SWIPE_MIN_STRICT = 36;
+    const SWIPE_RATIO = 1.25;
+    const SWIPE_RATIO_STRICT = 2.2;
     function attachSwipe(el, opts) {
       if (!el) return;
       let sx = 0, sy = 0, pointerId = null, tracking = false, moved = false;
@@ -4044,20 +4184,33 @@
         if (!tracking || e.pointerId !== pointerId) return;
         tracking = false;
         pointerId = null;
-        if (!moved) return;
         const dx = e.clientX - sx;
         const dy = e.clientY - sy;
         const ax = Math.abs(dx);
         const ay = Math.abs(dy);
-        if (!cancelled && Math.max(ax, ay) >= 26) {
-          if (ay > ax * 1.25 && dy < 0) opts.up && opts.up();
-          else if (ay > ax * 1.25 && dy > 0) opts.down && opts.down();
-          else if (ax > ay * 1.25 && dx < 0) opts.left && opts.left();
-          else if (ax > ay * 1.25 && dx > 0) opts.right && opts.right();
+        const dist = Math.max(ax, ay);
+        const strict = !!opts.strictHorizontal;
+        const hMin = strict ? SWIPE_MIN_STRICT : SWIPE_MIN;
+        const hRatio = strict ? SWIPE_RATIO_STRICT : SWIPE_RATIO;
+        if (!cancelled) {
+          if (dist < TAP_MAX) {
+            // Self-fired tap; the browser's own click is swallowed below.
+            if (typeof el.onclick === 'function') {
+              try { el.onclick.call(el, new MouseEvent('click', { bubbles: true, cancelable: true })); }
+              catch { /* handler decided not to run */ }
+            }
+          } else if (ay >= SWIPE_MIN && ay > ax * SWIPE_RATIO) {
+            if (dy < 0) opts.up && opts.up();
+            else opts.down && opts.down();
+          } else if (ax >= hMin && ax > ay * hRatio) {
+            if (dx < 0) opts.left && opts.left();
+            else opts.right && opts.right();
+          }
+          // else: an ambiguous diagonal, so nothing fires.
         }
-        // A drag must never also count as a tap on the control it started on.
+        // Swallow the native click after a tap and after every real drag.
         el.dataset.swipeSuppress = '1';
-        setTimeout(() => { delete el.dataset.swipeSuppress; }, 80);
+        setTimeout(() => { delete el.dataset.swipeSuppress; }, 340);
       };
       el.addEventListener('pointerup', e => end(e, false));
       el.addEventListener('pointercancel', e => end(e, true));
@@ -4076,14 +4229,16 @@
         right: () => switchTab(-1),
       });
       document.querySelectorAll('.nav-menu-btn').forEach((btn) => attachSwipe(btn, {
+        strictHorizontal: true,
         up: () => openMenu(),
         down: () => closeSurface(),
         left: () => goBackPage(),
         right: () => goForwardPage(),
       }));
       attachSwipe(document.getElementById('nav-tabs'), {
+        strictHorizontal: true,
         up: () => openTabSwitcher(),
-        down: () => dismissTabOverlay(),
+        down: () => closeSurface(),
         left: () => goBackPage(),
         right: () => goForwardPage(),
       });
@@ -4117,7 +4272,7 @@
           break;
         case 'tabs-down':
           log('Gesture: swipe down from the tab icon');
-          dismissTabOverlay();
+          markTabClosing();
           break;
         case 'tabs-left':
           log('Gesture: swipe the tab icon left');
@@ -4127,6 +4282,24 @@
           log('Gesture: swipe the tab icon right');
           goForwardPage();
           break;
+        case 'card-up': {
+          log('Gesture: swipe up on a tab card');
+          if (!document.getElementById('tab-overlay').classList.contains('open')) openTabSwitcher();
+          const cards = [...document.querySelectorAll('#tab-stack .tab-preview:not(.new-tab-card)')];
+          if (cards.length) {
+            const active = cards.find(c => c.classList.contains('active')) || cards[0];
+            dismissTabCard(cards.indexOf(active), active);
+          }
+          break;
+        }
+        case 'card-down': {
+          log('Gesture: swipe down on a tab card');
+          if (!document.getElementById('tab-overlay').classList.contains('open')) openTabSwitcher();
+          const cards = [...document.querySelectorAll('#tab-stack .tab-preview:not(.new-tab-card)')];
+          const pick = cards.find(c => !c.classList.contains('active')) || cards[0];
+          if (pick) openTab(cards.indexOf(pick));
+          break;
+        }
         case 'arrow-left':
           log('Gesture: swipe the menu arrow left');
           goBackPage();

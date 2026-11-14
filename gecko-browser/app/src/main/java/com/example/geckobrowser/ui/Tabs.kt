@@ -1,10 +1,13 @@
 package com.example.geckobrowser.ui
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -27,6 +30,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -34,12 +41,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.geckobrowser.BrowserViewModel
 import com.example.geckobrowser.TabInfo
+import kotlinx.coroutines.launch
 
 private fun accentFor(host: String): Color = when {
     host.contains("youtube") -> Color(0xFFFF0033)
@@ -52,7 +63,7 @@ private fun accentFor(host: String): Color = when {
 }
 
 @Composable
-fun TabSwitcher(vm: BrowserViewModel) {
+fun TabSwitcher(vm: BrowserViewModel, modifier: Modifier = Modifier) {
     val c = LocalArc.current
     val tabs = vm.tabs
     val state = rememberLazyListState()
@@ -63,9 +74,15 @@ fun TabSwitcher(vm: BrowserViewModel) {
     }
 
     BoxWithConstraints(
-        Modifier
+        modifier
             .fillMaxSize()
             .background(c.switcherBg)
+            // Empty space around the row closes the carousel; the cards
+            // themselves consume their own taps and swipes.
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) { vm.closeOverlay() }
             // A deliberate downward pull closes the carousel; the taller
             // threshold keeps it out of the way of the horizontal paging.
             .swipeActions(threshold = 70.dp, onDown = { vm.closeOverlay() })
@@ -130,16 +147,51 @@ private fun TabCard(
     onClose: () -> Unit,
 ) {
     val c = LocalArc.current
-    val scale by animateFloatAsState(if (active) 1f else 0.955f, tween(220), label = "cardScale")
-    val alpha by animateFloatAsState(if (active) 1f else 0.86f, tween(220), label = "cardAlpha")
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+    val scale by animateFloatAsState(if (active) 1f else 0.93f, tween(220), label = "cardScale")
+    val baseAlpha by animateFloatAsState(if (active) 1f else 0.68f, tween(220), label = "cardAlpha")
+    // Drag tracking for the two vertical card gestures: up dismisses, down
+    // focuses the tab (the same result as a tap).
+    var drag by remember { mutableFloatStateOf(0f) }
+    val dismiss = remember { Animatable(0f) }
+    val threshold = with(density) { 26.dp.toPx() }
+    val lift = with(density) { 64.dp.toPx() }
 
     Column(
         Modifier
             .width(width)
             .fillMaxHeight()
             .scale(scale)
-            .alpha(alpha)
+            .alpha(baseAlpha * (1f - dismiss.value))
+            .graphicsLayer { translationY = drag - lift * dismiss.value }
             .padding(vertical = 2.dp)
+            .pointerInput(tab.id) {
+                detectVerticalDragGestures(
+                    onVerticalDrag = { change, amount ->
+                        change.consume()
+                        if (dismiss.value == 0f) {
+                            drag = (drag + amount).coerceIn(-160f, 90f)
+                        }
+                    },
+                    onDragEnd = {
+                        when {
+                            drag <= -threshold -> scope.launch {
+                                // Let the card lift away, then let the row close
+                                // the gap by removing the tab.
+                                dismiss.animateTo(1f, tween(260))
+                                onClose()
+                            }
+                            drag >= threshold -> {
+                                drag = 0f
+                                onSelect()
+                            }
+                            else -> drag = 0f
+                        }
+                    },
+                    onDragCancel = { drag = 0f },
+                )
+            }
             .clickable { onSelect() },
     ) {
         Row(

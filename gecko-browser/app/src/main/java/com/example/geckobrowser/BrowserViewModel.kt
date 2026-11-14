@@ -501,6 +501,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         val target = h.urls.getOrNull(h.index + if (forward) 1 else -1)
         if (target != null) {
             if (forward) goForward() else goBack()
+            // Same slide as a tab swipe, but read from the direction of travel:
+            // back enters from the left, forward from the right.
+            tabSwitch = TabSwitch(if (forward) 1 else -1)
         }
         navNotice = NavNotice(forward = forward, url = target)
         navNoticeJob?.cancel()
@@ -902,7 +905,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             ) else it
         }
         if (flight == null) chipPulse++
-        showToast("Downloaded ${item.name}")
+        // No completion popup: the live chip already announces the finish.
     }
 
     private fun markDownloadCanceled(id: Long) {

@@ -509,6 +509,8 @@ fun SettingsGroup(content: @Composable androidx.compose.foundation.layout.Column
  * Swipe recognition for the nav controls. A drag past the threshold (26dp for
  * the pill controls, more for full-screen surfaces) fires at most one action;
  * because the drag consumes the pointer, the underlying click never also fires.
+ * Back/forward bindings ask for `strictHorizontal`, which raises the horizontal
+ * bar to 36dp at a 2.2 ratio so a long diagonal doesn't navigate.
  */
 fun Modifier.swipeActions(
     onUp: (() -> Unit)? = null,
@@ -516,10 +518,14 @@ fun Modifier.swipeActions(
     onLeft: (() -> Unit)? = null,
     onRight: (() -> Unit)? = null,
     threshold: Dp = 26.dp,
+    strictHorizontal: Boolean = false,
 ): Modifier {
     if (onUp == null && onDown == null && onLeft == null && onRight == null) return this
-    return this.pointerInput(onUp, onDown, onLeft, onRight, threshold) {
+    return this.pointerInput(onUp, onDown, onLeft, onRight, threshold, strictHorizontal) {
         val slop = threshold.toPx()
+        val horizontalSlop = if (strictHorizontal) 36.dp.toPx() else slop
+        val verticalRatio = 1.25f
+        val horizontalRatio = if (strictHorizontal) 2.2f else 1.25f
         var dx = 0f
         var dy = 0f
         detectDragGestures(
@@ -537,10 +543,10 @@ fun Modifier.swipeActions(
                 val ay = abs(dy)
                 if (max(ax, ay) >= slop) {
                     when {
-                        ay > ax * 1.25f && dy < 0f -> onUp?.invoke()
-                        ay > ax * 1.25f && dy > 0f -> onDown?.invoke()
-                        ax > ay * 1.25f && dx < 0f -> onLeft?.invoke()
-                        ax > ay * 1.25f && dx > 0f -> onRight?.invoke()
+                        ay >= slop && ay > ax * verticalRatio && dy < 0f -> onUp?.invoke()
+                        ay >= slop && ay > ax * verticalRatio && dy > 0f -> onDown?.invoke()
+                        ax >= horizontalSlop && ax > ay * horizontalRatio && dx < 0f -> onLeft?.invoke()
+                        ax >= horizontalSlop && ax > ay * horizontalRatio && dx > 0f -> onRight?.invoke()
                     }
                 }
             },
@@ -555,6 +561,7 @@ fun PillButton(
     onSwipeDown: (() -> Unit)? = null,
     onSwipeLeft: (() -> Unit)? = null,
     onSwipeRight: (() -> Unit)? = null,
+    strictHorizontal: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val c = LocalArc.current
@@ -562,7 +569,13 @@ fun PillButton(
         Modifier
             .size(46.dp)
             .clip(CircleShape)
-            .swipeActions(onSwipeUp, onSwipeDown, onSwipeLeft, onSwipeRight)
+            .swipeActions(
+                onUp = onSwipeUp,
+                onDown = onSwipeDown,
+                onLeft = onSwipeLeft,
+                onRight = onSwipeRight,
+                strictHorizontal = strictHorizontal,
+            )
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

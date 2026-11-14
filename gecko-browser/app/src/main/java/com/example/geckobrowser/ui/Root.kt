@@ -1,8 +1,11 @@
 package com.example.geckobrowser.ui
 
+import android.os.SystemClock
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
@@ -103,6 +106,16 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
         val c = LocalArc.current
         val overlay = vm.overlay
         val tab = vm.activeTab
+        val reduceMotion = rememberReduceMotion()
+
+        // Pinch-in hides the chrome; it only applies on a live page at 100%
+        // zoom with nothing layered over it. Leaving that state brings it back.
+        var immersive by remember { mutableStateOf(false) }
+        val canImmersive = overlay == Overlay.None && tab != null && !tab.isHome &&
+            vm.zoom == 100 && vm.pendingDownload == null
+        LaunchedEffect(canImmersive) {
+            if (!canImmersive) immersive = false
+        }
 
         LaunchedEffect(vm.addonPickerRequest.value) {
             if (vm.addonPickerRequest.value) {
@@ -139,7 +152,7 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
             }
             LaunchedEffect(tabSwitch) {
                 if (tabSwitch == null) return@LaunchedEffect
-                pageSlide.animateTo(0f, tween(320, easing = morphEasing))
+                pageSlide.animateTo(0f, tween(if (reduceMotion) 0 else 320, easing = morphEasing))
                 vm.consumeTabSwitch()
             }
             Box(
@@ -159,6 +172,8 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                     session = vm.activeSession,
                     background = c.siteBg,
                     zoom = vm.zoom / 100f,
+                    pinchEnabled = canImmersive,
+                    onPinchIn = { immersive = !immersive },
                     onTap = { x, y -> vm.recordPageTap(x, y) },
                 )
                 if (tab == null || tab.isHome) {
@@ -183,15 +198,41 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                 }
             }
 
-            AnimatedVisibility(
-                visible = overlay == Overlay.Tabs,
-                enter = fadeIn(tween(220)) + scaleIn(tween(320, easing = morphEasing), initialScale = 0.92f),
-                exit = fadeOut(tween(180)),
-            ) {
-                TabSwitcher(vm)
+            // The carousel grows out of the page when opened and flies back into
+            // the pill's footprint on close. Reduced motion jumps to the end.
+            var tabsVisible by remember { mutableStateOf(false) }
+            val tabAnim = remember { Animatable(1f) }
+            LaunchedEffect(overlay) {
+                if (overlay == Overlay.Tabs) {
+                    tabAnim.snapTo(0.92f)
+                    tabsVisible = true
+                    tabAnim.animateTo(1f, tween(if (reduceMotion) 0 else 320, easing = morphEasing))
+                } else if (tabsVisible) {
+                    tabAnim.animateTo(0.14f, tween(if (reduceMotion) 0 else 400, easing = morphEasing))
+                    tabsVisible = false
+                    tabAnim.snapTo(1f)
+                }
+            }
+            val tabAlpha by animateFloatAsState(
+                if (overlay == Overlay.Tabs) 1f else 0f,
+                tween(if (reduceMotion) 0 else if (overlay == Overlay.Tabs) 220 else 320),
+                label = "tabsAlpha",
+            )
+            if (tabsVisible) {
+                TabSwitcher(
+                    vm = vm,
+                    modifier = Modifier.graphicsLayer {
+                        val progress = ((tabAnim.value - 0.14f) / 0.86f).coerceIn(0f, 1f)
+                        scaleX = tabAnim.value
+                        scaleY = tabAnim.value
+                        alpha = tabAlpha
+                        translationY = (1f - progress) * 0.36f * size.height
+                        transformOrigin = TransformOrigin(0.5f, 1f)
+                    },
+                )
             }
 
-            ChromeOverlay(vm)
+            ChromeOverlay(vm, immersive)
         }
     }
 }
@@ -201,17 +242,49 @@ private fun WebHost(
     session: GeckoSession?,
     background: Color,
     zoom: Float,
+    pinchEnabled: Boolean,
+    onPinchIn: () -> Unit,
     onTap: (Float, Float) -> Unit,
 ) {
     // The factory lambda only runs once, so read live values through state.
     val zoomState = rememberUpdatedState(zoom)
     val tapState = rememberUpdatedState(onTap)
+    val pinchEnabledState = rememberUpdatedState(pinchEnabled)
+    val pinchState = rememberUpdatedState(onPinchIn)
     AndroidView(
         factory = { ctx ->
+            val density = ctx.resources.displayMetrics.density.coerceAtLeast(0.1f)
+            var lastWheelAt = 0L
+            // Two-finger pinch-in mirrors the mockup: the fingers must start
+            // 90dp apart, the span has to fall under 0.82x, and the detector
+            // fires at most once per gesture. Pinching out does nothing.
+            val scaleDetector = ScaleGestureDetector(
+                ctx,
+                object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                    private var startSpan = 0f
+                    private var consumed = false
+
+                    override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                        consumed = false
+                        startSpan = if (pinchEnabledState.value) detector.currentSpan else 0f
+                        return startSpan >= 90f * density
+                    }
+
+                    override fun onScale(detector: ScaleGestureDetector): Boolean {
+                        if (consumed || startSpan <= 0f) return false
+                        if (detector.currentSpan < startSpan * 0.82f) {
+                            consumed = true
+                            if (pinchEnabledState.value) pinchState.value()
+                        }
+                        return false
+                    }
+                },
+            )
             GeckoView(ctx).apply {
                 setBackgroundColor(background.toArgb())
                 session?.let { setSession(it) }
                 setOnTouchListener { view, event ->
+                    scaleDetector.onTouchEvent(event)
                     if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                         val density = view.resources.displayMetrics.density.coerceAtLeast(0.1f)
                         val width = view.width.toFloat().coerceAtLeast(1f)
@@ -220,6 +293,22 @@ private fun WebHost(
                         val x = ((event.x - width / 2f) / z + width / 2f) / density
                         val y = (event.y / z) / density
                         tapState.value(x, y)
+                    }
+                    false
+                }
+                // Trackpads deliver a pinch as ctrl+scroll; only the inward
+                // direction (positive VSCROLL) toggles, debounced like the wheel.
+                setOnGenericMotionListener { _, event ->
+                    if (event.actionMasked == MotionEvent.ACTION_SCROLL &&
+                        event.isCtrlPressed &&
+                        event.getAxisValue(MotionEvent.AXIS_VSCROLL) > 0f &&
+                        pinchEnabledState.value
+                    ) {
+                        val now = SystemClock.uptimeMillis()
+                        if (now - lastWheelAt >= 900) {
+                            lastWheelAt = now
+                            pinchState.value()
+                        }
                     }
                     false
                 }
@@ -248,12 +337,13 @@ private val sheetOverlays = setOf(
 )
 
 @Composable
-private fun ChromeOverlay(vm: BrowserViewModel) {
+private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
     val c = LocalArc.current
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val screenW = maxWidth
         val screenH = maxHeight
         val density = LocalDensity.current
+        val reduceMotion = rememberReduceMotion()
         // Edge-to-edge means the IME overlays us; lift the search sheet above it.
         val imeDp = with(density) { WindowInsets.ime.getBottom(this).toDp() }
         val overlay = vm.overlay
@@ -305,6 +395,19 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
             )
         }
 
+        // The panel content rises 26dp into place with a short delay, so it
+        // isn't a bare fade. The full-page settings views skip the lift.
+        val contentRise by animateDpAsState(
+            if (open) 0.dp else 26.dp,
+            tween(
+                if (reduceMotion) 0 else 420,
+                easing = morphEasing,
+                delayMillis = if (open && !reduceMotion) 100 else 0,
+            ),
+            label = "sheetRise",
+        )
+        val rises = lastSheet == Overlay.Search || lastSheet == Overlay.Menu
+
         if (panelVisible) {
             val expandedW = screenW
             val collapsedW = screenW * 0.7f
@@ -318,14 +421,21 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
             val targetTopRadius = if (open && !fullHeight) 30.dp else if (open) 0.dp else 29.dp
             val targetBottomRadius = if (open) 0.dp else 29.dp
 
-            val w by animateDpAsState(targetW, tween(420, easing = morphEasing), label = "sheetW")
-            val h by animateDpAsState(targetH, tween(420, easing = morphEasing), label = "sheetH")
-            val bottom by animateDpAsState(targetBottom, tween(420, easing = morphEasing), label = "sheetBottom")
-            val topR by animateDpAsState(targetTopRadius, tween(420, easing = morphEasing), label = "sheetTopR")
-            val bottomR by animateDpAsState(targetBottomRadius, tween(420, easing = morphEasing), label = "sheetBottomR")
+            val morphSpec = tween<Dp>(
+                if (reduceMotion) 0 else 420,
+                easing = morphEasing,
+            )
+            val w by animateDpAsState(targetW, morphSpec, label = "sheetW")
+            val h by animateDpAsState(targetH, morphSpec, label = "sheetH")
+            val bottom by animateDpAsState(targetBottom, morphSpec, label = "sheetBottom")
+            val topR by animateDpAsState(targetTopRadius, morphSpec, label = "sheetTopR")
+            val bottomR by animateDpAsState(targetBottomRadius, morphSpec, label = "sheetBottomR")
             val contentAlpha by animateFloatAsState(
                 if (open) 1f else 0f,
-                tween(if (open) 220 else 120, delayMillis = if (open) 150 else 0),
+                tween(
+                    if (reduceMotion) 0 else if (open) 220 else 120,
+                    delayMillis = if (open && !reduceMotion) 100 else 0,
+                ),
                 label = "sheetContent",
             )
 
@@ -349,7 +459,14 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
                         }
                     ),
             ) {
-                Box(Modifier.fillMaxSize().alpha(contentAlpha)) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            alpha = contentAlpha
+                            translationY = if (rises) contentRise.toPx() else 0f
+                        },
+                ) {
                     content()
                 }
             }
@@ -357,9 +474,12 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
 
         // The nav pill floats above the sheet, exactly like the mockup. While a
         // back/forward notice is up it steps aside entirely, handing its
-        // footprint to the popup for the same brief dwell.
+        // footprint to the popup for the same brief dwell. Immersive mode, the
+        // download question and a page-level toast all borrow that footprint.
         val pillVisible = (overlay == Overlay.None || overlay == Overlay.Menu ||
-            overlay == Overlay.Search) && vm.navNotice == null
+            overlay == Overlay.Search) && vm.navNotice == null && !immersive &&
+            vm.pendingDownload == null &&
+            !(overlay == Overlay.None && vm.toastMessage != null)
         if (pillVisible) {
             val searchMode = overlay == Overlay.Search
             val sheetH = screenH * 0.47f
@@ -377,11 +497,15 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
         // The live download chip sits in the free gutter beside the 70% pill.
         // The expanded menu always offers it; on the page it only appears once
         // something has been downloaded.
-        val chipVisible = vm.flight == null && when (overlay) {
-            Overlay.Menu -> true
-            Overlay.None -> !vm.compactPill && vm.downloads.isNotEmpty()
-            else -> false
-        }
+        val chipVisible = !immersive && vm.flight == null &&
+            vm.pendingDownload == null &&
+            !(overlay == Overlay.None && vm.toastMessage != null) && (
+            when (overlay) {
+                Overlay.Menu -> true
+                Overlay.None -> !vm.compactPill && vm.downloads.isNotEmpty()
+                else -> false
+            }
+            )
         DownloadChip(
             vm = vm,
             visible = chipVisible,
@@ -409,7 +533,11 @@ private fun ChromeOverlay(vm: BrowserViewModel) {
 @Composable
 private fun BoxScope.ToastHost(vm: BrowserViewModel) {
     val c = LocalArc.current
+    val reduceMotion = rememberReduceMotion()
     val message = vm.toastMessage
+    // Over a sheet the message sits just above the capsule; on the page it takes
+    // the pill's own footprint and the pill steps aside.
+    val raised = vm.overlay != Overlay.None
     LaunchedEffect(message) {
         if (message != null) {
             delay(2100)
@@ -418,18 +546,32 @@ private fun BoxScope.ToastHost(vm: BrowserViewModel) {
     }
     AnimatedVisibility(
         visible = message != null,
-        enter = fadeIn(tween(160)),
-        exit = fadeOut(tween(160)),
+        enter = fadeIn(tween(if (reduceMotion) 0 else 160)) +
+            scaleIn(tween(if (reduceMotion) 0 else 260, easing = morphEasing), initialScale = 0.96f) +
+            slideInVertically(tween(if (reduceMotion) 0 else 260, easing = morphEasing)) { it / 6 },
+        exit = fadeOut(tween(if (reduceMotion) 0 else 160)),
         modifier = Modifier.align(Alignment.BottomCenter),
     ) {
         Box(
             Modifier
-                .padding(bottom = 92.dp)
-                .clip(CircleShape)
-                .background(if (c.dark) Color(0xFF2E363B) else Color(0xFF101314))
-                .padding(horizontal = 16.dp, vertical = 10.dp)
+                .padding(bottom = if (raised) 92.dp else 18.dp)
+                .fillMaxWidth(0.7f)
+                .height(58.dp)
+                .shadow(20.dp, RoundedCornerShape(29.dp))
+                .clip(RoundedCornerShape(29.dp))
+                .background(c.navSurface)
+                .border(1.dp, c.stroke, RoundedCornerShape(29.dp)),
+            contentAlignment = Alignment.Center,
         ) {
-            Text(message.orEmpty(), color = Color.White, fontSize = 12.5.sp, fontWeight = FontWeight.Medium)
+            Text(
+                message.orEmpty(),
+                color = c.text,
+                fontSize = 12.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 18.dp),
+            )
         }
     }
 }
@@ -759,16 +901,17 @@ private fun BoxScope.NavNoticeHost(vm: BrowserViewModel) {
 @Composable
 private fun BoxScope.DownloadPromptHost(vm: BrowserViewModel) {
     val c = LocalArc.current
+    val reduceMotion = rememberReduceMotion()
     val current = vm.pendingDownload
     var last by remember { mutableStateOf<PendingDownload?>(null) }
-    // Keep the last pending file so the card has content while it animates out.
+    // Keep the last pending file so the popup has content while it animates out.
     if (current != null) last = current
     AnimatedVisibility(
         visible = current != null,
-        enter = fadeIn(tween(160)) +
-            scaleIn(tween(260, easing = morphEasing), initialScale = 0.965f) +
-            slideInVertically(tween(260, easing = morphEasing)) { it / 6 },
-        exit = fadeOut(tween(130)),
+        enter = fadeIn(tween(if (reduceMotion) 0 else 160)) +
+            scaleIn(tween(if (reduceMotion) 0 else 260, easing = morphEasing), initialScale = 0.96f) +
+            slideInVertically(tween(if (reduceMotion) 0 else 260, easing = morphEasing)) { it / 6 },
+        exit = fadeOut(tween(if (reduceMotion) 0 else 130)),
         modifier = Modifier.fillMaxSize(),
     ) {
         Box(
@@ -781,105 +924,64 @@ private fun BoxScope.DownloadPromptHost(vm: BrowserViewModel) {
         ) {
             val pending = last
             if (pending != null) {
-                Column(
+                // A pill-sized question in the pill's own footprint: file tile,
+                // name and size, a quiet ✕ and the download button.
+                Row(
                     Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 88.dp)
-                        .padding(horizontal = 14.dp)
-                        .fillMaxWidth()
-                        .shadow(24.dp, RoundedCornerShape(22.dp))
-                        .clip(RoundedCornerShape(22.dp))
-                        .background(c.sheet)
-                        .border(1.dp, c.stroke, RoundedCornerShape(22.dp))
+                        .padding(bottom = 18.dp)
+                        .fillMaxWidth(0.7f)
+                        .height(58.dp)
+                        .shadow(20.dp, RoundedCornerShape(29.dp))
+                        .clip(RoundedCornerShape(29.dp))
+                        .background(c.navSurface)
+                        .border(1.dp, c.stroke, RoundedCornerShape(29.dp))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                        ) { /* keep taps on the card */ }
-                        .padding(14.dp),
+                        ) { /* keep taps on the popup */ }
+                        .padding(start = 10.dp, end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(start = 2.dp, end = 2.dp, bottom = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
+                    DownloadFileTile(pending.name, size = 32.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
                         Text(
-                            "DOWNLOAD FILE?",
-                            color = c.muted,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.7.sp,
-                            modifier = Modifier.weight(1f),
+                            pending.name,
+                            color = c.text,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
-                        Box(
-                            Modifier
-                                .size(26.dp)
-                                .clip(RoundedCornerShape(9.dp))
-                                .clickable { vm.cancelDownloadPrompt() },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Glyph(Ico.close, c.muted, size = 15.dp, strokeWidth = 2f)
-                        }
+                        Spacer(Modifier.height(1.dp))
+                        Text(
+                            "${if (pending.size > 0) formatBytes(pending.size) else "Unknown size"} · ${pending.host}",
+                            color = c.muted,
+                            fontSize = 10.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
                     }
-                    Row(
-                        Modifier.fillMaxWidth().padding(start = 2.dp, end = 2.dp, bottom = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                    Box(
+                        Modifier
+                            .size(26.dp)
+                            .clip(RoundedCornerShape(9.dp))
+                            .clickable { vm.cancelDownloadPrompt() },
+                        contentAlignment = Alignment.Center,
                     ) {
-                        DownloadFileTile(pending.name)
-                        Spacer(Modifier.width(11.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
-                                pending.name,
-                                color = c.text,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            Spacer(Modifier.height(3.dp))
-                            Text(
-                                "${if (pending.size > 0) formatBytes(pending.size) else "Unknown size"} · ${pending.host}",
-                                color = c.muted,
-                                fontSize = 11.5.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                        }
+                        Glyph(Ico.close, c.muted, size = 14.dp, strokeWidth = 2f)
                     }
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    Spacer(Modifier.width(4.dp))
+                    Box(
+                        Modifier
+                            .size(34.dp)
+                            .clip(CircleShape)
+                            .background(c.accent)
+                            .clickable { vm.confirmDownloadPrompt() },
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Box(
-                            Modifier
-                                .weight(1f)
-                                .height(38.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(c.chip)
-                                .clickable { vm.cancelDownloadPrompt() },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                "Cancel",
-                                color = c.text,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
-                        Box(
-                            Modifier
-                                .weight(1f)
-                                .height(38.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(c.accent)
-                                .clickable { vm.confirmDownloadPrompt() },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                "Download",
-                                color = Color.White,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.SemiBold,
-                            )
-                        }
+                        Glyph(Ico.download, Color.White, size = 17.dp, strokeWidth = 2f)
                     }
                 }
             }
@@ -1116,6 +1218,7 @@ private fun BoxScope.NavPill(
     val c = LocalArc.current
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
+    val reduceMotion = rememberReduceMotion()
     val tab = vm.activeTab
     val compact = vm.compactPill && !menuMode && !searchMode
 
@@ -1156,6 +1259,22 @@ private fun BoxScope.NavPill(
     val chevronRotation by animateFloatAsState(if (menuMode) 540f else 0f, tween(380), label = "chev")
     // The + spins 315° into the × that closes the search field.
     val searchRotation by animateFloatAsState(if (searchMode) 315f else 0f, tween(380), label = "spin")
+    // In the menu the pill stays visible as a capsule in the sheet's base:
+    // chip fill and a hairline stroke, handed over slowly.
+    val capsuleBg by animateColorAsState(
+        when {
+            searchMode -> Color.Transparent
+            menuMode -> c.chip
+            else -> c.navSoft
+        },
+        tween(if (reduceMotion) 0 else 420, easing = morphEasing),
+        label = "pillBg",
+    )
+    val capsuleStroke by animateColorAsState(
+        if (menuMode) c.stroke else Color.Transparent,
+        tween(if (reduceMotion) 0 else 420, easing = morphEasing),
+        label = "pillStroke",
+    )
 
     Box(
         Modifier
@@ -1171,7 +1290,8 @@ private fun BoxScope.NavPill(
             Modifier
                 .fillMaxSize()
                 .clip(RoundedCornerShape(h / 2))
-                .background(if (menuMode || searchMode) Color.Transparent else c.navSoft)
+                .background(capsuleBg)
+                .border(1.dp, capsuleStroke, RoundedCornerShape(h / 2))
                 .then(if (mode == PillMode.Compact) Modifier.clickable { vm.expandPill() } else Modifier),
         ) {
             Crossfade(targetState = mode, animationSpec = tween(150), label = "pillSet") { m ->
@@ -1221,6 +1341,7 @@ private fun BoxScope.NavPill(
                             onSwipeDown = { vm.closeOverlay() },
                             onSwipeLeft = { vm.navGesture(forward = false) },
                             onSwipeRight = { vm.navGesture(forward = true) },
+                            strictHorizontal = true,
                         ) {
                             Glyph(Ico.chevronUp, c.text, size = 24.dp,
                                 strokeWidth = 2.2f, modifier = Modifier.rotate(chevronRotation))
@@ -1237,6 +1358,7 @@ private fun BoxScope.NavPill(
                             onSwipeUp = { vm.openTabs() },
                             onSwipeLeft = { vm.navGesture(forward = false) },
                             onSwipeRight = { vm.navGesture(forward = true) },
+                            strictHorizontal = true,
                         ) {
                             val t = tab
                             if (t == null || t.isHome || t.url.isBlank()) {
@@ -1264,6 +1386,7 @@ private fun BoxScope.NavPill(
                             onSwipeDown = { vm.closeOverlay() },
                             onSwipeLeft = { vm.navGesture(forward = false) },
                             onSwipeRight = { vm.navGesture(forward = true) },
+                            strictHorizontal = true,
                         ) {
                             Glyph(Ico.chevronUp, c.text, size = 24.dp, strokeWidth = 2.2f)
                         }

@@ -26,26 +26,44 @@ native Kotlin + Jetpack Compose; only the page content is Gecko. The UI follows
 - The pill pulses while a page loads.
 - Sheets grow out of the pill: search and menu share the same 47% height; the pill floats
   above them. Settings, site settings and the account page grow to full height.
+- In the menu the pill stays put as a capsule in the sheet's base — chip fill, hairline
+  stroke, a slow colour handover — and the rows leave 92dp clear beneath them. Search and
+  the full pages have no capsule; the search pill shrinks into the field's ✕ instead.
+- Sheet content rises 26dp into place with a short delay, so it isn't a bare fade.
 - Menu shows account · settings · menu while it is open, without resizing the pill.
 - Dark mode lives in **Site settings → Appearance**, in **Settings → Appearance**, and the
   same preference drives the chrome theme.
 
 ## Gestures
 
+- Pinch **in** on a page to hide the chrome; pinch in again to bring the pill back. Home,
+  open sheets and pages that aren't at 100% zoom are ignored, and pinch-out does nothing.
+  A trackpad pinch-in (ctrl+wheel down) mirrors it. The same toggle lives in the menu.
+- Pill controls classify touches: under 24dp is a tap, a vertical drag needs 26dp at a
+  1.25 ratio, and a horizontal drag needs 26dp at 1.25. Back/forward bindings are stricter:
+  36dp at a 2.2 ratio, so a long diagonal doesn't navigate.
 - Swipe **up** from the plus or the menu chevron to open the menu.
 - Swipe **down** from the plus, the menu chevron, the search close (×), a sheet handle, or
   anywhere on the tab carousel to dismiss whatever that pill gesture opened.
 - Swipe **left/right** from the plus to walk the open tabs; the incoming page slides in from
   the direction of the swipe.
 - Swipe **up** from the tab icon to open the tab carousel, **left** to go back, **right** to go
-  forward a page.
+  forward a page. Back/forward slide the page in from the side of travel.
 - Swipe **left/right** from the menu chevron to go back/forward. Back and forward flash the
   same pill-sized notice as the immersive-mode coach mark.
+- In the carousel, swipe a card **up** to dismiss the tab (the row closes the gap; the last
+  tab leaves a fresh home tab) or **down** to focus it, exactly like tapping it. Tapping the
+  empty space around the cards closes the carousel. Closing it shrinks the whole row back
+  into the pill.
 - Swipe **up** from a live download chip to cancel the newest transfer: a trash confirm
   floats above the chip, arms red, and shows an X near the end of the drag. A gesture-canceled
   transfer is cleared from the list instead of lingering as a canceled row.
 - Tapping the URL in the menu address bar hands the whole address to the search field,
   fully selected, ready to edit.
+- The download question and short messages (“Canceled”, “Opening”) use a pill-sized popup in
+  the pill's footprint; the pill steps aside, a tap outside cancels, and a message over a
+  sheet sits 92dp up. Finished downloads don't pop anything — the live chip says it.
+- Reduced motion (system animator scale 0) collapses these transitions to their end state.
 
 ## Build
 
