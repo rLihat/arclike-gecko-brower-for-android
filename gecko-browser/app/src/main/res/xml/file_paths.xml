@@ -7,4 +7,8 @@
     <files-path
         name="internal_downloads"
         path="Downloads/" />
+    <!-- In-flight and finished files written by DownloadService. -->
+    <files-path
+        name="app_downloads"
+        path="downloads/" />
 </paths>

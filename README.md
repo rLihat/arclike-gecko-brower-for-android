@@ -26,11 +26,19 @@ scroll indicator.
 Native Kotlin reimplementation of the mockup chrome with real GeckoView content:
 
 - No status bar / no address bar; web content runs behind the floating pill.
-- Pill condenses to a domain chip on scroll down and restores its icons on scroll up.
+- Pill condenses to a domain chip on real page scroll down and restores its icons on scroll up.
 - Search + menu sheets morph out of the pill; settings, site settings and account are
   full-height pages. Dark mode is a persisted chrome theme.
-- Tabs are a horizontal recents carousel; each `GeckoSession` keeps its own history.
-- Signed XPI installation through `WebExtensionController`.
+- Tabs are a horizontal recents carousel with captured page thumbnails; each `GeckoSession`
+  keeps its own history and both tabs and settings survive a cold start.
+- Downloads run in a foreground service with pause/resume, are persisted across restarts and
+  are published to the system Downloads collection.
+- Site prompts and permission requests render as pill-sized popups, with per-site
+  remember-me answers editable in Site settings.
+- Search sheet shows live DuckDuckGo suggestions; the browser accepts `VIEW`, `WEB_SEARCH`
+  and `SEND` intents.
+- Signed XPI installation and a native add-on manager through `WebExtensionController`,
+  including extension popups in a sheet.
 
 See [`gecko-browser/README.md`](gecko-browser/README.md) for build instructions and the
 extension-signing caveats.

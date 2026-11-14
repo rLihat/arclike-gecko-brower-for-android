@@ -108,9 +108,11 @@ fun SearchSheet(vm: BrowserViewModel) {
     val suggestions = buildList {
         if (query.isNotBlank()) {
             add(query)
-            add("$query ${engine.name.lowercase()}")
-            add("$query github")
-            add("$query news")
+            vm.suggestions
+                .asSequence()
+                .filter { !it.equals(query, ignoreCase = true) }
+                .take(5)
+                .forEach { add(it) }
         }
     }
 
@@ -491,7 +493,11 @@ fun MenuSheet(vm: BrowserViewModel) {
             MenuAction("Translate", Ico.translate) { vm.showToast("Translate page") }
             MenuAction("Find", Ico.find) { vm.showToast("Find in page") }
             MenuAction("Share", Ico.share) { vm.shareCurrentUrl() }
-            MenuAction("Extensions", Ico.puzzle, badge = "1") { vm.openAddonPicker() }
+            MenuAction(
+                "Extensions",
+                Ico.puzzle,
+                badge = if (vm.extensionBadge) "•" else null,
+            ) { vm.openExtensions() }
         }
 
         Text(

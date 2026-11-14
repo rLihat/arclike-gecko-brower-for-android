@@ -282,6 +282,17 @@ private val IcoOpen: List<Path> = listOf(
         lineTo(5f, 19f); lineTo(5f, 6f); lineTo(10f, 6f)
     }
 )
+private val IcoPause: List<Path> = listOf(
+    p {
+        moveTo(8f, 5f); lineTo(8f, 19f)
+        moveTo(16f, 5f); lineTo(16f, 19f)
+    }
+)
+private val IcoPlay: List<Path> = listOf(
+    p {
+        moveTo(7f, 5f); lineTo(18f, 12f); lineTo(7f, 19f); close()
+    }
+)
 private val IcoImage: List<Path> = listOf(
     p {
         moveTo(3f, 4f); lineTo(21f, 4f); lineTo(21f, 20f); lineTo(3f, 20f); close()
@@ -340,6 +351,8 @@ object Ico {
     val pin = IcoPin
     val open = IcoOpen
     val image = IcoImage
+    val pause = IcoPause
+    val play = IcoPlay
 }
 
 /* -------------------------------------------------------- download tiles */

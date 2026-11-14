@@ -1,98 +1,64 @@
 package com.example.geckobrowser
 
+import android.Manifest
 import android.app.Application
+import android.app.SearchManager
 import android.content.ClipData
 import android.content.ClipboardManager
-import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
 import android.os.SystemClock
-import android.provider.MediaStore
-import android.webkit.MimeTypeMap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
-import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
+import org.mozilla.geckoview.GeckoView
 import org.mozilla.geckoview.GeckoWebExecutor
+import org.mozilla.geckoview.WebExtension
+import org.mozilla.geckoview.WebExtensionController
 import org.mozilla.geckoview.WebRequest
 import org.mozilla.geckoview.WebResponse
 import java.io.File
-import java.io.FileOutputStream
 import java.io.InputStream
-import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** One tab: its GeckoSession lives in BrowserViewModel, this is the data Compose sees. */
+/** One tab: its GeckoSession lives in [TabManager], this is the data Compose sees. */
 data class TabInfo(
     val id: Long,
     val title: String = "New tab",
     val url: String = "",
     val isHome: Boolean = true,
-    val loading: Boolean = false,
+    val isLoading: Boolean = false,
+    val progress: Int = 0,
     val canGoBack: Boolean = false,
     val canGoForward: Boolean = false,
-)
-
-enum class DownloadStatus { Downloading, Done, Canceled }
-
-/** A download as Compose sees it; the bytes are streamed by BrowserViewModel. */
-data class DownloadItem(
-    val id: Long,
-    val name: String,
-    val size: Long = 0L,
-    val done: Long = 0L,
-    val status: DownloadStatus = DownloadStatus.Downloading,
-    val host: String = "",
-    val url: String = "",
-    val mime: String = "",
-    val localUri: String? = null,
-    val started: Long = System.currentTimeMillis(),
-    val ended: Long = 0L,
-)
-
-/** A response that GeckoView handed us, waiting for the confirm prompt. */
-data class PendingDownload(
-    val name: String,
-    val size: Long,
-    val mime: String,
-    val host: String,
-    val url: String,
-    val body: InputStream?,
-    val originX: Float? = null,
-    val originY: Float? = null,
-)
-
-/** The tile that jumps from the tap point into the live chip. */
-data class DownloadFlight(
-    val id: Long,
-    val name: String,
-    val startX: Float,
-    val startY: Float,
+    val secure: Boolean = false,
+    val desktopMode: Boolean = false,
+    val thumbnail: Bitmap? = null,
 )
 
 /** Horizontal plus-swipe that moved between tabs; drives the slide-in. */
@@ -126,8 +92,9 @@ data class ContextMenuState(
         }
 }
 
-enum class Overlay { None, Search, Menu, Tabs, Settings, SiteSettings, Account, Downloads }
-
+enum class Overlay {
+    None, Search, Menu, Tabs, Settings, SiteSettings, Account, Downloads, Extensions, ExtensionPopup,
+}
 
 /** A search engine: built in, or added by the user with a %s URL template. */
 data class SearchEngine(
@@ -139,36 +106,65 @@ data class SearchEngine(
     val custom: Boolean = false,
 )
 
+/** History kept for the swipe-back/forward notice text only; navigation is Gecko's. */
 private class History {
     val urls = mutableListOf<String>()
     var index = -1
-    var navStartedAt = 0L
-    var programmatic = false
-}
-
-object GeckoRuntimeHolder {
-    @Volatile private var runtime: GeckoRuntime? = null
-
-    fun get(context: Context): GeckoRuntime =
-        runtime ?: synchronized(this) {
-            runtime ?: GeckoRuntime.create(
-                context.applicationContext,
-                GeckoRuntimeSettings.Builder()
-                    .aboutConfigEnabled(true)
-                    .javaScriptEnabled(true)
-                    .build()
-            ).also { runtime = it }
-        }
 }
 
 class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
-    private val runtime: GeckoRuntime = GeckoRuntimeHolder.get(app)
+    private val application = getApplication<Application>()
+    private val runtime: GeckoRuntime = ArcApplication.runtimeOf(app)
     private val prefs = app.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
+    private val settingsStore = AppSettings(app)
+    private val tabsManager = TabManager(runtime)
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val webExecutor by lazy { GeckoWebExecutor(runtime) }
 
-    private val sessions = LinkedHashMap<Long, GeckoSession>()
     private val histories = HashMap<Long, History>()
-    private var nextId = 1L
+    private val loadingJobs = HashMap<Long, Job>()
+    private val loadStartedAt = HashMap<Long, Long>()
+    private val noLoadUi = HashSet<Long>()
+    private val stateBlobs = HashMap<Long, String>()
+    private val lastRecoverAt = HashMap<Long, Long>()
+    private val scrollY = HashMap<Long, Int>()
+    /** Accumulated scroll since the pill last changed state. */
+    private val scrollAcc = HashMap<Long, Int>()
+    private var bootstrapped = false
+    private var pendingIntent: Intent? = null
+
+    private val zoomByHost = HashMap<String, Int>()    private val permissionsByHost = HashMap<String, Boolean>()
+    private val desktopByHost = HashMap<String, Boolean>()
+
+    private var geckoView: GeckoView? = null
+    private var nextPromptId = 1L
+
+    private val promptObjects = HashMap<Long, GeckoSession.PromptDelegate.BasePrompt>()
+    private val promptResults =
+        HashMap<Long, GeckoResult<GeckoSession.PromptDelegate.PromptResponse>>()
+    private val extensionInstallResults =
+        HashMap<Long, GeckoResult<WebExtension.PermissionPromptResponse>>()
+    private val runtimePermissionCallbacks = HashMap<Long, (Boolean) -> Unit>()
+
+    private sealed class PermissionTarget {
+        class Content(
+            val permission: GeckoSession.PermissionDelegate.ContentPermission,
+            val result: GeckoResult<Int>,
+        ) : PermissionTarget()
+
+        class Media(
+            val callback: GeckoSession.PermissionDelegate.MediaCallback,
+            val video: GeckoSession.PermissionDelegate.MediaSource?,
+            val audio: GeckoSession.PermissionDelegate.MediaSource?,
+        ) : PermissionTarget()
+    }
+
+    private val permissionTargets = HashMap<Long, PermissionTarget>()
+    private val extensionObjects = HashMap<String, WebExtension>()
+    private var extensionPopupSession: GeckoSession? = null
+
+    /* ------------------------------------------------------------- public state */
 
     var tabs by mutableStateOf<List<TabInfo>>(emptyList())
         private set
@@ -180,23 +176,29 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     private var accountReturn = Overlay.Menu
+    private var downloadsReturn = Overlay.Menu
+    private var extensionsReturn = Overlay.Menu
+    private var popupReturn = Overlay.None
 
     var darkMode by mutableStateOf(prefs.getBoolean("dark", false))
+        private set
+
+    var suggestionsEnabled by mutableStateOf(true)
         private set
 
     var compactPill by mutableStateOf(false)
         private set
 
-    var pipLoading by mutableStateOf(false)
-        private set
-
     var zoom by mutableStateOf(100)
         private set
 
-    var desktopSite by mutableStateOf(false)
-        private set
+    /** The active tab's desktop-site setting; the menu toggle reads this. */
+    val desktopSite: Boolean get() = activeTab?.desktopMode == true
 
     var searchText by mutableStateOf("")
+        private set
+
+    var suggestions by mutableStateOf<List<String>>(emptyList())
         private set
 
     var toastMessage by mutableStateOf<String?>(null)
@@ -231,17 +233,50 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var flight by mutableStateOf<DownloadFlight?>(null)
         private set
 
-    /** Bumped when a download lands so the chip can do its little bounce. */
     var chipPulse by mutableStateOf(0)
         private set
 
-    private var downloadsReturn = Overlay.Menu
     private var nextDownloadId = 1L
-    private val downloadJobs = HashMap<Long, Job>()
-    private val downloadStreams = HashMap<Long, InputStream>()
-    private val saveTargets = HashMap<Long, SaveTarget>()
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val webExecutor by lazy { GeckoWebExecutor(runtime) }
+
+    // ---- prompts and permissions -----------------------------------------
+
+    var browserPrompt by mutableStateOf<BrowserPromptState?>(null)
+        private set
+
+    var permissionPrompt by mutableStateOf<PermissionPromptState?>(null)
+        private set
+
+    var androidPermissionRequest by mutableStateOf<AndroidPermissionRequest?>(null)
+        private set
+
+    var filePickerRequest by mutableStateOf<FilePickerRequest?>(null)
+        private set
+
+    // ---- extensions -------------------------------------------------------
+
+    var extensions by mutableStateOf<List<ExtensionItem>>(emptyList())
+        private set
+
+    var extensionBadge by mutableStateOf(false)
+        private set
+
+    var extensionPopupTitle by mutableStateOf("")
+        private set
+
+    // ---- page state -------------------------------------------------------
+
+    var fullscreen by mutableStateOf(false)
+        private set
+
+    /** Bumped when a fresh page load starts; Root snaps its scale to 0.92. */
+    var loadZoomStart by mutableStateOf(0)
+        private set
+
+    /** Bumped when that load finishes; Root tweens its scale back to 1. */
+    var loadZoomEnd by mutableStateOf(0)
+        private set
+
+    val pipLoading: Boolean get() = activeTab?.isLoading == true
 
     val activeDownloads: List<DownloadItem>
         get() = downloads.filter { it.status == DownloadStatus.Downloading }
@@ -265,10 +300,18 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 return "${active.size} downloading · $downloadRingProgress% overall"
             }
             val done = downloads.filter { it.status == DownloadStatus.Done }
-            val canceled = downloads.size - done.size
-            if (done.isEmpty()) return "${downloads.size} canceled"
+            val paused = downloads.count { it.status == DownloadStatus.Paused }
+            val failed = downloads.count { it.status == DownloadStatus.Failed }
+            val canceled = downloads.count { it.status == DownloadStatus.Canceled }
+            if (done.isEmpty() && paused == 0 && failed == 0) {
+                return "${downloads.size} canceled"
+            }
             val total = done.sumOf { it.size }
-            val tail = if (canceled > 0) " · $canceled canceled" else ""
+            val tail = buildString {
+                if (paused > 0) append(" · $paused paused")
+                if (failed > 0) append(" · $failed failed")
+                if (canceled > 0) append(" · $canceled canceled")
+            }
             return "${done.size} file${if (done.size == 1) "" else "s"} · ${formatBytes(total)}$tail"
         }
 
@@ -281,7 +324,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var editingOverlayHeight by mutableStateOf(false)
 
     val activeTab: TabInfo? get() = tabs.firstOrNull { it.id == activeId }
-    val activeSession: GeckoSession? get() = sessions[activeId]
+    val activeSession: GeckoSession? get() = tabsManager.session(activeId)
+    val extensionPopup: GeckoSession? get() = extensionPopupSession
 
     val domain: String
         get() {
@@ -291,51 +335,314 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
 
     init {
-        val id = createSession()
-        activeId = id
-        tabs = listOf(TabInfo(id))
+        scope.launch { DownloadCenter.items.collect { downloads = it } }
+        scope.launch { bootstrap() }
     }
 
-    private fun createSession(): Long {
-        val id = nextId++
-        val session = GeckoSession()
-        session.open(runtime)
-        sessions[id] = session
-        histories[id] = History()
-        attachDelegates(id, session)
-        return id
+    /* ---------------------------------------------------------------- bootstrap */
+
+    private suspend fun bootstrap() {
+        val snapshot = withContext(Dispatchers.IO) {
+            runCatching { settingsStore.snapshot() }.getOrDefault(SettingsSnapshot())
+        }
+        applySnapshot(snapshot)
+        if (snapshot.schema < SETTINGS_SCHEMA) {
+            // One-time migration from the SharedPreferences-only build.
+            if (prefs.contains("dark")) {
+                darkMode = prefs.getBoolean("dark", false)
+                withContext(Dispatchers.IO) { settingsStore.setDark(darkMode) }
+            }
+            withContext(Dispatchers.IO) { settingsStore.setSchema(SETTINGS_SCHEMA) }
+        }
+        DownloadCenter.restore(application)
+        nextDownloadId = (DownloadCenter.current().maxOfOrNull { it.id } ?: 0L) + 1
+        configureExtensions()
+        restoreTabs()
+        refreshExtensions()
+        bootstrapped = true
+        pendingIntent?.let { pending ->
+            pendingIntent = null
+            handleIntent(pending)
+        }
+    }
+
+    private fun applySnapshot(snapshot: SettingsSnapshot) {
+        darkMode = snapshot.dark
+        suggestionsEnabled = snapshot.suggestions
+        zoomByHost.clear()
+        zoomByHost.putAll(snapshot.zoom)
+        permissionsByHost.clear()
+        snapshot.permissions.forEach { (key, value) ->
+            permissionsByHost[key] = value == "allow"
+        }
+        desktopByHost.clear()
+        desktopByHost.putAll(snapshot.desktop)
+        // Runtime-wide font prefs are ready before the first session opens.
+        runtime.settings.setFontInflationEnabled(true)
+        runtime.settings.setFontSizeFactor(zoomByHost[hostOfActive()]?.div(100f) ?: 1f)
+    }
+
+    private fun restoreTabs() {
+        val list = BrowserFiles.loadTabList(application)
+        if (list == null || list.tabs.isEmpty()) {
+            if (tabs.isEmpty()) {
+                val id = tabsManager.create(attach = ::attachDelegates)
+                activeId = id
+                tabs = listOf(TabInfo(id))
+                persistTabs()
+            }
+            return
+        }
+        if (tabs.isNotEmpty()) return // the user already opened something
+
+        BrowserFiles.pruneSessions(application, list.tabs.map { it.id }.toSet())
+        val restored = mutableListOf<TabInfo>()
+        list.tabs.forEach { record ->
+            val blob = BrowserFiles.loadSession(application, record.id)
+            val state = blob?.let {
+                runCatching { GeckoSession.SessionState.fromString(it) }.getOrNull()
+            }
+            if (state != null) stateBlobs[record.id] = blob
+            val id = tabsManager.createWithId(record.id, state, ::attachDelegates)
+            if (record.desktopMode) applyDesktop(id, true)
+            val tab = TabInfo(
+                id = id,
+                title = record.title,
+                url = record.url,
+                isHome = record.url.isBlank(),
+                secure = record.secure,
+                desktopMode = record.desktopMode,
+            )
+            restored += tab
+            histories[id] = History().apply {
+                if (record.url.isNotBlank()) {
+                    urls.add(record.url)
+                    index = 0
+                }
+            }
+            if (state == null && record.url.isNotBlank()) {
+                tabsManager.load(id, record.url)
+            }
+        }
+        if (restored.isEmpty()) return
+        tabs = restored
+        activeId = restored.firstOrNull { it.id == list.activeId }?.id ?: restored.first().id
+        syncZoomForActive()
+        persistTabs()
+    }
+
+    private fun persistTabs() {
+        val records = tabs.map {
+            TabRecord(it.id, it.url, it.title, it.desktopMode, it.secure)
+        }
+        val active = activeId
+        scope.launch {
+            withContext(Dispatchers.IO) { BrowserFiles.saveTabList(application, records, active) }
+        }
+    }
+
+    private fun saveSessionState(id: Long, state: GeckoSession.SessionState) {
+        val serialized = try {
+            state.toString()
+        } catch (_: Throwable) {
+            return
+        }
+        if (serialized.isBlank() || stateBlobs[id] == serialized) return
+        stateBlobs[id] = serialized
+        scope.launch {
+            withContext(Dispatchers.IO) { BrowserFiles.saveSession(application, id, serialized) }
+        }
     }
 
     private fun idOf(session: GeckoSession): Long =
-        sessions.entries.firstOrNull { it.value === session }?.key ?: -1L
+        tabsManager.all.entries.firstOrNull { it.value === session }?.key ?: -1L
 
     private fun updateTab(id: Long, transform: (TabInfo) -> TabInfo) {
-        tabs = tabs.map { if (it.id == id) transform(it) else it }
+        var structural = false
+        tabs = tabs.map { current ->
+            if (current.id != id) return@map current
+            val next = transform(current)
+            if (next.url != current.url || next.title != current.title ||
+                next.desktopMode != current.desktopMode || next.secure != current.secure
+            ) {
+                structural = true
+            }
+            next
+        }
+        if (structural) persistTabs()
     }
 
+    private fun addTab(
+        restored: GeckoSession.SessionState? = null,
+        url: String? = null,
+        title: String? = null,
+        desktop: Boolean = false,
+        makeActive: Boolean = true,
+        forcedId: Long? = null,
+    ): Long {
+        val id = if (forcedId == null) {
+            tabsManager.create(restored, ::attachDelegates)
+        } else {
+            tabsManager.createWithId(forcedId, restored, ::attachDelegates)
+        }
+        if (desktop) applyDesktop(id, true)
+        histories[id] = History().apply {
+            if (!url.isNullOrBlank()) {
+                urls.add(url)
+                index = 0
+            }
+        }
+        tabs = tabs + TabInfo(
+            id = id,
+            title = title ?: "New tab",
+            url = url.orEmpty(),
+            isHome = url.isNullOrBlank(),
+            desktopMode = desktop,
+        )
+        if (!url.isNullOrBlank() && restored == null) tabsManager.load(id, url)
+        if (makeActive) activeId = id
+        persistTabs()
+        return id
+    }
+
+    /* ---------------------------------------------------------------- delegates */
+
     private fun attachDelegates(id: Long, session: GeckoSession) {
+        session.navigationDelegate = object : GeckoSession.NavigationDelegate {
+            override fun onLocationChange(
+                session: GeckoSession,
+                url: String?,
+                perms: List<GeckoSession.PermissionDelegate.ContentPermission>?,
+                hasUserGesture: Boolean?,
+            ) {
+                val target = url ?: return
+                if (isBlankUrl(target)) return
+                recordNavigation(id, target)
+                updateTab(id) { it.copy(url = target, isHome = false) }
+                if (id == activeId) syncZoomForHost(target)
+            }
+
+            override fun onCanGoBack(session: GeckoSession, canGoBack: Boolean) {
+                updateTab(id) { it.copy(canGoBack = canGoBack) }
+            }
+
+            override fun onCanGoForward(session: GeckoSession, canGoForward: Boolean) {
+                updateTab(id) { it.copy(canGoForward = canGoForward) }
+            }
+
+            override fun onLoadRequest(
+                session: GeckoSession,
+                request: GeckoSession.NavigationDelegate.LoadRequest,
+            ): GeckoResult<AllowOrDeny> {
+                val raw = request.uri ?: return GeckoResult.allow()
+                val scheme = runCatching { Uri.parse(raw).scheme?.lowercase(Locale.US) }.getOrNull()
+                if (scheme == null || scheme in INTERNAL_SCHEMES) return GeckoResult.allow()
+                if (id == activeId) askExternalLink(id, raw)
+                // The external app gets the URL; the page itself must not load it.
+                return GeckoResult.deny()
+            }
+
+            override fun onNewSession(
+                session: GeckoSession,
+                uri: String?,
+            ): GeckoResult<GeckoSession> {
+                val target = uri ?: return GeckoResult.fromValue(session)
+                val newId = addTab(url = target, makeActive = false)
+                val opened = tabsManager.session(newId) ?: return GeckoResult.fromValue(session)
+                return GeckoResult.fromValue(opened)
+            }
+        }
+
         session.progressDelegate = object : GeckoSession.ProgressDelegate {
             override fun onPageStart(session: GeckoSession, url: String) {
-                // Every fresh session reports about:blank before any real load.
                 if (isBlankUrl(url)) return
-                recordNavigation(id, url)
-                updateTab(id) { it.copy(url = url, isHome = false, loading = true) }
+                scrollY[id] = 0
+                scrollAcc[id] = 0
+                updateTab(id) { it.copy(url = url, isHome = false) }
+                if (noLoadUi.contains(id)) {
+                    updateTab(id) { it.copy(isLoading = false) }
+                    return
+                }
+                loadStartedAt[id] = SystemClock.uptimeMillis()
+                loadingJobs.remove(id)?.cancel()
+                updateTab(id) { it.copy(isLoading = true, progress = 0) }
                 if (id == activeId) {
-                    pipLoading = true
+                    loadZoomStart++
                     compactPill = false
                 }
             }
 
             override fun onPageStop(session: GeckoSession, success: Boolean) {
-                updateTab(id) { if (it.isHome) it else it.copy(loading = false) }
+                val suppressed = noLoadUi.remove(id)
+                if (suppressed) {
+                    updateTab(id) { it.copy(isLoading = false) }
+                    return
+                }
                 if (id == activeId) {
-                    pipLoading = false
+                    loadZoomEnd++
                     if (!success && activeTab?.isHome != true) showToast("Couldn't load the page")
+                }
+                val started = loadStartedAt[id] ?: SystemClock.uptimeMillis()
+                val wait = (LOADING_HOLD_MS - (SystemClock.uptimeMillis() - started)).coerceAtLeast(0L)
+                loadingJobs.remove(id)?.cancel()
+                loadingJobs[id] = scope.launch {
+                    if (wait > 0L) delay(wait)
+                    updateTab(id) { it.copy(isLoading = false, progress = 100) }
+                    loadingJobs.remove(id)
                 }
             }
 
             override fun onProgressChange(session: GeckoSession, progress: Int) {
-                if (id == activeId && progress >= 100) pipLoading = false
+                updateTab(id) { it.copy(progress = progress.coerceIn(0, 100)) }
+            }
+
+            override fun onSecurityChange(
+                session: GeckoSession,
+                security: GeckoSession.ProgressDelegate.SecurityInformation,
+            ) {
+                updateTab(id) { it.copy(secure = security.isSecure) }
+            }
+
+            override fun onSessionStateChange(
+                session: GeckoSession,
+                state: GeckoSession.SessionState,
+            ) {
+                saveSessionState(id, state)
+            }
+        }
+
+        val scrollPositions = scrollY
+        session.scrollDelegate = object : GeckoSession.ScrollDelegate {
+            override fun onScrollChanged(session: GeckoSession, scrollX: Int, scrollY: Int) {
+                if (id != activeId || fullscreen || overlay != Overlay.None) return
+                val previous = scrollPositions[id] ?: 0
+                scrollPositions[id] = scrollY
+                val delta = scrollY - previous
+                // The pill condenses after a deliberate downward run and comes
+                // back on a short upward run (or at the top of the page).
+                if (!compactPill) {
+                    if (delta > 0) {
+                        val acc = (scrollAcc[id] ?: 0) + delta
+                        scrollAcc[id] = acc
+                        if (acc >= 24 && scrollY > 120) {
+                            compactPill = true
+                            scrollAcc[id] = 0
+                        }
+                    } else {
+                        scrollAcc[id] = 0
+                    }
+                } else {
+                    if (delta < 0) {
+                        val acc = (scrollAcc[id] ?: 0) + delta
+                        scrollAcc[id] = acc
+                        if (acc <= -16 || scrollY <= 4) {
+                            compactPill = false
+                            scrollAcc[id] = 0
+                        }
+                    } else {
+                        scrollAcc[id] = 0
+                    }
+                }
             }
         }
 
@@ -366,78 +673,626 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 val size = sizeFor(headers)
                 val mime = mimeFor(headers, name)
                 val host = hostOf(response.uri)
-                val url = response.uri
                 val origin = if (id == activeId) recentTapOrigin() else null
                 offerDownload(
-                    PendingDownload(name, size, mime, host, url, body, origin?.first, origin?.second)
+                    PendingDownload(
+                        name = name,
+                        size = size,
+                        mime = mime,
+                        host = host,
+                        url = response.uri,
+                        body = body,
+                        originX = origin?.first,
+                        originY = origin?.second,
+                    )
                 )
             }
-        }
 
-        session.scrollDelegate = object : GeckoSession.ScrollDelegate {
-            override fun onScrollChanged(session: GeckoSession, scrollX: Int, scrollY: Int) {
-                onPageScroll(id, scrollY)
+            override fun onCrash(session: GeckoSession) = recoverSession(id)
+
+            override fun onKill(session: GeckoSession) = recoverSession(id)
+
+            override fun onFullScreen(session: GeckoSession, fullScreen: Boolean) {
+                if (id == activeId) fullscreen = fullScreen
             }
         }
-    }
 
-    // ---- scrolling chrome -------------------------------------------------
+        session.permissionDelegate = object : GeckoSession.PermissionDelegate {
+            override fun onContentPermissionRequest(
+                session: GeckoSession,
+                permission: GeckoSession.PermissionDelegate.ContentPermission,
+            ): GeckoResult<Int> {
+                val result = GeckoResult<Int>()
+                if (permission.permission == GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_AUDIBLE ||
+                    permission.permission == GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_INAUDIBLE
+                ) {
+                    // Media autoplay has no UI in this chrome; keep it permissive.
+                    result.complete(GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW)
+                    return result
+                }
+                val kind = permissionKind(permission.permission)
+                if (kind == null) {
+                    result.complete(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY)
+                    return result
+                }
+                val host = hostOf(permission.uri ?: activeTab?.url.orEmpty())
+                val remembered = sitePermission(host, kind)
+                if (remembered != null) {
+                    result.complete(
+                        if (remembered) GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW
+                        else GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY
+                    )
+                    return result
+                }
+                ensureRuntimePermissions(androidPermissionsFor(kind)) { granted ->
+                    if (!granted) {
+                        result.complete(GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY)
+                    } else {
+                        askPermission(kind, host, PermissionTarget.Content(permission, result))
+                    }
+                }
+                return result
+            }
 
-    private var lastScrollY = 0
-
-    private fun onPageScroll(id: Long, y: Int) {
-        if (id != activeId) return
-        val tab = activeTab ?: return
-        if (overlay != Overlay.None || tab.isHome) {
-            lastScrollY = y
-            if (compactPill) compactPill = false
-            return
-        }
-        val delta = y - lastScrollY
-        lastScrollY = y
-        when {
-            y <= 6 -> compactPill = false
-            delta > 2 -> compactPill = true
-            delta < -2 -> compactPill = false
-        }
-    }
-
-    fun expandPill() {
-        compactPill = false
-        lastScrollY = 0
-    }
-
-    // ---- navigation -------------------------------------------------------
-
-    private fun recordNavigation(id: Long, url: String) {
-        val h = histories.getOrPut(id) { History() }
-        val now = SystemClock.uptimeMillis()
-        val current = h.urls.getOrNull(h.index)
-        val recent = now - h.navStartedAt < 1500
-        when {
-            current == url -> Unit
-            recent || h.programmatic -> {
-                if (h.index < 0) {
-                    h.urls.add(url)
-                    h.index = 0
-                } else {
-                    h.urls[h.index] = url
+            override fun onMediaPermissionRequest(
+                session: GeckoSession,
+                uri: String?,
+                videoSources: Array<GeckoSession.PermissionDelegate.MediaSource>?,
+                audioSources: Array<GeckoSession.PermissionDelegate.MediaSource>?,
+                callback: GeckoSession.PermissionDelegate.MediaCallback,
+            ) {
+                val host = hostOf(uri ?: activeTab?.url.orEmpty())
+                val needsVideo = videoSources?.isNotEmpty() == true
+                val needsAudio = audioSources?.isNotEmpty() == true
+                val kind = if (needsVideo) PermissionKind.Camera else PermissionKind.Microphone
+                val remembered = sitePermission(host, kind)
+                if (remembered != null) {
+                    if (remembered) {
+                        callback.grant(videoSources?.firstOrNull(), audioSources?.firstOrNull())
+                    } else {
+                        callback.reject()
+                    }
+                    return
+                }
+                val wanted = buildList {
+                    if (needsVideo) add(Manifest.permission.CAMERA)
+                    if (needsAudio) add(Manifest.permission.RECORD_AUDIO)
+                }
+                ensureRuntimePermissions(wanted) { granted ->
+                    if (!granted) {
+                        callback.reject()
+                    } else {
+                        askPermission(
+                            kind,
+                            host,
+                            PermissionTarget.Media(
+                                callback,
+                                videoSources?.firstOrNull(),
+                                audioSources?.firstOrNull(),
+                            ),
+                        )
+                    }
                 }
             }
-            else -> {
-                while (h.urls.size > h.index + 1) h.urls.removeAt(h.urls.size - 1)
-                h.urls.add(url)
-                h.index = h.urls.size - 1
+
+            override fun onAndroidPermissionsRequest(
+                session: GeckoSession,
+                permissions: Array<String>?,
+                callback: GeckoSession.PermissionDelegate.Callback,
+            ) {
+                ensureRuntimePermissions(permissions?.toList().orEmpty()) { granted ->
+                    if (granted) callback.grant() else callback.reject()
+                }
             }
         }
-        h.programmatic = false
-        syncHistoryFlags(id)
+
+        session.promptDelegate = object : GeckoSession.PromptDelegate {
+            override fun onAlertPrompt(
+                session: GeckoSession,
+                prompt: GeckoSession.PromptDelegate.AlertPrompt,
+            ): GeckoResult<GeckoSession.PromptDelegate.PromptResponse> {
+                val id = nextPromptId++
+                val result = registerPrompt(id, prompt)
+                val tabId = idOf(session)
+                if (tabId < 0 || tabId != activeId) {
+                    completePrompt(id, prompt.dismiss())
+                } else {
+                    clearShownPrompt()
+                    browserPrompt = BrowserPromptState.Alert(
+                        id = id,
+                        tabId = tabId,
+                        title = prompt.title.orEmpty().ifBlank { "This page says" },
+                        message = prompt.message.orEmpty(),
+                    )
+                    compactPill = false
+                }
+                return result
+            }
+
+            override fun onButtonPrompt(
+                session: GeckoSession,
+                prompt: GeckoSession.PromptDelegate.ButtonPrompt,
+            ): GeckoResult<GeckoSession.PromptDelegate.PromptResponse> {
+                val id = nextPromptId++
+                val result = registerPrompt(id, prompt)
+                val tabId = idOf(session)
+                if (tabId < 0 || tabId != activeId) {
+                    completePrompt(id, prompt.dismiss())
+                } else {
+                    clearShownPrompt()
+                    browserPrompt = BrowserPromptState.Button(
+                        id = id,
+                        tabId = tabId,
+                        title = prompt.title.orEmpty().ifBlank { "Confirm" },
+                        message = prompt.message.orEmpty(),
+                    )
+                    compactPill = false
+                }
+                return result
+            }
+
+            override fun onTextPrompt(
+                session: GeckoSession,
+                prompt: GeckoSession.PromptDelegate.TextPrompt,
+            ): GeckoResult<GeckoSession.PromptDelegate.PromptResponse> {
+                val id = nextPromptId++
+                val result = registerPrompt(id, prompt)
+                val tabId = idOf(session)
+                if (tabId < 0 || tabId != activeId) {
+                    completePrompt(id, prompt.dismiss())
+                } else {
+                    clearShownPrompt()
+                    browserPrompt = BrowserPromptState.Text(
+                        id = id,
+                        tabId = tabId,
+                        title = prompt.title.orEmpty().ifBlank { "This page asks" },
+                        message = prompt.message.orEmpty(),
+                        value = prompt.defaultValue.orEmpty(),
+                    )
+                    compactPill = false
+                }
+                return result
+            }
+
+            override fun onChoicePrompt(
+                session: GeckoSession,
+                prompt: GeckoSession.PromptDelegate.ChoicePrompt,
+            ): GeckoResult<GeckoSession.PromptDelegate.PromptResponse> {
+                val id = nextPromptId++
+                val result = registerPrompt(id, prompt)
+                val tabId = idOf(session)
+                if (tabId < 0 || tabId != activeId) {
+                    completePrompt(id, prompt.dismiss())
+                } else {
+                    val options = prompt.choices.orEmpty().map { choice ->
+                        ChoiceOption(
+                            id = choice.id.orEmpty(),
+                            label = choice.label.orEmpty().ifBlank { "Option" },
+                            selected = choice.selected,
+                        )
+                    }
+                    clearShownPrompt()
+                    browserPrompt = BrowserPromptState.Choice(
+                        id = id,
+                        tabId = tabId,
+                        title = prompt.title.orEmpty().ifBlank { "Choose an option" },
+                        message = prompt.message.orEmpty(),
+                        options = options,
+                        multiple = false,
+                    )
+                    compactPill = false
+                }
+                return result
+            }
+
+            override fun onAuthPrompt(
+                session: GeckoSession,
+                prompt: GeckoSession.PromptDelegate.AuthPrompt,
+            ): GeckoResult<GeckoSession.PromptDelegate.PromptResponse> {
+                val id = nextPromptId++
+                val result = registerPrompt(id, prompt)
+                val tabId = idOf(session)
+                if (tabId < 0 || tabId != activeId) {
+                    completePrompt(id, prompt.dismiss())
+                } else {
+                    clearShownPrompt()
+                    browserPrompt = BrowserPromptState.Auth(
+                        id = id,
+                        tabId = tabId,
+                        host = hostOf(prompt.authOptions?.uri ?: activeTab?.url.orEmpty()),
+                        message = prompt.message.orEmpty()
+                            .ifBlank { prompt.title.orEmpty().ifBlank { "Sign in" } },
+                        username = prompt.authOptions?.username.orEmpty(),
+                    )
+                    compactPill = false
+                }
+                return result
+            }
+
+            override fun onFilePrompt(
+                session: GeckoSession,
+                prompt: GeckoSession.PromptDelegate.FilePrompt,
+            ): GeckoResult<GeckoSession.PromptDelegate.PromptResponse> {
+                val id = nextPromptId++
+                val result = registerPrompt(id, prompt)
+                val tabId = idOf(session)
+                if (tabId < 0 || tabId != activeId) {
+                    completePrompt(id, prompt.dismiss())
+                } else {
+                    val mimes = prompt.mimeTypes?.toList().orEmpty().ifEmpty { listOf("*/*") }
+                    filePickerRequest = FilePickerRequest(id, mimes)
+                    compactPill = false
+                }
+                return result
+            }
+
+            override fun onPopupPrompt(
+                session: GeckoSession,
+                prompt: GeckoSession.PromptDelegate.PopupPrompt,
+            ): GeckoResult<GeckoSession.PromptDelegate.PromptResponse> {
+                // New windows are handled by onNewSession; popups are allowed.
+                return GeckoResult.fromValue(prompt.confirm(AllowOrDeny.ALLOW))
+            }
+        }
     }
 
-    private fun syncHistoryFlags(id: Long) {
-        val h = histories[id] ?: return
-        updateTab(id) {
-            it.copy(canGoBack = h.index > 0, canGoForward = h.index < h.urls.size - 1)
+    /* ------------------------------------------------------------------ prompts */
+
+    private fun registerPrompt(
+        id: Long,
+        prompt: GeckoSession.PromptDelegate.BasePrompt,
+    ): GeckoResult<GeckoSession.PromptDelegate.PromptResponse> {
+        val result = GeckoResult<GeckoSession.PromptDelegate.PromptResponse>()
+        promptObjects[id] = prompt
+        promptResults[id] = result
+        prompt.setDelegate(object : GeckoSession.PromptDelegate.PromptInstanceDelegate {
+            override fun onPromptDismiss(prompt: GeckoSession.PromptDelegate.BasePrompt) {
+                // Keep the pending result: our own answer callbacks still have to
+                // complete it after dismiss() has already fired this callback.
+                promptObjects.remove(id)
+                if (browserPrompt?.id == id) browserPrompt = null
+            }
+        })
+        return result
+    }
+
+    private fun completePrompt(
+        id: Long,
+        response: GeckoSession.PromptDelegate.PromptResponse?,
+    ) {
+        if (browserPrompt?.id == id) browserPrompt = null
+        promptObjects.remove(id)
+        val result = promptResults.remove(id) ?: return
+        if (response != null) {
+            runCatching { result.complete(response) }
+        } else {
+            runCatching { result.completeExceptionally(IllegalStateException("Prompt dismissed")) }
+        }
+    }
+
+    private fun clearShownPrompt() {
+        val current = browserPrompt ?: return
+        cancelPromptById(current.id)
+    }
+
+    private fun cancelPromptById(id: Long) {
+        val prompt = promptObjects[id]
+        val response = prompt?.let { runCatching { it.dismiss() }.getOrNull() }
+        completePrompt(id, response)
+        val ext = extensionInstallResults.remove(id)
+        ext?.let { runCatching { it.complete(WebExtension.PermissionPromptResponse(false, false)) } }
+        if (browserPrompt?.id == id) browserPrompt = null
+    }
+
+    fun answerAlert(id: Long) {
+        val prompt = promptObjects[id]
+        completePrompt(id, prompt?.let { runCatching { it.dismiss() }.getOrNull() })
+    }
+
+    fun answerButton(id: Long, confirm: Boolean) {
+        val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.ButtonPrompt
+        val response = prompt?.let {
+            runCatching { it.confirm(if (confirm) 0 else 1) }.getOrNull()
+        }
+        completePrompt(id, response ?: prompt?.dismiss())
+    }
+
+    fun answerText(id: Long, text: String) {
+        val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.TextPrompt
+        val response = prompt?.let { runCatching { it.confirm(text) }.getOrNull() }
+        completePrompt(id, response ?: prompt?.dismiss())
+    }
+
+    fun answerChoice(id: Long, optionId: String) {
+        val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.ChoicePrompt
+        val choice = prompt?.choices?.firstOrNull { it.id == optionId }
+        val response = when {
+            prompt == null -> null
+            choice != null -> runCatching { prompt.confirm(choice) }.getOrNull()
+            else -> prompt.dismiss()
+        }
+        completePrompt(id, response ?: prompt?.dismiss())
+    }
+
+    fun answerAuth(id: Long, username: String, password: String) {
+        val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.AuthPrompt
+        val response = if (prompt != null && (username.isNotBlank() || password.isNotBlank())) {
+            runCatching { prompt.confirm(username, password) }.getOrNull()
+        } else {
+            prompt?.dismiss()
+        }
+        completePrompt(id, response ?: prompt?.dismiss())
+    }
+
+    fun answerFilePick(id: Long, uri: Uri?) {
+        val request = filePickerRequest
+        if (request == null || request.id != id) return
+        filePickerRequest = null
+        val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.FilePrompt
+        val response = if (prompt != null && uri != null) {
+            runCatching { prompt.confirm(application, uri) }.getOrNull()
+        } else {
+            prompt?.dismiss()
+        }
+        completePrompt(id, response ?: prompt?.dismiss())
+    }
+
+    fun cancelFilePick(id: Long) {
+        answerFilePick(id, null)
+    }
+
+    fun cancelPrompt() {
+        val current = browserPrompt ?: return
+        cancelPromptById(current.id)
+        browserPrompt = null
+    }
+
+    fun answerExternalLink(id: Long, open: Boolean) {
+        val link = browserPrompt as? BrowserPromptState.ExternalLink ?: return
+        if (link.id != id) return
+        browserPrompt = null
+        if (open) openExternal(link.url)
+    }
+
+    fun answerExtensionInstall(id: Long, allow: Boolean) {
+        if (browserPrompt?.id == id) browserPrompt = null
+        val result = extensionInstallResults.remove(id) ?: return
+        runCatching {
+            result.complete(WebExtension.PermissionPromptResponse(allow, false))
+        }
+        if (allow) extensionBadge = true
+    }
+
+    fun dismissPromptsForTab(tabId: Long) {
+        val current = browserPrompt
+        if (current != null && current.tabId == tabId) cancelPrompt()
+        val file = filePickerRequest
+        if (file != null && promptObjects[file.id] != null) cancelFilePick(file.id)
+        if (permissionPrompt != null) cancelPermissionPrompt()
+    }
+
+    /* -------------------------------------------------------------- permissions */
+
+    fun sitePermission(host: String, kind: PermissionKind): Boolean? {
+        if (host.isBlank()) return null
+        return permissionsByHost["$host|${kind.key}"]
+    }
+
+    fun setSitePermission(kind: PermissionKind, allowed: Boolean?) {
+        val host = hostOf(activeTab?.url.orEmpty())
+        if (host.isBlank()) return
+        if (allowed == null) {
+            permissionsByHost.remove("$host|${kind.key}")
+            scope.launch { withContext(Dispatchers.IO) { settingsStore.clearPermission(host, kind.key) } }
+        } else {
+            rememberPermission(host, kind, allowed)
+        }
+    }
+
+    private fun rememberPermission(host: String, kind: PermissionKind, allowed: Boolean) {
+        permissionsByHost["$host|${kind.key}"] = allowed
+        scope.launch {
+            withContext(Dispatchers.IO) { settingsStore.setPermission(host, kind.key, allowed) }
+        }
+    }
+
+    private fun askPermission(kind: PermissionKind, host: String, target: PermissionTarget) {
+        val id = nextPromptId++
+        permissionTargets[id] = target
+        permissionPrompt = PermissionPromptState(id, kind, host)
+        compactPill = false
+    }
+
+    fun answerPermission(allow: Boolean, remember: Boolean) {
+        val prompt = permissionPrompt ?: return
+        permissionPrompt = null
+        val target = permissionTargets.remove(prompt.id) ?: return
+        if (remember) rememberPermission(prompt.host, prompt.kind, allow)
+        when (target) {
+            is PermissionTarget.Content -> {
+                val value = if (allow) {
+                    GeckoSession.PermissionDelegate.ContentPermission.VALUE_ALLOW
+                } else {
+                    GeckoSession.PermissionDelegate.ContentPermission.VALUE_DENY
+                }
+                runCatching { target.result.complete(value) }
+                // Mirror the choice into Gecko's permission store so a remembered
+                // answer survives even when the delegate isn't consulted first.
+                runCatching {
+                    runtime.storageController.setPermission(
+                        target.permission,
+                        if (remember) value
+                        else GeckoSession.PermissionDelegate.ContentPermission.VALUE_PROMPT,
+                    )
+                }
+            }
+
+            is PermissionTarget.Media -> {
+                if (allow) {
+                    runCatching { target.callback.grant(target.video, target.audio) }
+                } else {
+                    runCatching { target.callback.reject() }
+                }
+            }
+        }
+    }
+
+    fun cancelPermissionPrompt() {
+        answerPermission(allow = false, remember = false)
+    }
+
+    private fun ensureRuntimePermissions(
+        permissions: List<String>,
+        onResult: (Boolean) -> Unit,
+    ) {
+        val missing = permissions.distinct().filter {
+            ContextCompat.checkSelfPermission(application, it) != PackageManager.PERMISSION_GRANTED
+        }
+        if (missing.isEmpty()) {
+            onResult(true)
+            return
+        }
+        if (androidPermissionRequest != null) {
+            // One system request at a time.
+            onResult(false)
+            return
+        }
+        val id = nextPromptId++
+        runtimePermissionCallbacks[id] = onResult
+        androidPermissionRequest = AndroidPermissionRequest(id, missing)
+    }
+
+    fun onAndroidPermissionsResult(result: Map<String, Boolean>) {
+        val request = androidPermissionRequest ?: return
+        androidPermissionRequest = null
+        val callback = runtimePermissionCallbacks.remove(request.id) ?: return
+        val granted = request.permissions.all { result[it] == true }
+        callback(granted)
+    }
+
+    fun onAndroidPermissionsCanceled() {
+        val request = androidPermissionRequest ?: return
+        androidPermissionRequest = null
+        runtimePermissionCallbacks.remove(request.id)?.invoke(false)
+    }
+
+    private fun permissionKind(permission: Int): PermissionKind? = when (permission) {
+        GeckoSession.PermissionDelegate.PERMISSION_GEOLOCATION -> PermissionKind.Location
+        GeckoSession.PermissionDelegate.PERMISSION_DESKTOP_NOTIFICATION -> PermissionKind.Notifications
+        GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_AUDIBLE,
+        GeckoSession.PermissionDelegate.PERMISSION_AUTOPLAY_INAUDIBLE,
+        -> null
+        else -> null
+    }
+
+    private fun androidPermissionsFor(kind: PermissionKind): List<String> = when (kind) {
+        PermissionKind.Camera -> listOf(Manifest.permission.CAMERA)
+        PermissionKind.Microphone -> listOf(Manifest.permission.RECORD_AUDIO)
+        PermissionKind.Location -> listOf(
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+        )
+        PermissionKind.Notifications ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                listOf(Manifest.permission.POST_NOTIFICATIONS)
+            } else {
+                emptyList()
+            }
+    }
+
+    /* ---------------------------------------------------------- external links */
+
+    private fun askExternalLink(tabId: Long, url: String) {
+        val existing = browserPrompt
+        if (existing is BrowserPromptState.ExternalLink && existing.url == url) return
+        if (existing != null) clearShownPrompt()
+        browserPrompt = BrowserPromptState.ExternalLink(nextPromptId++, tabId, url)
+        compactPill = false
+    }
+
+    private fun openExternal(url: String) {
+        if (url.isBlank()) return
+        val intent = if (url.startsWith("intent:", ignoreCase = true)) {
+            runCatching { Intent.parseUri(url, Intent.URI_INTENT_SCHEME) }.getOrNull()
+        } else {
+            Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        }
+        if (intent == null) {
+            showToast("No app can open this link")
+            return
+        }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        try {
+            application.startActivity(intent)
+        } catch (_: Throwable) {
+            showToast("No app can open this link")
+        }
+    }
+
+    /* ------------------------------------------------------------ intent entry */
+
+    fun handleIntent(intent: Intent?) {
+        if (intent == null) return
+        // On a cold start the activity is created before tabs and settings are
+        // restored; hold the intent so it can't wipe the restored tab list.
+        if (!bootstrapped) {
+            pendingIntent = intent
+            return
+        }
+        if (intent.getBooleanExtra(EXTRA_OPEN_DOWNLOADS, false)) {
+            openDownloads()
+            return
+        }
+        when (intent.action) {
+            Intent.ACTION_VIEW -> {
+                val url = intent.dataString ?: return
+                val scheme = runCatching { Uri.parse(url).scheme?.lowercase(Locale.US) }.getOrNull()
+                if (scheme == "http" || scheme == "https" || scheme == "about" || scheme == "file") {
+                    openInNewTab(url)
+                } else {
+                    openExternal(url)
+                }
+            }
+
+            Intent.ACTION_WEB_SEARCH -> {
+                val query = intent.getStringExtra(SearchManager.QUERY) ?: return
+                openQueryInNewTab(query)
+            }
+
+            Intent.ACTION_SEND -> {
+                if (!intent.type.orEmpty().startsWith("text/")) return
+                val text = intent.getStringExtra(Intent.EXTRA_TEXT)?.trim() ?: return
+                if (text.isEmpty()) return
+                if (looksLikeUrl(text)) openInNewTab(toUrl(text)) else openQueryInNewTab(text)
+            }
+        }
+    }
+
+    private fun openQueryInNewTab(query: String) {
+        val url = currentEngine.urlTemplate.replace("%s", Uri.encode(query))
+        openInNewTab(url)
+    }
+
+    /* --------------------------------------------------------------- navigation */
+
+    private fun recordNavigation(id: Long, url: String) {
+        val history = histories.getOrPut(id) { History() }
+        val current = history.urls.getOrNull(history.index)
+        when {
+            current == url -> Unit
+            history.index < 0 -> {
+                history.urls.add(url)
+                history.index = 0
+            }
+
+            history.index >= history.urls.size - 1 -> {
+                history.urls.add(url)
+                history.index = history.urls.size - 1
+            }
+
+            else -> {
+                history.urls[history.index] = url
+            }
         }
     }
 
@@ -447,59 +1302,76 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         cancelDownloadPrompt()
         dismissContextMenu()
         val url = toUrl(text)
-        val tab = activeTab ?: return
-        val h = histories.getOrPut(tab.id) { History() }
-        while (h.urls.size > h.index + 1) h.urls.removeAt(h.urls.size - 1)
-        h.urls.add(url)
-        h.index = h.urls.size - 1
-        h.navStartedAt = SystemClock.uptimeMillis()
-        h.programmatic = false
-        syncHistoryFlags(tab.id)
-
-        sessions[tab.id]?.loadUri(url)
+        val tab = activeTab ?: run {
+            val id = addTab(url = url)
+            closeOverlay()
+            expandPill()
+            return
+        }
+        noLoadUi.remove(tab.id)
+        historySeed(tab.id, url)
+        tabsManager.load(tab.id, url)
         updateTab(tab.id) { it.copy(url = url, isHome = false, title = hostOf(url)) }
         closeOverlay()
         expandPill()
+        suggestions = emptyList()
+    }
+
+    private fun historySeed(id: Long, url: String) {
+        val history = histories.getOrPut(id) { History() }
+        while (history.urls.size > history.index + 1) history.urls.removeAt(history.urls.size - 1)
+        history.urls.add(url)
+        history.index = history.urls.size - 1
     }
 
     fun goBack() {
         val tab = activeTab ?: return
-        val h = histories[tab.id] ?: return
-        if (h.index <= 0) return
-        h.index--
-        h.navStartedAt = SystemClock.uptimeMillis()
-        h.programmatic = true
-        sessions[tab.id]?.loadUri(h.urls[h.index])
-        syncHistoryFlags(tab.id)
+        if (!tab.canGoBack) return
+        noLoadUi.add(tab.id)
+        clearLoadingNow(tab.id)
+        loadingJobs.remove(tab.id)?.cancel()
+        tabsManager.session(tab.id)?.goBack()
         expandPill()
+        loadZoomEnd++
     }
 
     fun goForward() {
         val tab = activeTab ?: return
-        val h = histories[tab.id] ?: return
-        if (h.index >= h.urls.size - 1) return
-        h.index++
-        h.navStartedAt = SystemClock.uptimeMillis()
-        h.programmatic = true
-        sessions[tab.id]?.loadUri(h.urls[h.index])
-        syncHistoryFlags(tab.id)
+        if (!tab.canGoForward) return
+        noLoadUi.add(tab.id)
+        clearLoadingNow(tab.id)
+        loadingJobs.remove(tab.id)?.cancel()
+        tabsManager.session(tab.id)?.goForward()
         expandPill()
+        loadZoomEnd++
+    }
+
+    fun reload() {
+        val tab = activeTab ?: return
+        if (tab.isHome) return
+        noLoadUi.remove(tab.id)
+        tabsManager.session(tab.id)?.reload()
+        expandPill()
+    }
+
+    fun stop() {
+        val tab = activeTab ?: return
+        tabsManager.session(tab.id)?.stop()
+        clearLoadingNow(tab.id)
+        loadingJobs.remove(tab.id)?.cancel()
+        loadZoomEnd++
     }
 
     /* ---- history and tab gestures --------------------------------------- */
 
     private var navNoticeJob: Job? = null
 
-    /**
-     * Back/forward via a swipe: the page moves when there is somewhere to go,
-     * and either way the pill briefly hands its footprint to a notice, exactly
-     * like the immersive-mode coach mark.
-     */
     fun navGesture(forward: Boolean) {
         val tab = activeTab ?: return
-        val h = histories.getOrPut(tab.id) { History() }
-        val target = h.urls.getOrNull(h.index + if (forward) 1 else -1)
-        if (target != null) {
+        val history = histories.getOrPut(tab.id) { History() }
+        val target = history.urls.getOrNull(history.index + if (forward) 1 else -1)
+        val canMove = if (forward) tab.canGoForward else tab.canGoBack
+        if (canMove) {
             if (forward) goForward() else goBack()
             // Same slide as a tab swipe, but read from the direction of travel:
             // back enters from the left, forward from the right.
@@ -549,82 +1421,230 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         openSearch(full)
     }
 
-    fun reload() {
-        val tab = activeTab ?: return
-        if (tab.isHome) return
-        sessions[tab.id]?.reload()
-    }
-
-    fun stop() {
-        val tab = activeTab ?: return
-        sessions[tab.id]?.stop()
-        pipLoading = false
-    }
+    /* ------------------------------------------------------------- page tools */
 
     fun toggleDesktopSite() {
-        desktopSite = !desktopSite
-        val s = activeSession ?: return
-        s.settings.userAgentMode =
-            if (desktopSite) GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
-            else GeckoSessionSettings.USER_AGENT_MODE_MOBILE
-        s.settings.viewportMode =
-            if (desktopSite) GeckoSessionSettings.VIEWPORT_MODE_DESKTOP
-            else GeckoSessionSettings.VIEWPORT_MODE_MOBILE
-        activeTab?.let { if (!it.isHome) s.reload() }
+        val tab = activeTab ?: return
+        val next = !tab.desktopMode
+        updateTab(tab.id) { it.copy(desktopMode = next) }
+        applyDesktop(tab.id, next)
+        val host = hostOf(tab.url)
+        if (host.isNotBlank() && host != "new tab") {
+            desktopByHost[host] = next
+            scope.launch { withContext(Dispatchers.IO) { settingsStore.setDesktop(host, next) } }
+        }
+        if (!tab.isHome) {
+            tabsManager.session(tab.id)?.reload(GeckoSession.LOAD_FLAGS_BYPASS_CACHE)
+        }
+    }
+
+    private fun applyDesktop(id: Long, enabled: Boolean) {
+        val session = tabsManager.session(id) ?: return
+        session.settings.userAgentMode = if (enabled) {
+            GeckoSessionSettings.USER_AGENT_MODE_DESKTOP
+        } else {
+            GeckoSessionSettings.USER_AGENT_MODE_MOBILE
+        }
+        session.settings.viewportMode = if (enabled) {
+            GeckoSessionSettings.VIEWPORT_MODE_DESKTOP
+        } else {
+            GeckoSessionSettings.VIEWPORT_MODE_MOBILE
+        }
     }
 
     fun changeZoom(delta: Int) {
-        zoom = (zoom + delta).coerceIn(50, 200)
+        val next = (zoom + delta).coerceIn(50, 200)
+        zoom = next
+        applyZoom(next)
+        val host = hostOfActive()
+        if (host.isNotBlank()) {
+            zoomByHost[host] = next
+            scope.launch { withContext(Dispatchers.IO) { settingsStore.setZoom(host, next) } }
+        }
     }
 
     fun resetZoom() {
         zoom = 100
+        applyZoom(100)
+        val host = hostOfActive()
+        if (host.isNotBlank()) {
+            zoomByHost[host] = 100
+            scope.launch { withContext(Dispatchers.IO) { settingsStore.setZoom(host, 100) } }
+        }
+    }
+
+    private fun applyZoom(percent: Int) {
+        runtime.settings.setFontInflationEnabled(true)
+        runtime.settings.setFontSizeFactor(percent.coerceIn(50, 200) / 100f)
+    }
+
+    private fun hostOfActive(): String {
+        val tab = activeTab ?: return ""
+        if (tab.isHome || tab.url.isBlank()) return ""
+        return hostOf(tab.url)
+    }
+
+    private fun syncZoomForHost(url: String) {
+        val host = hostOf(url)
+        val saved = zoomByHost[host] ?: 100
+        if (saved != zoom) {
+            zoom = saved
+            applyZoom(saved)
+        }
+    }
+
+    private fun syncZoomForActive() {
+        val host = hostOfActive()
+        val saved = if (host.isBlank()) 100 else zoomByHost[host] ?: 100
+        zoom = saved
+        applyZoom(saved)
     }
 
     fun copyCurrentUrl() {
         val url = activeTab?.url.orEmpty()
         if (url.isBlank()) return
         val cm = getApplication<Application>()
-            .getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        cm.setPrimaryClip(android.content.ClipData.newPlainText("url", url))
+            .getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        cm.setPrimaryClip(ClipData.newPlainText("url", url))
         showToast("Link copied")
     }
 
     fun shareCurrentUrl() {
-        val url = activeTab?.url.orEmpty()
+        val tab = activeTab ?: return
+        val url = tab.url
         if (url.isBlank()) return
+        val title = tab.title.ifBlank { hostOf(url) }
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_TEXT, url)
+            putExtra(Intent.EXTRA_TEXT, "$title\n$url")
+            putExtra(Intent.EXTRA_TITLE, title)
         }
         val chooser = Intent.createChooser(send, "Share page").apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        getApplication<Application>().startActivity(chooser)
+        try {
+            getApplication<Application>().startActivity(chooser)
+        } catch (_: Throwable) {
+            showToast("No app can share this page")
+        }
     }
 
-    fun openUrlExternally(url: String) {
-        if (url.isBlank()) return
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    fun openUrlExternally(url: String) = openExternal(url)
+
+    /* ---------------------------------------------------------------- extension */
+
+    private fun configureExtensions() {
+        val controller = runtime.webExtensionController
+        controller.promptDelegate = object : WebExtensionController.PromptDelegate {
+            override fun onInstallPromptRequest(
+                extension: WebExtension,
+                permissions: Array<String>?,
+                origins: Array<String>?,
+            ): GeckoResult<WebExtension.PermissionPromptResponse> {
+                val id = nextPromptId++
+                val result = GeckoResult<WebExtension.PermissionPromptResponse>()
+                extensionInstallResults[id] = result
+                clearShownPrompt()
+                browserPrompt = BrowserPromptState.ExtensionInstall(
+                    id = id,
+                    name = extension.metaData?.name ?: "Add-on",
+                    permissions = permissions?.toList().orEmpty(),
+                    origins = origins?.toList().orEmpty(),
+                )
+                compactPill = false
+                return result
+            }
+
+            override fun onUpdatePrompt(
+                extension: WebExtension,
+                updated: WebExtension,
+                permissions: Array<String>?,
+                origins: Array<String>?,
+            ): GeckoResult<AllowOrDeny> = GeckoResult.allow()
+
+            override fun onOptionalPrompt(
+                extension: WebExtension,
+                permissions: Array<String>?,
+                origins: Array<String>?,
+            ): GeckoResult<AllowOrDeny> = GeckoResult.deny()
         }
+    }
+
+    private val extensionActionDelegate = object : WebExtension.ActionDelegate {
+        override fun onOpenPopup(
+            extension: WebExtension,
+            action: WebExtension.Action,
+        ): GeckoResult<GeckoSession> = openExtensionPopup(extension, action)
+
+        override fun onTogglePopup(
+            extension: WebExtension,
+            action: WebExtension.Action,
+        ): GeckoResult<GeckoSession> = openExtensionPopup(extension, action)
+    }
+
+    private fun openExtensionPopup(
+        extension: WebExtension,
+        action: WebExtension.Action,
+    ): GeckoResult<GeckoSession> {
+        closeExtensionPopup(returnToPrevious = false)
+        popupReturn = overlay
+        val session = GeckoSession()
+        session.open(runtime)
+        extensionPopupSession = session
+        extensionPopupTitle = action.title ?: extension.metaData?.name ?: "Extension"
+        overlay = Overlay.ExtensionPopup
+        compactPill = false
+        return GeckoResult.fromValue(session)
+    }
+
+    fun closeExtensionPopup(returnToPrevious: Boolean = true) {
+        extensionPopupSession?.close()
+        extensionPopupSession = null
+        extensionPopupTitle = ""
+        if (overlay == Overlay.ExtensionPopup) {
+            overlay = if (returnToPrevious) popupReturn else Overlay.None
+        }
+        popupReturn = Overlay.None
+        compactPill = false
+    }
+
+    fun refreshExtensions() {
         try {
-            getApplication<Application>().startActivity(intent)
+            runtime.webExtensionController.list().accept(
+                { list ->
+                    val mapped = mutableListOf<ExtensionItem>()
+                    extensionObjects.clear()
+                    list.orEmpty().forEach { extension ->
+                        extensionObjects[extension.id] = extension
+                        runCatching { extension.setActionDelegate(extensionActionDelegate) }
+                        val meta = extension.metaData
+                        mapped += ExtensionItem(
+                            id = extension.id,
+                            name = meta?.name ?: extension.id,
+                            version = meta?.version.orEmpty(),
+                            description = meta?.description.orEmpty(),
+                            enabled = meta?.enabled ?: true,
+                            permissions = meta?.requiredPermissions?.toList().orEmpty(),
+                        )
+                    }
+                    extensions = mapped
+                },
+                { /* listing failures leave the last snapshot in place */ },
+            )
         } catch (_: Throwable) {
-            showToast("No app can open this link")
+            // Extensions are optional.
         }
     }
 
     fun installExtension(uri: Uri) {
-        val app = getApplication<Application>()
         try {
             // GeckoView installs from a URL/file path, so stage the picked XPI in cache.
-            val staged = java.io.File(app.cacheDir, "addon-${System.currentTimeMillis()}.xpi")
-            app.contentResolver.openInputStream(uri)?.use { input ->
+            val staged = File(application.cacheDir, "addon-${System.currentTimeMillis()}.xpi")
+            application.contentResolver.openInputStream(uri)?.use { input ->
                 staged.outputStream().use { output -> input.copyTo(output) }
             } ?: throw IllegalStateException("Cannot read the chosen file")
             installFromUri(Uri.fromFile(staged))
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             showToast("Add-on install failed")
         }
     }
@@ -636,19 +1656,87 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun installFromUri(uri: Uri) {
         try {
-            runtime.webExtensionController.install(uri.toString()).accept(
-                { showToast("Add-on installed") },
+            // Local XPI files need the file installation method; remote URLs go
+            // through the normal install path.
+            val local = uri.scheme == "file" || uri.scheme == "content"
+            val result = if (local) {
+                runtime.webExtensionController.install(
+                    uri.toString(),
+                    WebExtensionController.INSTALLATION_METHOD_FROM_FILE,
+                )
+            } else {
+                runtime.webExtensionController.install(uri.toString())
+            }
+            result.accept(
+                {
+                    // GeckoView only installs signed add-ons; unsigned XPI files fail here.
+                    extensionBadge = true
+                    refreshExtensions()
+                    showToast("Add-on installed")
+                },
                 { showToast("Add-on install failed") },
             )
             showToast("Installing add-on…")
-        } catch (t: Throwable) {
+        } catch (_: Throwable) {
             showToast("Add-on install failed")
         }
     }
 
-    // ---- downloads --------------------------------------------------------
+    fun toggleExtension(item: ExtensionItem) {
+        val extension = extensionObjects[item.id] ?: return
+        val controller = runtime.webExtensionController
+        val result = if (item.enabled) {
+            controller.disable(extension, WebExtensionController.EnableSource.USER)
+        } else {
+            controller.enable(extension, WebExtensionController.EnableSource.USER)
+        }
+        result.accept(
+            {
+                refreshExtensions()
+                showToast(if (item.enabled) "Add-on disabled" else "Add-on enabled")
+            },
+            { showToast("Couldn't change the add-on") },
+        )
+    }
 
-    /** Where the last page tap landed, in dp; the flight starts from here. */
+    fun uninstallExtension(item: ExtensionItem) {
+        val extension = extensionObjects[item.id] ?: return
+        runtime.webExtensionController.uninstall(extension).accept(
+            {
+                extensionObjects.remove(item.id)
+                refreshExtensions()
+                showToast("Add-on removed")
+            },
+            { showToast("Couldn't remove the add-on") },
+        )
+    }
+
+    fun openExtensions() {
+        extensionsReturn = when (overlay) {
+            Overlay.Menu, Overlay.Settings -> overlay
+            else -> Overlay.Menu
+        }
+        clearActiveLoading()
+        extensionBadge = false
+        cancelDownloadPrompt()
+        dismissContextMenu()
+        overlay = Overlay.Extensions
+        compactPill = false
+        refreshExtensions()
+    }
+
+    fun openAddonPicker() {
+        addonPickerRequest.value = true
+    }
+
+    val addonPickerRequest = mutableStateOf(false)
+
+    fun consumeAddonPickerRequest() {
+        addonPickerRequest.value = false
+    }
+
+    /* ---------------------------------------------------------------- downloads */
+
     private var lastTapX = -1f
     private var lastTapY = -1f
     private var lastTapAt = 0L
@@ -695,20 +1783,21 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun offerDownload(pending: PendingDownload) {
-        pendingDownload?.body?.safeClose()
+        pendingDownload?.body?.closeQuietly()
         pendingDownload = pending
     }
 
     fun cancelDownloadPrompt() {
         val p = pendingDownload ?: return
-        p.body?.safeClose()
+        p.body?.closeQuietly()
         pendingDownload = null
     }
 
     fun confirmDownloadPrompt() {
         val p = pendingDownload ?: return
         pendingDownload = null
-        val id = nextDownloadId++
+        val id = (DownloadCenter.current().maxOfOrNull { it.id } ?: 0L).coerceAtLeast(nextDownloadId - 1) + 1
+        nextDownloadId = id + 1
         val mime = p.mime.ifBlank { mimeFor(emptyMap(), p.name) }
         val item = DownloadItem(
             id = id,
@@ -720,13 +1809,16 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             mime = mime,
             started = System.currentTimeMillis(),
         )
-        downloads = listOf(item) + downloads
         if (p.originX != null && p.originY != null) {
             flight = DownloadFlight(id, item.name, p.originX, p.originY)
         } else {
             chipPulse++
         }
-        streamDownload(id, p.body, p.url, mime)
+        // Ask for the notification permission once; the transfer starts either way.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ensureRuntimePermissions(listOf(Manifest.permission.POST_NOTIFICATIONS)) { }
+        }
+        DownloadService.start(application, item, p.body)
     }
 
     /** Fetches a link from the context menu, then shows the same confirm prompt. */
@@ -766,76 +1858,32 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun streamDownload(id: Long, body: InputStream?, url: String, mime: String) {
-        val job = scope.launch {
-            val item = downloads.firstOrNull { it.id == id && it.status == DownloadStatus.Downloading }
-                ?: return@launch
-            var input: InputStream? = body
-            var target: SaveTarget? = null
-            var finished = false
-            try {
-                val sink = withContext(Dispatchers.IO) { createSaveTarget(item.name, mime) }
-                target = sink
-                saveTargets[id] = sink
-                if (input == null) {
-                    input = withContext(Dispatchers.IO) { openUrlStream(url) }
-                }
-                val stream = input ?: throw IllegalStateException("No download stream")
-                downloadStreams[id] = stream
-                withContext(Dispatchers.IO) {
-                    val buffer = ByteArray(64 * 1024)
-                    var done = 0L
-                    var last = 0L
-                    while (true) {
-                        ensureActive()
-                        val read = stream.read(buffer)
-                        if (read < 0) break
-                        sink.output.write(buffer, 0, read)
-                        done += read
-                        val now = SystemClock.uptimeMillis()
-                        if (now - last >= 120L) {
-                            last = now
-                            withContext(Dispatchers.Main) { updateDownloadProgress(id, done) }
-                        }
-                    }
-                    sink.output.flush()
-                }
-                val uri = withContext(Dispatchers.IO) {
-                    sink.finish()
-                    sink.uriString
-                }
-                finished = true
-                markDownloadDone(id, uri)
-            } catch (_: CancellationException) {
-                // cancelDownload() already marked the row and closed the streams.
-            } catch (_: Throwable) {
-                if (downloads.firstOrNull { it.id == id }?.status == DownloadStatus.Downloading) {
-                    markDownloadCanceled(id)
-                    showToast("Download failed")
-                }
-            } finally {
-                input?.safeClose()
-                if (!finished) target?.discard()
-                downloadStreams.remove(id)
-                saveTargets.remove(id)
-                downloadJobs.remove(id)
-            }
-        }
-        downloadJobs[id] = job
+    fun cancelDownload(id: Long) {
+        DownloadService.cancel(application, id)
     }
 
-    fun cancelDownload(id: Long) {
+    fun pauseDownload(id: Long) {
+        DownloadService.pause(application, id)
+    }
+
+    fun resumeDownload(id: Long) {
         val item = downloads.firstOrNull { it.id == id } ?: return
-        if (item.status != DownloadStatus.Downloading) return
-        markDownloadCanceled(id)
-        downloadJobs.remove(id)?.cancel()
-        downloadStreams.remove(id)?.safeClose()
-        saveTargets.remove(id)?.discard()
+        if (item.status != DownloadStatus.Paused && item.status != DownloadStatus.Failed) return
+        if (item.url.isBlank()) {
+            showToast("This download can't be resumed")
+            return
+        }
+        DownloadCenter.update(id) {
+            it.copy(status = DownloadStatus.Downloading, localUri = null, ended = 0L)
+        }
+        DownloadService.resume(application, item.copy(done = item.done))
     }
 
     /** Swipe-up on the chip: cancel the newest transfer and clear its row. */
     fun cancelNewestDownload(): DownloadItem? {
-        val item = activeDownloads.firstOrNull() ?: return null
+        val item = activeDownloads.firstOrNull()
+            ?: downloads.firstOrNull { it.status == DownloadStatus.Paused }
+            ?: return null
         removeDownload(item.id)
         showToast("Canceled ${item.name}")
         return item
@@ -843,27 +1891,43 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun retryDownload(id: Long) {
         val item = downloads.firstOrNull { it.id == id } ?: return
-        if (item.status == DownloadStatus.Downloading) return
-        downloads = downloads.map {
-            if (it.id == id) it.copy(
+        if (item.status == DownloadStatus.Downloading || item.status == DownloadStatus.Done) return
+        if (item.url.isBlank()) {
+            showToast("This download can't be retried")
+            return
+        }
+        DownloadCenter.update(id) {
+            it.copy(
                 status = DownloadStatus.Downloading,
                 done = 0L,
                 ended = 0L,
                 localUri = null,
                 started = System.currentTimeMillis(),
-            ) else it
+            )
         }
-        streamDownload(id, null, item.url, item.mime)
+        DownloadCenter.partFile(application, id).delete()
+        DownloadService.resume(
+            application,
+            item.copy(done = 0L, status = DownloadStatus.Downloading),
+        )
     }
 
     fun removeDownload(id: Long) {
-        cancelDownload(id)
-        downloads = downloads.filterNot { it.id == id }
+        DownloadService.cancel(application, id)
+        DownloadService.forget(id)
+        DownloadCenter.remove(id)
+        DownloadCenter.persistAsync(application)
     }
 
     fun clearDownloads() {
-        downloads.forEach { cancelDownload(it.id) }
-        downloads = emptyList()
+        downloads.forEach {
+            if (it.status == DownloadStatus.Downloading || it.status == DownloadStatus.Paused) {
+                DownloadService.cancel(application, it.id)
+                DownloadService.forget(it.id)
+            }
+        }
+        DownloadCenter.replaceAll(emptyList())
+        DownloadCenter.persistAsync(application)
     }
 
     fun openDownload(id: Long) {
@@ -884,39 +1948,6 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun updateDownloadProgress(id: Long, done: Long) {
-        downloads = downloads.map {
-            if (it.id == id && it.status == DownloadStatus.Downloading) {
-                it.copy(done = if (it.size > 0) done.coerceAtMost(it.size) else done)
-            } else it
-        }
-    }
-
-    private fun markDownloadDone(id: Long, uri: String?) {
-        val item = downloads.firstOrNull { it.id == id } ?: return
-        val finalSize = if (item.size > 0) item.size else item.done
-        downloads = downloads.map {
-            if (it.id == id) it.copy(
-                status = DownloadStatus.Done,
-                done = finalSize,
-                size = finalSize,
-                ended = System.currentTimeMillis(),
-                localUri = uri,
-            ) else it
-        }
-        if (flight == null) chipPulse++
-        // No completion popup: the live chip already announces the finish.
-    }
-
-    private fun markDownloadCanceled(id: Long) {
-        downloads = downloads.map {
-            if (it.id == id && it.status == DownloadStatus.Downloading) it.copy(
-                status = DownloadStatus.Canceled,
-                ended = System.currentTimeMillis(),
-            ) else it
-        }
-    }
-
     fun finishFlight(id: Long) {
         val f = flight ?: return
         if (f.id != id) return
@@ -924,103 +1955,99 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         chipPulse++
     }
 
-    private fun openUrlStream(url: String): InputStream {
-        val conn = URL(url).openConnection() as HttpURLConnection
-        conn.connectTimeout = 15_000
-        conn.readTimeout = 30_000
-        conn.instanceFollowRedirects = true
-        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) ArcBrowser")
-        conn.setRequestProperty("Accept", "*/*")
-        val code = conn.responseCode
-        if (code !in 200..299) throw IllegalStateException("HTTP $code")
-        return conn.inputStream
+    /* -------------------------------------------------------------- session api */
+
+    fun onGeckoViewReady(view: GeckoView) {
+        geckoView = view
     }
 
-    private fun downloadsDir(): File {
-        val app = getApplication<Application>()
-        val external = app.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
-        return external ?: File(app.filesDir, "Downloads")
-    }
-
-    @Suppress("DEPRECATION")
-    private fun createSaveTarget(name: String, mime: String): SaveTarget {
-        val app = getApplication<Application>()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            val resolver = app.contentResolver
-            val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, name)
-                put(MediaStore.Downloads.MIME_TYPE, mime)
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
-                put(MediaStore.Downloads.IS_PENDING, 1)
-            }
-            val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                ?: throw IllegalStateException("Couldn't create the download")
-            val out = try {
-                resolver.openOutputStream(uri)
-            } catch (t: Throwable) {
-                resolver.delete(uri, null, null)
-                throw t
-            } ?: run {
-                resolver.delete(uri, null, null)
-                throw IllegalStateException("Couldn't open the download")
-            }
-            return SaveTarget(out, resolver, uri, null, uri.toString())
-        }
-        val dir = downloadsDir()
-        if (!dir.exists()) dir.mkdirs()
-        val file = uniqueFile(dir, name)
-        val out = FileOutputStream(file)
-        val uri = FileProvider.getUriForFile(app, "${app.packageName}.fileprovider", file)
-        return SaveTarget(out, null, null, file, uri.toString())
-    }
-
-    private fun uniqueFile(dir: File, name: String): File {
-        val first = File(dir, name)
-        if (!first.exists()) return first
-        val base = name.substringBeforeLast('.', name)
-        val ext = name.substringAfterLast('.', "")
-        var i = 1
-        while (true) {
-            val candidate = File(dir, "$base ($i)${if (ext.isBlank()) "" else ".$ext"}")
-            if (!candidate.exists()) return candidate
-            i++
+    fun captureActiveThumbnail() {
+        val view = geckoView ?: return
+        val tab = activeTab ?: return
+        if (tab.isHome) return
+        val id = tab.id
+        runCatching {
+            view.capturePixels().accept(
+                { bitmap ->
+                    if (bitmap != null) updateTab(id) { it.copy(thumbnail = bitmap) }
+                },
+                { /* capture can fail while the page is changing */ },
+            )
         }
     }
 
-    // ---- tabs -------------------------------------------------------------
+    private fun recoverSession(id: Long) {
+        val tab = tabs.firstOrNull { it.id == id } ?: return
+        val now = SystemClock.uptimeMillis()
+        val previous = lastRecoverAt[id] ?: 0L
+        if (now - previous < 1500L) return
+        lastRecoverAt[id] = now
+        val state = stateBlobs[id]?.let {
+            runCatching { GeckoSession.SessionState.fromString(it) }.getOrNull()
+        }
+        tabsManager.reopen(id, state, ::attachDelegates)
+        if (tab.desktopMode) applyDesktop(id, true)
+        if (state == null && tab.url.isNotBlank() && !tab.isHome) {
+            tabsManager.load(id, tab.url)
+        }
+        if (id == activeId) {
+            showToast("Tab recovered")
+        }
+    }
+
+    /* ------------------------------------------------------------------- tabs */
 
     fun newTab() {
         cancelDownloadPrompt()
         dismissContextMenu()
-        val id = createSession()
-        tabs = tabs + TabInfo(id)
-        activeId = id
+        val id = addTab()
         closeOverlay()
         expandPill()
+        syncZoomForActive()
+        persistTabs()
     }
 
     fun selectTab(id: Long) {
-        if (!sessions.containsKey(id)) return
+        if (!tabsManager.ids.contains(id)) return
+        if (id == activeId) return
+        captureActiveThumbnail()
+        dismissPromptsForTab(activeId)
         cancelDownloadPrompt()
         dismissContextMenu()
         tabSwitch = null
+        fullscreen = false
+        // A tab that was still loading when we left it shouldn't throw the
+        // loading glow back on screen just because we returned to it.
+        if (tabs.firstOrNull { it.id == id }?.isLoading == true) {
+            noLoadUi.add(id)
+            clearLoadingNow(id)
+        }
+        loadZoomEnd++
         activeId = id
         closeOverlay()
         expandPill()
+        syncZoomForActive()
+        persistTabs()
     }
 
     fun closeTab(id: Long) {
         val idx = tabs.indexOfFirst { it.id == id }
         if (idx < 0) return
+        dismissPromptsForTab(id)
         cancelDownloadPrompt()
         dismissContextMenu()
-        val closing = sessions.remove(id)
+        tabsManager.close(id)
         histories.remove(id)
-        closing?.close()
+        stateBlobs.remove(id)
+        loadingJobs.remove(id)?.cancel()
+        noLoadUi.remove(id)
+        scrollY.remove(id)
+        scrollAcc.remove(id)
 
         val remaining = tabs.filterNot { it.id == id }
         if (remaining.isEmpty()) {
-            val fresh = createSession()
+            val fresh = tabsManager.create(attach = ::attachDelegates)
+            histories[fresh] = History()
             tabs = listOf(TabInfo(fresh))
             activeId = fresh
         } else {
@@ -1029,11 +2056,38 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 activeId = remaining[getSafeIndex(idx, remaining.size)].id
             }
         }
+        persistTabs()
+        compactPill = false
+        loadZoomEnd++
+        syncZoomForActive()
     }
 
-    private fun getSafeIndex(index: Int, size: Int) = (index - 1).coerceAtLeast(0).coerceAtMost(size - 1)
+    private fun getSafeIndex(index: Int, size: Int) =
+        (index - 1).coerceAtLeast(0).coerceAtMost(size - 1)
+
+    fun openInNewTab(url: String) {
+        if (url.isBlank()) return
+        dismissContextMenu()
+        addTab(url = url, title = hostOf(url))
+        overlay = Overlay.None
+        expandPill()
+        syncZoomForActive()
+    }
+
+    /* ---------------------------------------------------------------- overlays */
+
+    private fun clearLoadingNow(id: Long) {
+        loadingJobs.remove(id)?.cancel()
+        updateTab(id) { it.copy(isLoading = false) }
+    }
+
+    private fun clearActiveLoading() {
+        val tab = activeTab ?: return
+        clearLoadingNow(tab.id)
+    }
 
     fun closeOverlay() {
+        if (overlay == Overlay.ExtensionPopup) closeExtensionPopup(returnToPrevious = false)
         cancelDownloadPrompt()
         dismissContextMenu()
         overlay = Overlay.None
@@ -1041,15 +2095,20 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openSearch(prefill: String? = null) {
+        clearActiveLoading()
         cancelDownloadPrompt()
         dismissContextMenu()
         clearNavNotice()
         searchText = prefill.orEmpty()
+        suggestions = emptyList()
         overlay = Overlay.Search
         compactPill = false
+        requestSuggestions(searchText)
     }
 
     fun openMenu() {
+        clearActiveLoading()
+        captureActiveThumbnail()
         cancelDownloadPrompt()
         dismissContextMenu()
         overlay = Overlay.Menu
@@ -1058,7 +2117,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun toggleMenu() {
         if (overlay == Overlay.Menu || overlay == Overlay.Settings ||
-            overlay == Overlay.SiteSettings || overlay == Overlay.Account
+            overlay == Overlay.SiteSettings || overlay == Overlay.Account ||
+            overlay == Overlay.Extensions
         ) {
             closeOverlay()
         } else {
@@ -1067,9 +2127,16 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openTabs() {
+        clearActiveLoading()
+        captureActiveThumbnail()
         cancelDownloadPrompt()
         dismissContextMenu()
         overlay = Overlay.Tabs
+        compactPill = false
+    }
+
+    /** Expands the compact pill back to the three-button bar. */
+    fun expandPill() {
         compactPill = false
     }
 
@@ -1078,6 +2145,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openSettings() {
+        clearActiveLoading()
         cancelDownloadPrompt()
         dismissContextMenu()
         overlay = Overlay.Settings
@@ -1085,8 +2153,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openSiteSettings() {
+        clearActiveLoading()
         cancelDownloadPrompt()
         overlay = Overlay.SiteSettings
+        compactPill = false
     }
 
     fun openDownloads() {
@@ -1096,6 +2166,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             Overlay.Menu, Overlay.Settings, Overlay.SiteSettings, Overlay.Account -> current
             else -> Overlay.None
         }
+        clearActiveLoading()
         cancelDownloadPrompt()
         dismissContextMenu()
         overlay = Overlay.Downloads
@@ -1110,6 +2181,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openAccount() {
+        clearActiveLoading()
         cancelDownloadPrompt()
         dismissContextMenu()
         accountReturn = when (overlay) {
@@ -1118,16 +2190,37 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             else -> Overlay.Menu
         }
         overlay = Overlay.Account
+        compactPill = false
     }
 
     /** Handles the system back button; returns true when it was consumed. */
     fun onBackPressed(): Boolean {
+        if (browserPrompt != null) {
+            cancelPrompt()
+            return true
+        }
+        if (permissionPrompt != null) {
+            cancelPermissionPrompt()
+            return true
+        }
+        if (androidPermissionRequest != null) {
+            onAndroidPermissionsCanceled()
+            return true
+        }
+        if (filePickerRequest != null) {
+            cancelFilePick(filePickerRequest!!.id)
+            return true
+        }
         if (pendingDownload != null) {
             cancelDownloadPrompt()
             return true
         }
         if (contextMenu != null) {
             dismissContextMenu()
+            return true
+        }
+        if (fullscreen) {
+            fullscreen = false
             return true
         }
         return when (overlay) {
@@ -1138,6 +2231,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             }
             Overlay.Settings, Overlay.SiteSettings -> {
                 overlay = Overlay.Menu
+                true
+            }
+            Overlay.Extensions -> {
+                overlay = extensionsReturn
+                true
+            }
+            Overlay.ExtensionPopup -> {
+                closeExtensionPopup()
                 true
             }
             Overlay.Downloads -> {
@@ -1154,17 +2255,83 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun toggleDarkMode() {
         darkMode = !darkMode
         prefs.edit().putBoolean("dark", darkMode).apply()
+        scope.launch { withContext(Dispatchers.IO) { settingsStore.setDark(darkMode) } }
+    }
+
+    fun toggleSearchSuggestions() {
+        suggestionsEnabled = !suggestionsEnabled
+        if (!suggestionsEnabled) suggestions = emptyList()
+        val value = suggestionsEnabled
+        scope.launch { withContext(Dispatchers.IO) { settingsStore.setSuggestions(value) } }
     }
 
     fun onSearchTextChange(value: String) {
         searchText = value
+        requestSuggestions(value)
     }
 
     fun onSettingsSearchChange(value: String) {
         settingsSearch = value
     }
 
-    // ---- search engines ---------------------------------------------------
+    /* -------------------------------------------------------- search suggestions */
+
+    private var suggestJob: Job? = null
+
+    private fun requestSuggestions(query: String) {
+        suggestJob?.cancel()
+        if (!suggestionsEnabled || query.isBlank() || looksLikeUrl(query)) {
+            suggestions = emptyList()
+            return
+        }
+        suggestJob = scope.launch {
+            delay(150)
+            val found = withContext(Dispatchers.IO) {
+                runCatching { fetchSuggestions(query) }.getOrDefault(emptyList())
+            }
+            if (searchText == query) suggestions = found.take(5)
+        }
+    }
+
+    private fun fetchSuggestions(query: String): List<String> {
+        val endpoint = "https://duckduckgo.com/ac/?q=${Uri.encode(query)}&type=list"
+        val conn = URL(endpoint).openConnection() as HttpURLConnection
+        conn.connectTimeout = 4000
+        conn.readTimeout = 4000
+        conn.instanceFollowRedirects = true
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) ArcBrowser")
+        return try {
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            val arr = JSONArray(body)
+            buildList {
+                for (i in 0 until arr.length()) {
+                    // DuckDuckGo answers with either {"phrase": "..."} objects or
+                    // plain strings depending on the endpoint version.
+                    val phrase = when (val item = arr.opt(i)) {
+                        is JSONObject -> item.optString("phrase")
+                        is String -> item
+                        else -> ""
+                    }
+                    if (phrase.isNotBlank() && phrase != query && none { it.equals(phrase, ignoreCase = true) }) {
+                        add(phrase)
+                    }
+                }
+            }
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    fun looksLikeUrl(text: String): Boolean {
+        val t = text.trim()
+        if (t.isEmpty() || t.contains(' ')) return false
+        if (t.startsWith("http://") || t.startsWith("https://") ||
+            t.startsWith("about:") || t.startsWith("file:") || t.startsWith("www.")
+        ) return true
+        return t.contains('.') || t == "localhost" || t.contains("://")
+    }
+
+    /* ------------------------------------------------------------ search engines */
 
     fun selectEngine(id: String) {
         if (engines.none { it.id == id }) return
@@ -1274,55 +2441,63 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         val chooser = Intent.createChooser(send, "Share").apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
-        getApplication<Application>().startActivity(chooser)
+        try {
+            getApplication<Application>().startActivity(chooser)
+        } catch (_: Throwable) {
+            showToast("No app can share this")
+        }
     }
 
     fun clearToast() {
         toastMessage = null
     }
 
-    fun openAddonPicker() {
-        // The Activity launches the document picker; see MainActivity.
-        addonPickerRequest.value = true
-    }
-
-    val addonPickerRequest = mutableStateOf(false)
-
-    fun consumeAddonPickerRequest() {
-        addonPickerRequest.value = false
-    }
-
-    fun openInNewTab(url: String) {
-        if (url.isBlank()) return
-        dismissContextMenu()
-        val id = createSession()
-        tabs = tabs + TabInfo(id, url = url, isHome = false, title = hostOf(url))
-        val h = histories.getOrPut(id) { History() }
-        h.urls.add(url)
-        h.index = 0
-        h.navStartedAt = SystemClock.uptimeMillis()
-        activeId = id
-        sessions[id]?.loadUri(url)
-        overlay = Overlay.None
-        expandPill()
-    }
+    /* ------------------------------------------------------------------ cleanup */
 
     override fun onCleared() {
-        pendingDownload?.body?.safeClose()
+        browserPrompt?.let { cancelPromptById(it.id) }
+        browserPrompt = null
+        permissionPrompt?.let {
+            permissionTargets.remove(it.id)
+        }
+        permissionPrompt = null
+        pendingDownload?.body?.closeQuietly()
         pendingDownload = null
-        downloadJobs.values.forEach { it.cancel() }
-        downloadJobs.clear()
-        downloadStreams.values.forEach { it.safeClose() }
-        downloadStreams.clear()
-        saveTargets.values.forEach { it.discard() }
-        saveTargets.clear()
+        filePickerRequest = null
+        if (tabs.isNotEmpty()) {
+            // Best-effort synchronous save on the way out; normal saves are async.
+            runCatching {
+                BrowserFiles.saveTabList(
+                    application,
+                    tabs.map { TabRecord(it.id, it.url, it.title, it.desktopMode, it.secure) },
+                    activeId,
+                )
+            }
+        }
+        downloadFlightCleanup()
+        closeExtensionPopup(returnToPrevious = false)
+        stateBlobs.forEach { (id, blob) ->
+            runCatching { BrowserFiles.saveSession(application, id, blob) }
+        }
         scope.cancel()
-        sessions.values.forEach { it.close() }
-        sessions.clear()
+        tabsManager.closeAll()
         super.onCleared()
     }
 
+    private fun downloadFlightCleanup() {
+        flight = null
+    }
+
     companion object {
+        const val EXTRA_OPEN_DOWNLOADS = "com.example.geckobrowser.OPEN_DOWNLOADS"
+        private const val SETTINGS_SCHEMA = 1
+        private const val LOADING_HOLD_MS = 1700L
+
+        private val INTERNAL_SCHEMES = setOf(
+            "http", "https", "about", "file", "data", "blob", "javascript",
+            "resource", "wyciwyg", "view-source",
+        )
+
         fun isBlankUrl(url: String): Boolean =
             url.isEmpty() || url == "about:blank" || url.startsWith("about:blank#")
 
@@ -1376,8 +2551,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         fun mimeFor(headers: Map<String, String>, name: String): String {
             val type = headerOf(headers, "content-type")?.substringBefore(';')?.trim()
             if (!type.isNullOrBlank() && type.contains('/')) return type
-            val ext = downExt(name)
-            return when (ext) {
+            return when (downExt(name)) {
                 "xpi" -> "application/x-xpinstall"
                 "apk" -> "application/vnd.android.package-archive"
                 "zip" -> "application/zip"
@@ -1390,8 +2564,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 "mp4" -> "video/mp4"
                 "txt" -> "text/plain"
                 "json" -> "application/json"
-                else -> MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
-                    ?: "application/octet-stream"
+                else -> android.webkit.MimeTypeMap.getSingleton()
+                    .getMimeTypeFromExtension(downExt(name)) ?: "application/octet-stream"
             }
         }
 
@@ -1412,56 +2586,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 }
 
-/* ------------------------------------------------------- download helpers */
-
-/** A partially written file plus the bits needed to publish or delete it. */
-private class SaveTarget(
-    val output: OutputStream,
-    private val resolver: android.content.ContentResolver?,
-    private val mediaUri: Uri?,
-    private val file: File?,
-    val uriString: String,
-) {
-    private var discarded = false
-
-    fun finish() {
-        output.flush()
-        output.close()
-        if (mediaUri != null && resolver != null) {
-            val values = ContentValues()
-            values.put(MediaStore.Downloads.IS_PENDING, 0)
-            resolver.update(mediaUri, values, null, null)
-        }
-    }
-
-    fun discard() {
-        if (discarded) return
-        discarded = true
-        output.safeClose()
-        if (mediaUri != null && resolver != null) {
-            try {
-                resolver.delete(mediaUri, null, null)
-            } catch (_: Throwable) {
-                // The row may already be gone.
-            }
-        }
-        file?.delete()
-    }
-}
-
-private fun InputStream.safeClose() {
+private fun InputStream.closeQuietly() {
     try {
         close()
     } catch (_: Throwable) {
-        // Nothing left to do.
-    }
-}
-
-private fun OutputStream.safeClose() {
-    try {
-        close()
-    } catch (_: Throwable) {
-        // Nothing left to do.
+        // Nothing left to close.
     }
 }
 
@@ -1500,4 +2629,3 @@ fun formatWhen(timestamp: Long): String {
     if (minutes < 60L) return "$minutes min ago"
     return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
 }
-

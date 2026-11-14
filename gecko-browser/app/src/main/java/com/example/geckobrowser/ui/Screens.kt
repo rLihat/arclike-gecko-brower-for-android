@@ -46,6 +46,8 @@ import androidx.compose.ui.unit.sp
 import com.example.geckobrowser.BrowserViewModel
 import com.example.geckobrowser.DownloadItem
 import com.example.geckobrowser.DownloadStatus
+import com.example.geckobrowser.ExtensionItem
+import com.example.geckobrowser.PermissionKind
 import com.example.geckobrowser.formatBytes
 import com.example.geckobrowser.formatWhen
 
@@ -230,7 +232,8 @@ fun SettingsScreen(
                     }
                 }
 
-                val appearance = listOf("Dark mode", "Text size").filter { matches(query, it) }
+                val appearance = listOf("Dark mode", "Text size", "Search suggestions")
+                    .filter { matches(query, it) }
                 if (appearance.isNotEmpty()) {
                     SectionLabel("Appearance")
                     SettingsGroup {
@@ -246,8 +249,18 @@ fun SettingsScreen(
                             SettingsRow(
                                 label = "Text size",
                                 icon = { Glyph(Ico.textSize, c.text, size = 20.dp, strokeWidth = 1.9f) },
-                                value = "100%",
-                                onClick = { vm.showToast("Text size: 100%") },
+                                value = "${vm.zoom}%",
+                                onClick = { vm.resetZoom() },
+                            )
+                        }
+                        if ("Search suggestions" in appearance) {
+                            SettingsRow(
+                                label = "Search suggestions",
+                                icon = { Glyph(Ico.find, c.text, size = 20.dp, strokeWidth = 1.9f) },
+                                trailing = {
+                                    ArcSwitch(vm.suggestionsEnabled) { vm.toggleSearchSuggestions() }
+                                },
+                                onClick = { vm.toggleSearchSuggestions() },
                             )
                         }
                     }
@@ -436,12 +449,7 @@ fun SettingsHeader(
 @Composable
 fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
     val c = LocalArc.current
-    var camera by remember { mutableStateOf(true) }
-    var microphone by remember { mutableStateOf(true) }
-    var location by remember { mutableStateOf(true) }
-    var notifications by remember { mutableStateOf(false) }
-    var autoplay by remember { mutableStateOf(true) }
-    var popups by remember { mutableStateOf(false) }
+    val host = vm.domain
 
     Column(
         Modifier
@@ -466,7 +474,7 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 .padding(bottom = 40.dp),
         ) {
             Text(
-                vm.domain,
+                host,
                 color = c.muted,
                 fontSize = 13.sp,
                 modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp),
@@ -483,35 +491,17 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
             }
 
             SectionLabel("Permissions")
+            Text(
+                "Tap a row to go back to asking every time.",
+                color = c.muted,
+                fontSize = 11.sp,
+                modifier = Modifier.padding(start = 6.dp, bottom = 6.dp),
+            )
             SettingsGroup {
-                SettingsRow("Camera",
-                    icon = { Glyph(Ico.pin, c.text, size = 19.dp, strokeWidth = 1.8f) },
-                    trailing = { ArcSwitch(camera) { camera = it } },
-                    onClick = { camera = !camera })
-                SettingsRow("Microphone",
-                    icon = { Glyph(Ico.person, c.text, size = 19.dp, strokeWidth = 1.8f) },
-                    trailing = { ArcSwitch(microphone) { microphone = it } },
-                    onClick = { microphone = !microphone })
-                SettingsRow("Location",
-                    icon = { Glyph(Ico.globe, c.text, size = 19.dp, strokeWidth = 1.7f) },
-                    trailing = { ArcSwitch(location) { location = it } },
-                    onClick = { location = !location })
-                SettingsRow("Notifications",
-                    icon = { Glyph(Ico.find, c.text, size = 19.dp, strokeWidth = 1.9f) },
-                    trailing = { ArcSwitch(notifications) { notifications = it } },
-                    onClick = { notifications = !notifications })
-            }
-
-            SectionLabel("Content")
-            SettingsGroup {
-                SettingsRow("Autoplay",
-                    icon = { Glyph(Ico.tabs, c.text, size = 19.dp, strokeWidth = 1.7f) },
-                    trailing = { ArcSwitch(autoplay) { autoplay = it } },
-                    onClick = { autoplay = !autoplay })
-                SettingsRow("Pop-ups",
-                    icon = { Glyph(Ico.grid, c.text, size = 18.dp, strokeWidth = 1.7f) },
-                    trailing = { ArcSwitch(popups) { popups = it } },
-                    onClick = { popups = !popups })
+                PermissionRow(vm, host, PermissionKind.Camera, "Camera", Ico.pin)
+                PermissionRow(vm, host, PermissionKind.Microphone, "Microphone", Ico.person)
+                PermissionRow(vm, host, PermissionKind.Location, "Location", Ico.globe)
+                PermissionRow(vm, host, PermissionKind.Notifications, "Notifications", Ico.find)
             }
 
             SectionLabel("Data")
@@ -519,11 +509,35 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 SettingsRow(
                     "Clear site data",
                     icon = { Glyph(Ico.trash, c.text, size = 19.dp, strokeWidth = 1.8f) },
-                    onClick = { vm.showToast("Site data cleared for ${vm.domain}") },
+                    onClick = { vm.showToast("Site data cleared for $host") },
                 )
             }
         }
     }
+}
+
+@Composable
+private fun PermissionRow(
+    vm: BrowserViewModel,
+    host: String,
+    kind: PermissionKind,
+    label: String,
+    icon: List<androidx.compose.ui.graphics.Path>,
+) {
+    val c = LocalArc.current
+    val allowed = vm.sitePermission(host, kind)
+    SettingsRow(
+        label = label,
+        icon = { Glyph(icon, c.text, size = 19.dp, strokeWidth = 1.8f) },
+        value = when (allowed) {
+            true -> "Allowed"
+            false -> "Blocked"
+            null -> "Ask"
+        },
+        trailing = { ArcSwitch(allowed == true) { vm.setSitePermission(kind, it) } },
+        // Tapping the row forgets the choice, so the next request asks again.
+        onClick = { vm.setSitePermission(kind, null) },
+    )
 }
 
 /* -------------------------------------------------------------- downloads */
@@ -532,7 +546,12 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
 fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
     val c = LocalArc.current
     val active = vm.downloads.filter { it.status == DownloadStatus.Downloading }
-    val finished = vm.downloads.filter { it.status != DownloadStatus.Downloading }
+    val paused = vm.downloads.filter { it.status == DownloadStatus.Paused }
+    val finished = vm.downloads.filter {
+        it.status == DownloadStatus.Done ||
+            it.status == DownloadStatus.Failed ||
+            it.status == DownloadStatus.Canceled
+    }
 
     Column(
         Modifier
@@ -587,8 +606,14 @@ fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     DownloadGroupLabel("Downloading")
                     active.forEach { DownloadRow(vm, it) }
                 }
+                if (paused.isNotEmpty()) {
+                    DownloadGroupLabel("Paused")
+                    paused.forEach { DownloadRow(vm, it) }
+                }
                 if (finished.isNotEmpty()) {
-                    DownloadGroupLabel(if (active.isNotEmpty()) "Completed" else "Downloads")
+                    DownloadGroupLabel(
+                        if (active.isNotEmpty() || paused.isNotEmpty()) "Earlier" else "Downloads"
+                    )
                     finished.forEach { DownloadRow(vm, it) }
                 }
             }
@@ -662,17 +687,22 @@ private fun EmptyDownloads(vm: BrowserViewModel, modifier: Modifier = Modifier) 
 @Composable
 private fun DownloadRow(vm: BrowserViewModel, d: DownloadItem) {
     val c = LocalArc.current
-    val active = d.status == DownloadStatus.Downloading
+    val downloading = d.status == DownloadStatus.Downloading
+    val paused = d.status == DownloadStatus.Paused
+    val failed = d.status == DownloadStatus.Failed
     val canceled = d.status == DownloadStatus.Canceled
+    val live = downloading || paused || failed
     val pct = if (d.size > 0) ((d.done * 100) / d.size).toInt().coerceIn(0, 100) else 0
     val barTarget = when {
-        active -> if (d.size > 0) d.done.toFloat() / d.size else 0.06f
+        live -> if (d.size > 0) d.done.toFloat() / d.size else 0.06f
         canceled -> pct / 100f
         else -> 1f
     }
     val bar by animateFloatAsState(barTarget.coerceIn(0f, 1f), tween(180, easing = LinearEasing), label = "dlbar")
     val meta = when {
-        active -> "${if (d.size > 0) formatBytes(d.size) else "Unknown size"} · ${d.host}"
+        downloading -> "${if (d.size > 0) formatBytes(d.size) else "Unknown size"} · ${d.host}"
+        paused -> "Paused · ${formatBytes(d.done)} of ${if (d.size > 0) formatBytes(d.size) else "?"} · ${d.host}"
+        failed -> "Download failed · ${d.host}"
         canceled -> "Canceled · ${formatBytes(if (d.size > 0) d.size else d.done)} · ${formatWhen(d.ended)}"
         else -> "Downloaded · ${formatBytes(d.size)} · ${formatWhen(d.ended)}"
     }
@@ -684,7 +714,7 @@ private fun DownloadRow(vm: BrowserViewModel, d: DownloadItem) {
             .clip(RoundedCornerShape(16.dp))
             .background(c.field)
             .border(1.dp, c.stroke, RoundedCornerShape(16.dp))
-            .alpha(if (canceled) 0.72f else 1f)
+            .alpha(if (canceled || failed) 0.72f else 1f)
             .padding(11.dp),
         verticalAlignment = Alignment.Top,
     ) {
@@ -714,10 +744,10 @@ private fun DownloadRow(vm: BrowserViewModel, d: DownloadItem) {
                         .fillMaxWidth(bar.coerceIn(0.01f, 1f))
                         .fillMaxHeight()
                         .clip(CircleShape)
-                        .background(c.accent.copy(alpha = if (active) 1f else if (canceled) 0.38f else 0.55f)),
+                        .background(c.accent.copy(alpha = if (downloading) 1f else if (canceled || failed) 0.38f else 0.55f)),
                 )
             }
-            if (active) {
+            if (live) {
                 Spacer(Modifier.height(5.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Text("$pct%", color = c.muted, fontSize = 10.5.sp)
@@ -732,8 +762,15 @@ private fun DownloadRow(vm: BrowserViewModel, d: DownloadItem) {
         }
         Row(Modifier.padding(top = 2.dp)) {
             when {
-                active -> DlAction(Ico.close) { vm.cancelDownload(d.id) }
-                canceled -> {
+                downloading -> {
+                    DlAction(Ico.pause) { vm.pauseDownload(d.id) }
+                    DlAction(Ico.close) { vm.cancelDownload(d.id) }
+                }
+                paused -> {
+                    DlAction(Ico.play) { vm.resumeDownload(d.id) }
+                    DlAction(Ico.trash) { vm.removeDownload(d.id) }
+                }
+                failed || canceled -> {
                     DlAction(Ico.refresh) { vm.retryDownload(d.id) }
                     DlAction(Ico.trash) { vm.removeDownload(d.id) }
                 }
@@ -757,6 +794,178 @@ private fun DlAction(icon: List<androidx.compose.ui.graphics.Path>, onClick: () 
         contentAlignment = Alignment.Center,
     ) {
         Glyph(icon, c.muted, size = 16.dp, strokeWidth = 1.9f)
+    }
+}
+
+/* ------------------------------------------------------------- extensions */
+
+@Composable
+fun ExtensionsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
+    val c = LocalArc.current
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(c.settingsBg),
+    ) {
+        SettingsHeader(
+            title = "Extensions",
+            leading = {
+                Box(
+                    Modifier.size(34.dp).clip(CircleShape).clickable { onBack() },
+                    contentAlignment = Alignment.Center,
+                ) { Glyph(Ico.chevronLeft, c.text, size = 20.dp, strokeWidth = 2.2f) }
+            },
+            icon = { Glyph(Ico.puzzle, c.text, size = 19.dp, strokeWidth = 1.8f) },
+        )
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 40.dp),
+        ) {
+            if (vm.extensions.isEmpty()) {
+                EmptyExtensions()
+            } else {
+                Spacer(Modifier.height(8.dp))
+                vm.extensions.forEach { ExtensionRow(vm, it) }
+            }
+            Spacer(Modifier.height(16.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .clip(CircleShape)
+                    .background(c.accent)
+                    .clickable { vm.openAddonPicker() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "Install add-on",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "GeckoView only installs signed add-ons. Unsigned XPI files are rejected.",
+                color = c.muted,
+                fontSize = 11.sp,
+                lineHeight = 16.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyExtensions() {
+    val c = LocalArc.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 34.dp, bottom = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier
+                .size(54.dp)
+                .clip(RoundedCornerShape(18.dp))
+                .background(c.chip),
+            contentAlignment = Alignment.Center,
+        ) {
+            Glyph(Ico.puzzle, c.accent, size = 26.dp, strokeWidth = 1.8f)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text("No extensions yet", color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(5.dp))
+        Text(
+            "Add a signed add-on to change how pages look and behave.",
+            color = c.muted,
+            fontSize = 12.sp,
+            lineHeight = 18.sp,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun ExtensionRow(vm: BrowserViewModel, item: ExtensionItem) {
+    val c = LocalArc.current
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(bottom = 9.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(c.surface)
+            .border(1.dp, c.stroke, RoundedCornerShape(16.dp))
+            .padding(12.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(c.chip),
+                contentAlignment = Alignment.Center,
+            ) {
+                Glyph(Ico.puzzle, c.accent, size = 18.dp, strokeWidth = 1.8f)
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    item.name,
+                    color = c.text,
+                    fontSize = 13.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    "v${item.version.ifBlank { "1.0" }}",
+                    color = c.muted,
+                    fontSize = 11.sp,
+                )
+            }
+            ArcSwitch(item.enabled) { vm.toggleExtension(item) }
+        }
+        if (item.description.isNotBlank()) {
+            Spacer(Modifier.height(7.dp))
+            Text(
+                item.description,
+                color = c.muted,
+                fontSize = 11.5.sp,
+                lineHeight = 16.sp,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                if (item.permissions.isEmpty()) "No special permissions"
+                else "${item.permissions.size} permission${if (item.permissions.size == 1) "" else "s"}",
+                color = c.muted,
+                fontSize = 10.5.sp,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                "Remove",
+                color = c.accent,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { vm.uninstallExtension(item) }
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
     }
 }
 

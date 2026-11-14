@@ -39,14 +39,20 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -68,6 +74,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -79,6 +86,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -86,10 +95,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.geckobrowser.BrowserViewModel
+import com.example.geckobrowser.BrowserPromptState
+import com.example.geckobrowser.ChoiceOption
 import com.example.geckobrowser.ContextMenuState
 import com.example.geckobrowser.NavNotice
 import com.example.geckobrowser.Overlay
 import com.example.geckobrowser.PendingDownload
+import com.example.geckobrowser.PermissionPromptState
 import com.example.geckobrowser.TabInfo
 import com.example.geckobrowser.downKindLabel
 import com.example.geckobrowser.formatBytes
@@ -121,6 +133,23 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
             if (vm.addonPickerRequest.value) {
                 vm.consumeAddonPickerRequest()
                 onPickAddon()
+            }
+        }
+
+        // A fresh page load dips the page to 92% and eases it back, matching the
+        // mockup's page-load zoom. Back/forward and sheet opens don't bump these.
+        val pageScale = remember { Animatable(1f) }
+        LaunchedEffect(vm.loadZoomStart) {
+            if (vm.loadZoomStart > 0) {
+                pageScale.snapTo(if (reduceMotion) 1f else 0.92f)
+            }
+        }
+        LaunchedEffect(vm.loadZoomEnd) {
+            if (vm.loadZoomEnd > 0) {
+                pageScale.animateTo(
+                    1f,
+                    tween(if (reduceMotion) 0 else 420, easing = morphEasing),
+                )
             }
         }
 
@@ -159,8 +188,8 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                 Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        scaleX = flip
-                        scaleY = flip
+                        scaleX = flip * pageScale.value
+                        scaleY = flip * pageScale.value
                         alpha = flipAlpha * (1f - 0.9f * (abs(pageSlide.value) / slideDistance).coerceIn(0f, 1f))
                         translationX = pageSlide.value
                         transformOrigin = TransformOrigin(0.5f, 0.5f)
@@ -175,6 +204,7 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                     pinchEnabled = canImmersive,
                     onPinchIn = { immersive = !immersive },
                     onTap = { x, y -> vm.recordPageTap(x, y) },
+                    onViewReady = { vm.onGeckoViewReady(it) },
                 )
                 if (tab == null || tab.isHome) {
                     Box(
@@ -232,7 +262,7 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                 )
             }
 
-            ChromeOverlay(vm, immersive)
+            if (!vm.fullscreen) ChromeOverlay(vm, immersive)
         }
     }
 }
@@ -245,12 +275,14 @@ private fun WebHost(
     pinchEnabled: Boolean,
     onPinchIn: () -> Unit,
     onTap: (Float, Float) -> Unit,
+    onViewReady: (GeckoView) -> Unit,
 ) {
     // The factory lambda only runs once, so read live values through state.
     val zoomState = rememberUpdatedState(zoom)
     val tapState = rememberUpdatedState(onTap)
     val pinchEnabledState = rememberUpdatedState(pinchEnabled)
     val pinchState = rememberUpdatedState(onPinchIn)
+    val readyState = rememberUpdatedState(onViewReady)
     AndroidView(
         factory = { ctx ->
             val density = ctx.resources.displayMetrics.density.coerceAtLeast(0.1f)
@@ -281,6 +313,7 @@ private fun WebHost(
                 },
             )
             GeckoView(ctx).apply {
+                readyState.value(this)
                 setBackgroundColor(background.toArgb())
                 session?.let { setSession(it) }
                 setOnTouchListener { view, event ->
@@ -333,7 +366,7 @@ private fun WebHost(
 
 private val sheetOverlays = setOf(
     Overlay.Search, Overlay.Menu, Overlay.Settings, Overlay.SiteSettings, Overlay.Account,
-    Overlay.Downloads,
+    Overlay.Downloads, Overlay.Extensions, Overlay.ExtensionPopup,
 )
 
 @Composable
@@ -349,7 +382,8 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         val overlay = vm.overlay
         val open = overlay in sheetOverlays
         val fullHeight = overlay == Overlay.Settings || overlay == Overlay.SiteSettings ||
-            overlay == Overlay.Account || overlay == Overlay.Downloads
+            overlay == Overlay.Account || overlay == Overlay.Downloads ||
+            overlay == Overlay.Extensions
 
         var lastSheet by remember { mutableStateOf(Overlay.Menu) }
         if (open) lastSheet = overlay
@@ -377,6 +411,8 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             Overlay.SiteSettings -> ({ SiteSettingsScreen(vm) { vm.onBackPressed() } })
             Overlay.Account -> ({ AccountScreen(vm) { vm.onBackPressed() } })
             Overlay.Downloads -> ({ DownloadsScreen(vm) { vm.closeDownloads() } })
+            Overlay.Extensions -> ({ ExtensionsScreen(vm) { vm.onBackPressed() } })
+            Overlay.ExtensionPopup -> ({ ExtensionPopupSheet(vm) })
             else -> ({})
         }
 
@@ -522,6 +558,12 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             onDonePlayed = { cancelDone = false },
         )
         NavNoticeHost(vm)
+
+        // Live page requests borrow the pill footprint; a permission question is
+        // deliberately its own card so the site and permission stay readable.
+        LoadingDotsHost(vm, immersive)
+        PermissionPromptHost(vm)
+        BrowserPromptHost(vm)
 
         DownloadPromptHost(vm)
         ContextMenuHost(vm, screenW, screenH)
@@ -895,6 +937,462 @@ private fun BoxScope.NavNoticeHost(vm: BrowserViewModel) {
                 overflow = TextOverflow.Ellipsis,
             )
         }
+    }
+}
+
+/* ------------------------------------------------------ prompts and loading */
+
+@Composable
+private fun BoxScope.LoadingDotsHost(vm: BrowserViewModel, immersive: Boolean) {
+    if (!vm.pipLoading || vm.overlay != Overlay.None || immersive || vm.fullscreen) return
+    val c = LocalArc.current
+    val t by rememberInfiniteTransition(label = "dots").animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1000, easing = LinearEasing)),
+        label = "dotPhase",
+    )
+    Row(
+        Modifier
+            .align(Alignment.BottomCenter)
+            .padding(bottom = 86.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        repeat(3) { index ->
+            val phase = (t + index * 0.17f) % 1f
+            val bump = (1f - abs(phase - 0.5f) * 2f).coerceIn(0f, 1f)
+            Box(
+                Modifier
+                    .size(5.dp)
+                    .clip(CircleShape)
+                    .background(c.accent.copy(alpha = 0.22f + 0.68f * bump))
+            )
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.PermissionPromptHost(vm: BrowserViewModel) {
+    val prompt = vm.permissionPrompt ?: return
+    val c = LocalArc.current
+    var rememberChoice by remember(prompt.id) { mutableStateOf(false) }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.26f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) { vm.cancelPermissionPrompt() },
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Column(
+            Modifier
+                .padding(bottom = 18.dp)
+                .fillMaxWidth(0.82f)
+                .shadow(20.dp, RoundedCornerShape(24.dp))
+                .clip(RoundedCornerShape(24.dp))
+                .background(c.navSurface)
+                .border(1.dp, c.stroke, RoundedCornerShape(24.dp))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { /* keep taps on the card */ }
+                .padding(16.dp),
+        ) {
+            Text(
+                "${prompt.host} wants to use ${prompt.kind.label.lowercase()}",
+                color = c.text,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                lineHeight = 19.sp,
+            )
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Remember for this site",
+                    color = c.muted,
+                    fontSize = 11.5.sp,
+                    modifier = Modifier.weight(1f),
+                )
+                ArcSwitch(rememberChoice) { rememberChoice = it }
+            }
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                PromptTextButton("Block", primary = false) {
+                    vm.answerPermission(false, rememberChoice)
+                }
+                Spacer(Modifier.width(8.dp))
+                PromptTextButton("Allow", primary = true) {
+                    vm.answerPermission(true, rememberChoice)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BoxScope.BrowserPromptHost(vm: BrowserViewModel) {
+    val prompt = vm.browserPrompt ?: return
+    val c = LocalArc.current
+
+    // Field state is keyed to the prompt id so a new question starts clean.
+    var textValue by remember(prompt.id) {
+        mutableStateOf((prompt as? BrowserPromptState.Text)?.value.orEmpty())
+    }
+    var userValue by remember(prompt.id) {
+        mutableStateOf((prompt as? BrowserPromptState.Auth)?.username.orEmpty())
+    }
+    var passValue by remember(prompt.id) { mutableStateOf("") }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.30f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) { vm.cancelPrompt() },
+        contentAlignment = Alignment.BottomCenter,
+    ) {
+        Column(
+            Modifier
+                .padding(bottom = 18.dp)
+                .fillMaxWidth(0.86f)
+                .shadow(22.dp, RoundedCornerShape(26.dp))
+                .clip(RoundedCornerShape(26.dp))
+                .background(c.navSurface)
+                .border(1.dp, c.stroke, RoundedCornerShape(26.dp))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                ) { /* keep taps on the card */ }
+                .padding(18.dp),
+        ) {
+            when (prompt) {
+                is BrowserPromptState.Alert -> {
+                    PromptHeading(prompt.title)
+                    if (prompt.message.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        PromptNote(prompt.message)
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        PromptTextButton("OK", primary = true) { vm.answerAlert(prompt.id) }
+                    }
+                }
+
+                is BrowserPromptState.Button -> {
+                    PromptHeading(prompt.title)
+                    if (prompt.message.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        PromptNote(prompt.message)
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        PromptTextButton("Cancel", primary = false) {
+                            vm.answerButton(prompt.id, confirm = false)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        PromptTextButton("OK", primary = true) {
+                            vm.answerButton(prompt.id, confirm = true)
+                        }
+                    }
+                }
+
+                is BrowserPromptState.Text -> {
+                    PromptHeading(prompt.title)
+                    if (prompt.message.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        PromptNote(prompt.message)
+                    }
+                    PromptField(
+                        value = textValue,
+                        onValueChange = { textValue = it },
+                        placeholder = "Type here",
+                        onGo = { vm.answerText(prompt.id, textValue) },
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        PromptTextButton("Cancel", primary = false) { vm.cancelPrompt() }
+                        Spacer(Modifier.width(8.dp))
+                        PromptTextButton("OK", primary = true) {
+                            vm.answerText(prompt.id, textValue)
+                        }
+                    }
+                }
+
+                is BrowserPromptState.Choice -> {
+                    PromptHeading(prompt.title)
+                    if (prompt.message.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        PromptNote(prompt.message)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 280.dp)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        prompt.options.forEach { option: ChoiceOption ->
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 2.dp)
+                                    .clip(RoundedCornerShape(11.dp))
+                                    .background(if (option.selected) c.chip else Color.Transparent)
+                                    .clickable { vm.answerChoice(prompt.id, option.id) }
+                                    .padding(horizontal = 10.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    option.label,
+                                    color = c.text,
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (option.selected) {
+                                    Text("✓", color = c.accent, fontSize = 13.sp)
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        PromptTextButton("Cancel", primary = false) { vm.cancelPrompt() }
+                    }
+                }
+
+                is BrowserPromptState.Auth -> {
+                    PromptHeading(prompt.host.ifBlank { "Sign in" })
+                    if (prompt.message.isNotBlank() && prompt.message != prompt.host) {
+                        Spacer(Modifier.height(6.dp))
+                        PromptNote(prompt.message)
+                    }
+                    PromptField(
+                        value = userValue,
+                        onValueChange = { userValue = it },
+                        placeholder = "Username",
+                    )
+                    PromptField(
+                        value = passValue,
+                        onValueChange = { passValue = it },
+                        placeholder = "Password",
+                        password = true,
+                        onGo = { vm.answerAuth(prompt.id, userValue, passValue) },
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        PromptTextButton("Cancel", primary = false) { vm.cancelPrompt() }
+                        Spacer(Modifier.width(8.dp))
+                        PromptTextButton("Sign in", primary = true) {
+                            vm.answerAuth(prompt.id, userValue, passValue)
+                        }
+                    }
+                }
+
+                is BrowserPromptState.ExternalLink -> {
+                    PromptHeading("Open in another app?")
+                    Spacer(Modifier.height(6.dp))
+                    PromptNote(prompt.host)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        prompt.url,
+                        color = c.muted,
+                        fontSize = 10.5.sp,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        PromptTextButton("Cancel", primary = false) { vm.cancelPrompt() }
+                        Spacer(Modifier.width(8.dp))
+                        PromptTextButton("Open", primary = true) {
+                            vm.answerExternalLink(prompt.id, open = true)
+                        }
+                    }
+                }
+
+                is BrowserPromptState.ExtensionInstall -> {
+                    PromptHeading("Add ${prompt.name}?")
+                    Spacer(Modifier.height(6.dp))
+                    PromptNote("This add-on is asking for:")
+                    prompt.permissions.take(6).forEach { permission ->
+                        Text("· $permission", color = c.muted, fontSize = 11.5.sp)
+                    }
+                    if (prompt.origins.isNotEmpty()) {
+                        Text(
+                            "· Sites: ${prompt.origins.take(3).joinToString()}",
+                            color = c.muted,
+                            fontSize = 11.5.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        PromptTextButton("Cancel", primary = false) {
+                            vm.answerExtensionInstall(prompt.id, allow = false)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        PromptTextButton("Add", primary = true) {
+                            vm.answerExtensionInstall(prompt.id, allow = true)
+                        }
+                    }
+                }
+
+                is BrowserPromptState.File -> {
+                    PromptHeading("Choose a file")
+                    Spacer(Modifier.height(8.dp))
+                    PromptNote("The system file picker is open.")
+                    Spacer(Modifier.height(14.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        PromptTextButton("Cancel", primary = false) { vm.cancelPrompt() }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PromptHeading(text: String) {
+    val c = LocalArc.current
+    Text(
+        text,
+        color = c.text,
+        fontSize = 15.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+    )
+}
+
+@Composable
+private fun PromptNote(text: String) {
+    val c = LocalArc.current
+    Text(
+        text,
+        color = c.muted,
+        fontSize = 12.5.sp,
+        lineHeight = 18.sp,
+    )
+}
+
+@Composable
+private fun PromptTextButton(label: String, primary: Boolean, onClick: () -> Unit) {
+    val c = LocalArc.current
+    Box(
+        Modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (primary) c.accent else c.chip)
+            .clickable { onClick() }
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            color = if (primary) Color.White else c.text,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+@Composable
+private fun PromptField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    password: Boolean = false,
+    onGo: (() -> Unit)? = null,
+) {
+    val c = LocalArc.current
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(c.chip)
+            .border(1.dp, c.stroke, RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 11.dp),
+    ) {
+        if (value.isEmpty()) {
+            Text(placeholder, color = c.muted, fontSize = 13.sp)
+        }
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = TextStyle(color = c.text, fontSize = 13.sp),
+            cursorBrush = SolidColor(c.accent),
+            visualTransformation = if (password) {
+                PasswordVisualTransformation()
+            } else {
+                androidx.compose.ui.text.input.VisualTransformation.None
+            },
+            keyboardOptions = KeyboardOptions(
+                imeAction = if (onGo != null) ImeAction.Go else ImeAction.Done,
+            ),
+            keyboardActions = KeyboardActions(
+                onGo = { onGo?.invoke() },
+                onDone = { onGo?.invoke() },
+            ),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/* ----------------------------------------------------------- extension popup */
+
+@Composable
+private fun ExtensionPopupSheet(vm: BrowserViewModel) {
+    val c = LocalArc.current
+    Column(Modifier.fillMaxSize()) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(46.dp)
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Glyph(Ico.puzzle, c.text, size = 17.dp, strokeWidth = 1.8f)
+            Spacer(Modifier.width(9.dp))
+            Text(
+                vm.extensionPopupTitle.ifBlank { "Extension" },
+                color = c.text,
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
+            )
+            Box(
+                Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(9.dp))
+                    .clickable { vm.closeExtensionPopup() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Glyph(Ico.close, c.muted, size = 14.dp, strokeWidth = 2f)
+            }
+        }
+        Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
+        AndroidView(
+            factory = { ctx ->
+                GeckoView(ctx).apply {
+                    setBackgroundColor(c.sheet.toArgb())
+                    vm.extensionPopup?.let { setSession(it) }
+                }
+            },
+            update = { view ->
+                val session = vm.extensionPopup
+                if (session != null && view.session !== session) view.setSession(session)
+            },
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 
