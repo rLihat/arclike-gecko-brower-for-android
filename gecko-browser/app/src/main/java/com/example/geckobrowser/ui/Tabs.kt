@@ -66,6 +66,9 @@ fun TabSwitcher(vm: BrowserViewModel) {
         Modifier
             .fillMaxSize()
             .background(c.switcherBg)
+            // A deliberate downward pull closes the carousel; the taller
+            // threshold keeps it out of the way of the horizontal paging.
+            .swipeActions(threshold = 70.dp, onDown = { vm.closeOverlay() })
     ) {
         val cardWidth = maxWidth * 0.88f
         LazyRow(

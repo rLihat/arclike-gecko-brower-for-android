@@ -95,6 +95,9 @@ data class DownloadFlight(
     val startY: Float,
 )
 
+/** Horizontal plus-swipe that moved between tabs; drives the slide-in. */
+data class TabSwitch(val dir: Int, val at: Long = System.currentTimeMillis())
+
 /** A short lived back/forward notice shown in the nav pill's footprint. */
 data class NavNotice(
     val forward: Boolean,
@@ -200,6 +203,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     var navNotice by mutableStateOf<NavNotice?>(null)
+        private set
+
+    var tabSwitch by mutableStateOf<TabSwitch?>(null)
         private set
 
     var settingsSearch by mutableStateOf("")
@@ -516,6 +522,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         if (idx < 0) return
         val next = tabs[(idx + delta + tabs.size) % tabs.size]
         selectTab(next.id)
+        // Set after selectTab cleared it: this is a swipe, so slide the page in
+        // from the side the swipe came from.
+        tabSwitch = TabSwitch(delta)
+    }
+
+    fun consumeTabSwitch() {
+        tabSwitch = null
     }
 
     /** Tapping the menu address hands the whole URL to the search field. */
@@ -817,10 +830,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         saveTargets.remove(id)?.discard()
     }
 
-    /** Swipe-up on the chip: cancel the newest transfer that is still running. */
+    /** Swipe-up on the chip: cancel the newest transfer and clear its row. */
     fun cancelNewestDownload(): DownloadItem? {
         val item = activeDownloads.firstOrNull() ?: return null
-        cancelDownload(item.id)
+        removeDownload(item.id)
         showToast("Canceled ${item.name}")
         return item
     }
@@ -987,6 +1000,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         if (!sessions.containsKey(id)) return
         cancelDownloadPrompt()
         dismissContextMenu()
+        tabSwitch = null
         activeId = id
         closeOverlay()
         expandPill()

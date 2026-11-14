@@ -601,10 +601,9 @@
     }
     .imm-banner b { display: block; font-size: 13px; line-height: 1.25; color: var(--text); }
     .imm-banner small { display: block; margin-top: 1px; font-size: 11.5px; color: var(--muted); }
-    /* Back/forward gesture notice: same pill-sized popup, but it must sit above
-       the still-visible nav pill so it reads as the chrome handing over. */
+    /* Back/forward gesture notice: the immersive coach mark, verbatim, raised
+       above the pill so it can hand its footprint over. */
     .nav-banner { z-index: 52; }
-    .nav-banner .imm-banner-ico svg { stroke-width: 2; }
     /* The pill steps aside while the notice occupies its footprint, exactly
        like the immersive coach mark. */
     .bottom-bar.gesture-hint {
@@ -629,6 +628,18 @@
     #tab-overlay.open { visibility: visible; pointer-events: auto; transform: scale(1); opacity: 1; }
     #screen-browse { transition: transform .35s cubic-bezier(0.32, 0.72, 0, 1), opacity .28s ease; transform-origin: 50% 50%; }
     body:has(#tab-overlay.open) #screen-browse { transform: scale(.96); opacity: .4; }
+    /* Swiping the plus left/right swaps tabs: the incoming page slides in from
+       the side the swipe came from, then settles. */
+    @keyframes tab-slide-from-right {
+      from { opacity: 0; transform: translateX(16%); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes tab-slide-from-left {
+      from { opacity: 0; transform: translateX(-16%); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+    .screen.tab-slide-next { animation: tab-slide-from-right .34s cubic-bezier(0.32, 0.72, 0, 1); }
+    .screen.tab-slide-prev { animation: tab-slide-from-left .34s cubic-bezier(0.32, 0.72, 0, 1); }
     .overlay.open { display: block; }
     .sheet {
       position: absolute; left: 0; right: 0; bottom: 0; border-top-left-radius: 30px; border-top-right-radius: 30px;
@@ -677,7 +688,9 @@
       border-radius: 0; background: var(--settings-bg);
       -webkit-backdrop-filter: none; backdrop-filter: none;
     }
-    .handle { width: 42px; height: 5px; border-radius: 99px; background: var(--handle); margin: 4px auto 14px; }
+    .handle { position: relative; width: 42px; height: 5px; border-radius: 99px; background: var(--handle); margin: 4px auto 14px; }
+    /* A grab strip large enough to catch a swipe-down without aiming at 5px. */
+    .handle::before { content: ''; position: absolute; left: -70px; right: -70px; top: -11px; bottom: -11px; }
     .input-wrap { position: relative; margin-bottom: 8px; }
     .input {
       width: 100%; padding: 16px 50px; border-radius: 18px; border: 0; font-size: 16px; outline: none;
@@ -1768,7 +1781,7 @@
       <p>Arc-inspired GeckoView concept. Click around, then tell me what to change.</p>
       <div class="note"><b>Tabs:</b> favicon in navbar; tap for horizontal recents-style previews. <b>Search (+):</b> expands input only; queries open a DuckDuckGo results page. <b>Menu (⌃):</b> URL with copy, back/forward/refresh, share, extensions, settings + Mozilla pfp.</div>
       <div class="note"><b>Sites:</b> YouTube, GitHub, Gmail and Add-ons clones are long enough to scroll — page content runs edge-to-edge behind the pill, which glows while loading, condenses to a bare domain chip as you scroll down, and hands the icons back the moment you scroll up. A 3px scroll indicator fades in on the page edge.</div>
-      <div class="note"><b>Gestures:</b> swipe ↑ from the plus or menu arrow for the menu · ←/→ from the plus walks tabs · ↑ from the tab icon opens previews · ← from the tab icon goes back · → from the menu arrow goes forward · ↑ from the live download chip cancels it. Back and forward flash a pill-sized notice.</div>
+      <div class="note"><b>Gestures:</b> swipe ↑ from the plus or menu arrow for the menu · ↓ from the plus, search ×, menu arrow or a sheet handle dismisses what’s open · ←/→ from the plus slides between tabs · ↑ from the tab icon opens previews (↓ closes them) · ←/→ from the tab icon goes back/forward · ← from the menu arrow goes back · ↑ from the live download chip cancels it and clears the row. Back and forward flash the same pill-sized notice as immersive mode.</div>
       <div class="section-title">Debug</div>
       <div class="debug-row">
         <span>Dark mode</span>
@@ -1786,10 +1799,14 @@
         <span>Gestures<small>Simulate each nav swipe</small></span>
         <div class="gesture-grid">
           <button class="gesture-btn" type="button" onclick="debugGesture('plus-up')" title="Swipe up from the plus"><span class="g-arrow">↑</span><span class="g-target">+ menu</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('plus-down')" title="Swipe down from the plus"><span class="g-arrow">↓</span><span class="g-target">+ dismiss</span></button>
           <button class="gesture-btn" type="button" onclick="debugGesture('plus-left')" title="Swipe left from the plus"><span class="g-arrow">←</span><span class="g-target">+ next tab</span></button>
           <button class="gesture-btn" type="button" onclick="debugGesture('plus-right')" title="Swipe right from the plus"><span class="g-arrow">→</span><span class="g-target">+ prev tab</span></button>
           <button class="gesture-btn" type="button" onclick="debugGesture('tabs-up')" title="Swipe up from the tab icon"><span class="g-arrow">↑</span><span class="g-target">tab previews</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('tabs-down')" title="Swipe down from the tab icon"><span class="g-arrow">↓</span><span class="g-target">tabs dismiss</span></button>
           <button class="gesture-btn" type="button" onclick="debugGesture('tabs-left')" title="Swipe the tab icon left"><span class="g-arrow">←</span><span class="g-target">tab back</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('tabs-right')" title="Swipe the tab icon right"><span class="g-arrow">→</span><span class="g-target">tab forward</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('arrow-left')" title="Swipe the menu arrow left"><span class="g-arrow">←</span><span class="g-target">arrow back</span></button>
           <button class="gesture-btn" type="button" onclick="debugGesture('arrow-right')" title="Swipe the menu arrow right"><span class="g-arrow">→</span><span class="g-target">arrow forward</span></button>
           <button class="gesture-btn" type="button" onclick="debugGesture('dl-up')" title="Swipe up from the live download"><span class="g-arrow">↑</span><span class="g-target">chip cancel</span></button>
         </div>
@@ -2483,7 +2500,30 @@
       lastScrollTop = 0;
       expandNavPill();
       startLoading(650);
+      animateTabSwitch(dir);
       log('Tab: ' + tabs[currentTab].title);
+    }
+    /* Slide the freshly swapped page in from the side the swipe came from. */
+    function animateTabSwitch(dir) {
+      const screen = document.querySelector('#phone .screen.active');
+      if (!screen) return;
+      screen.classList.remove('tab-slide-next', 'tab-slide-prev');
+      void screen.offsetWidth;
+      screen.classList.add(dir > 0 ? 'tab-slide-next' : 'tab-slide-prev');
+      screen.addEventListener('animationend', () => {
+        screen.classList.remove('tab-slide-next', 'tab-slide-prev');
+      }, { once: true });
+    }
+    /* Downward swipes undo the surface a pill gesture opened. */
+    function closeSurface() {
+      const menu = document.getElementById('menu-overlay');
+      if (document.getElementById('tab-overlay').classList.contains('open')) {
+        dismissTabOverlay();
+        return;
+      }
+      if (menu.classList.contains('downloads-mode')) { closeDownloads(); return; }
+      if (menu.classList.contains('open')) { closeMenuOnly(); return; }
+      if (document.getElementById('search-overlay').classList.contains('open')) { closeSearch(); }
     }
     function toggleTabs() {
       if (document.getElementById('tab-overlay').classList.contains('open')) closeOverlays();
@@ -3384,6 +3424,8 @@
       if (target) {
         target.status = 'canceled';
         target.ended = Date.now();
+        // A gesture-canceled transfer is cleared, not left as a canceled row.
+        downloads = downloads.filter(d => d.id !== target.id);
         renderDownloads();
         syncDownloadChip();
         toast('Canceled ' + target.name);
@@ -3991,6 +4033,8 @@
         sx = e.clientX;
         sy = e.clientY;
         pointerId = e.pointerId;
+        // Keep receiving moves once the finger leaves a small control or handle.
+        try { el.setPointerCapture(pointerId); } catch {}
       });
       el.addEventListener('pointermove', (e) => {
         if (!tracking || e.pointerId !== pointerId) return;
@@ -4007,6 +4051,7 @@
         const ay = Math.abs(dy);
         if (!cancelled && Math.max(ax, ay) >= 26) {
           if (ay > ax * 1.25 && dy < 0) opts.up && opts.up();
+          else if (ay > ax * 1.25 && dy > 0) opts.down && opts.down();
           else if (ax > ay * 1.25 && dx < 0) opts.left && opts.left();
           else if (ax > ay * 1.25 && dx > 0) opts.right && opts.right();
         }
@@ -4026,17 +4071,25 @@
     function bindNavGestures() {
       attachSwipe(document.getElementById('nav-search'), {
         up: () => openMenu(),
+        down: () => closeSurface(),
         left: () => switchTab(1),
         right: () => switchTab(-1),
       });
       document.querySelectorAll('.nav-menu-btn').forEach((btn) => attachSwipe(btn, {
         up: () => openMenu(),
+        down: () => closeSurface(),
+        left: () => goBackPage(),
         right: () => goForwardPage(),
       }));
       attachSwipe(document.getElementById('nav-tabs'), {
         up: () => openTabSwitcher(),
+        down: () => dismissTabOverlay(),
         left: () => goBackPage(),
+        right: () => goForwardPage(),
       });
+      // The handles are the reverse affordance on the sheets themselves.
+      attachSwipe(document.querySelector('#search-overlay .handle'), { down: () => closeSearch() });
+      attachSwipe(document.querySelector('#menu-overlay .menu-view > .handle'), { down: () => closeMenuOnly() });
       bindChipCancel();
     }
     /* Debug-panel stand-ins for each gesture, so every path is reachable. */
@@ -4045,6 +4098,10 @@
         case 'plus-up':
           log('Gesture: swipe up from +');
           openMenu();
+          break;
+        case 'plus-down':
+          log('Gesture: swipe down from +');
+          closeSurface();
           break;
         case 'plus-left':
           log('Gesture: swipe left from +');
@@ -4058,8 +4115,20 @@
           log('Gesture: swipe up from the tab icon');
           openTabSwitcher();
           break;
+        case 'tabs-down':
+          log('Gesture: swipe down from the tab icon');
+          dismissTabOverlay();
+          break;
         case 'tabs-left':
           log('Gesture: swipe the tab icon left');
+          goBackPage();
+          break;
+        case 'tabs-right':
+          log('Gesture: swipe the tab icon right');
+          goForwardPage();
+          break;
+        case 'arrow-left':
+          log('Gesture: swipe the menu arrow left');
           goBackPage();
           break;
         case 'arrow-right':

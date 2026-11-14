@@ -119,7 +119,13 @@ fun SearchSheet(vm: BrowserViewModel) {
             .fillMaxSize()
             .padding(horizontal = 16.dp),
     ) {
-        Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 14.dp), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp, bottom = 14.dp)
+                .swipeActions(onDown = { vm.closeOverlay() }),
+            contentAlignment = Alignment.Center,
+        ) {
             Box(
                 Modifier
                     .width(42.dp)
@@ -430,7 +436,13 @@ fun MenuSheet(vm: BrowserViewModel) {
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp),
     ) {
-        Box(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 10.dp), contentAlignment = Alignment.Center) {
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp, bottom = 10.dp)
+                .swipeActions(onDown = { vm.closeOverlay() }),
+            contentAlignment = Alignment.Center,
+        ) {
             Box(Modifier.width(42.dp).height(5.dp).clip(CircleShape).background(c.handle))
         }
 

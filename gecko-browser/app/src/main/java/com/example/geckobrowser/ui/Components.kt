@@ -506,18 +506,20 @@ fun SettingsGroup(content: @Composable androidx.compose.foundation.layout.Column
 /* ------------------------------------------------------------------ pill */
 
 /**
- * Swipe recognition for the nav controls. A drag past 26dp fires at most one
- * action; because the drag consumes the pointer, the underlying click never
- * also fires.
+ * Swipe recognition for the nav controls. A drag past the threshold (26dp for
+ * the pill controls, more for full-screen surfaces) fires at most one action;
+ * because the drag consumes the pointer, the underlying click never also fires.
  */
 fun Modifier.swipeActions(
     onUp: (() -> Unit)? = null,
+    onDown: (() -> Unit)? = null,
     onLeft: (() -> Unit)? = null,
     onRight: (() -> Unit)? = null,
+    threshold: Dp = 26.dp,
 ): Modifier {
-    if (onUp == null && onLeft == null && onRight == null) return this
-    return this.pointerInput(onUp, onLeft, onRight) {
-        val threshold = 26.dp.toPx()
+    if (onUp == null && onDown == null && onLeft == null && onRight == null) return this
+    return this.pointerInput(onUp, onDown, onLeft, onRight, threshold) {
+        val slop = threshold.toPx()
         var dx = 0f
         var dy = 0f
         detectDragGestures(
@@ -533,9 +535,10 @@ fun Modifier.swipeActions(
             onDragEnd = {
                 val ax = abs(dx)
                 val ay = abs(dy)
-                if (max(ax, ay) >= threshold) {
+                if (max(ax, ay) >= slop) {
                     when {
                         ay > ax * 1.25f && dy < 0f -> onUp?.invoke()
+                        ay > ax * 1.25f && dy > 0f -> onDown?.invoke()
                         ax > ay * 1.25f && dx < 0f -> onLeft?.invoke()
                         ax > ay * 1.25f && dx > 0f -> onRight?.invoke()
                     }
@@ -549,6 +552,7 @@ fun Modifier.swipeActions(
 fun PillButton(
     onClick: () -> Unit,
     onSwipeUp: (() -> Unit)? = null,
+    onSwipeDown: (() -> Unit)? = null,
     onSwipeLeft: (() -> Unit)? = null,
     onSwipeRight: (() -> Unit)? = null,
     content: @Composable () -> Unit,
@@ -558,7 +562,7 @@ fun PillButton(
         Modifier
             .size(46.dp)
             .clip(CircleShape)
-            .swipeActions(onSwipeUp, onSwipeLeft, onSwipeRight)
+            .swipeActions(onSwipeUp, onSwipeDown, onSwipeLeft, onSwipeRight)
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

@@ -93,6 +93,7 @@ import com.example.geckobrowser.formatBytes
 import kotlinx.coroutines.delay
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
+import kotlin.math.abs
 
 private val morphEasing = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)
 
@@ -127,13 +128,28 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                 tween(240),
                 label = "flipAlpha",
             )
+            // Swiping the plus swaps tabs: the incoming page slides in from the
+            // swiped direction and fades up, mirroring the mockup. The start
+            // offset is baked into a keyed Animatable so the first frame of the
+            // new page is already off to the side (no flash at rest).
+            val slideDistance = with(LocalDensity.current) { 64.dp.toPx() }
+            val tabSwitch = vm.tabSwitch
+            val pageSlide = remember(tabSwitch) {
+                Animatable(tabSwitch?.let { it.dir * slideDistance } ?: 0f)
+            }
+            LaunchedEffect(tabSwitch) {
+                if (tabSwitch == null) return@LaunchedEffect
+                pageSlide.animateTo(0f, tween(320, easing = morphEasing))
+                vm.consumeTabSwitch()
+            }
             Box(
                 Modifier
                     .fillMaxSize()
                     .graphicsLayer {
                         scaleX = flip
                         scaleY = flip
-                        alpha = flipAlpha
+                        alpha = flipAlpha * (1f - 0.9f * (abs(pageSlide.value) / slideDistance).coerceIn(0f, 1f))
+                        translationX = pageSlide.value
                         transformOrigin = TransformOrigin(0.5f, 0.5f)
                         clip = overlay == Overlay.Tabs
                         shape = RoundedCornerShape(30.dp)
@@ -706,19 +722,27 @@ private fun BoxScope.NavNoticeHost(vm: BrowserViewModel) {
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Glyph(
-            if (n.forward) Ico.forward else Ico.back,
-            c.text,
-            size = 18.dp,
-            strokeWidth = 2f,
-        )
+        Box(
+            Modifier
+                .size(26.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .background(c.chip),
+            contentAlignment = Alignment.Center,
+        ) {
+            Glyph(
+                if (n.forward) Ico.forward else Ico.back,
+                c.accent,
+                size = 15.dp,
+                strokeWidth = 2f,
+            )
+        }
         Spacer(Modifier.width(11.dp))
         Column {
             Text(
                 if (n.forward) "Forward" else "Back",
                 color = c.text,
-                fontSize = 12.5.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
             )
             Text(
                 n.url?.let { BrowserViewModel.hostOf(it) }
@@ -1156,6 +1180,7 @@ private fun BoxScope.NavPill(
                         Modifier
                             .fillMaxSize()
                             .clip(CircleShape)
+                            .swipeActions(onDown = { vm.closeOverlay() })
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
@@ -1193,6 +1218,8 @@ private fun BoxScope.NavPill(
                         PillButton(
                             onClick = { vm.toggleMenu() },
                             onSwipeUp = { vm.openMenu() },
+                            onSwipeDown = { vm.closeOverlay() },
+                            onSwipeLeft = { vm.navGesture(forward = false) },
                             onSwipeRight = { vm.navGesture(forward = true) },
                         ) {
                             Glyph(Ico.chevronUp, c.text, size = 24.dp,
@@ -1209,6 +1236,7 @@ private fun BoxScope.NavPill(
                             onClick = { vm.toggleTabs() },
                             onSwipeUp = { vm.openTabs() },
                             onSwipeLeft = { vm.navGesture(forward = false) },
+                            onSwipeRight = { vm.navGesture(forward = true) },
                         ) {
                             val t = tab
                             if (t == null || t.isHome || t.url.isBlank()) {
@@ -1224,6 +1252,7 @@ private fun BoxScope.NavPill(
                         PillButton(
                             onClick = { vm.openSearch() },
                             onSwipeUp = { vm.openMenu() },
+                            onSwipeDown = { vm.closeOverlay() },
                             onSwipeLeft = { vm.switchTab(1) },
                             onSwipeRight = { vm.switchTab(-1) },
                         ) {
@@ -1232,6 +1261,8 @@ private fun BoxScope.NavPill(
                         PillButton(
                             onClick = { vm.toggleMenu() },
                             onSwipeUp = { vm.openMenu() },
+                            onSwipeDown = { vm.closeOverlay() },
+                            onSwipeLeft = { vm.navGesture(forward = false) },
                             onSwipeRight = { vm.navGesture(forward = true) },
                         ) {
                             Glyph(Ico.chevronUp, c.text, size = 24.dp, strokeWidth = 2.2f)

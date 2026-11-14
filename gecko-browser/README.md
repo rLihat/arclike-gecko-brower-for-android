@@ -33,12 +33,17 @@ native Kotlin + Jetpack Compose; only the page content is Gecko. The UI follows
 ## Gestures
 
 - Swipe **up** from the plus or the menu chevron to open the menu.
-- Swipe **left/right** from the plus to walk the open tabs.
-- Swipe **up** from the tab icon to open the tab carousel, **left** to go back a page.
-- Swipe **right** from the menu chevron to go forward a page. Back and forward flash a
-  pill-sized notice that briefly takes over the pill's footprint.
+- Swipe **down** from the plus, the menu chevron, the search close (×), a sheet handle, or
+  anywhere on the tab carousel to dismiss whatever that pill gesture opened.
+- Swipe **left/right** from the plus to walk the open tabs; the incoming page slides in from
+  the direction of the swipe.
+- Swipe **up** from the tab icon to open the tab carousel, **left** to go back, **right** to go
+  forward a page.
+- Swipe **left/right** from the menu chevron to go back/forward. Back and forward flash the
+  same pill-sized notice as the immersive-mode coach mark.
 - Swipe **up** from a live download chip to cancel the newest transfer: a trash confirm
-  floats above the chip, arms red, and shows an X near the end of the drag.
+  floats above the chip, arms red, and shows an X near the end of the drag. A gesture-canceled
+  transfer is cleared from the list instead of lingering as a canceled row.
 - Tapping the URL in the menu address bar hands the whole address to the search field,
   fully selected, ready to edit.
 
