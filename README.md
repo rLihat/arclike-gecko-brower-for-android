@@ -43,8 +43,8 @@ Native Kotlin reimplementation of the mockup chrome with real GeckoView content:
   are published to the system Downloads collection.
 - Site prompts and permission requests render as pill-sized popups, with per-site
   remember-me answers editable in Site settings.
-- Search sheet shows live DuckDuckGo suggestions; the browser accepts `VIEW`, `WEB_SEARCH`
-  and `SEND` intents.
+- Search sheet shows the chosen engine's live suggestions plus history matches with
+  inline completion; the browser accepts `VIEW`, `WEB_SEARCH` and `SEND` intents.
 - Local history keeps one row per URL, grouped by day in the History page with search,
   swipe-to-delete and clear-by-range.
 - Signed XPI installation and a native add-on manager through `WebExtensionController`,

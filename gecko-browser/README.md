@@ -199,13 +199,37 @@ never leaves the page waiting:
 
 - Tabs and their `SessionState` blobs are written on every navigation change; on a cold
   start the previous tab list, active tab, titles and back/forward stacks are restored.
-- Settings live in DataStore: dark mode, suggestions, per-host zoom, per-host desktop mode
-  and remembered permissions all survive a restart.
+- Settings live in DataStore: dark mode, search suggestions, the search engine, per-host
+  zoom, per-host desktop mode and remembered permissions all survive a restart.
 - `VIEW` intents open the URL in a new tab, `WEB_SEARCH` runs the query through the current
   search engine, and `SEND` text is treated the same way. A cold start handles the intent
   once; a configuration change doesn't duplicate the tab.
-- The search sheet asks DuckDuckGo for suggestions (debounced, gated by the Settings toggle);
-  typing a bare host or `www.` address skips suggestions and navigates.
+- The search sheet lists history matches and the chosen engine's suggestions together
+  (debounced; network suggestions are gated by the Settings toggle).
+
+## Search
+
+- **Engines.** DuckDuckGo, Google, Bing, Brave, Ecosia and Startpage, plus any custom
+  `%s` template. The choice is stored in DataStore (`search_engine`) and mirrored to the
+  old prefs key, and the Settings row expands into an inline picker; the search field's
+  engine badge opens the same list.
+- **Suggestions.** Each engine carries an optional `suggestTemplate`. The parser accepts
+  OpenSearch `["query", ["a", "b"], …]` (Google, Bing), DuckDuckGo's `[{"phrase": …}]`,
+  and plain or `suggestions`/`phrases`-wrapped arrays; an engine that answers with
+  something else (or 204/429) offers no suggestions and the history matches still list.
+  Ecosia and Startpage have no usable endpoint, so their template is null.
+- **History autocomplete.** `HistoryStore.suggest` ranks rows by prefix (host, then URL,
+  then title) and then by frecency — visit count damped by `ln(1 + n)` and weighted by age
+  (100 / 70 / 40 / 20 / 10 / 4 for <1, <3, <7, <14, <30 days and older). Matches appear
+  above network suggestions, with the page title and host.
+- **Inline completion.** When the caret is at the end and the text does not look like a
+  URL, a history host/URL that starts with what was typed is appended and shown selected;
+  the first backspace drops the suffix instead of deleting a typed character, and typing
+  over the selection replaces it.
+- **URL detection.** A single token is a URL when it has a known scheme, `://`, is
+  `localhost`, is an IPv4 address or a bracketed IPv6 literal, or ends in a dotted host
+  whose last label is 2–63 letters (`example.com`, `example.co.uk`). Everything else
+  — `2.5`, `e.g.`, or anything with a space — goes to the engine as a query.
 
 ## Known limits
 

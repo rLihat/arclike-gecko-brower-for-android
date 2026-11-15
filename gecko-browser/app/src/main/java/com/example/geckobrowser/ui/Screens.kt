@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -188,6 +189,7 @@ fun SettingsScreen(
     var openLinksInApps by remember { mutableStateOf(true) }
     var closeOnExit by remember { mutableStateOf(false) }
     var httpsOnly by remember { mutableStateOf(true) }
+    var enginePicker by remember { mutableStateOf(false) }
 
     Box(
         Modifier
@@ -271,12 +273,72 @@ fun SettingsScreen(
                 if (general.isNotEmpty()) {
                     SectionLabel("General")
                     SettingsGroup {
-                        if ("Search engine" in general) SettingsRow(
-                            "Search engine",
-                            icon = { Glyph(Ico.find, c.text, size = 20.dp, strokeWidth = 1.9f) },
-                            value = vm.currentEngine.name,
-                            onClick = { vm.showToast("Search engine: ${vm.currentEngine.name}") },
-                        )
+                        if ("Search engine" in general) {
+                            SettingsRow(
+                                "Search engine",
+                                icon = { Glyph(Ico.find, c.text, size = 20.dp, strokeWidth = 1.9f) },
+                                value = vm.currentEngine.name,
+                                trailing = {
+                                    Glyph(
+                                        Ico.chevronRight,
+                                        c.muted,
+                                        size = 15.dp,
+                                        strokeWidth = 2f,
+                                        modifier = Modifier.rotate(if (enginePicker) 90f else 0f),
+                                    )
+                                },
+                                onClick = { enginePicker = !enginePicker },
+                            )
+                            if (enginePicker) {
+                                Box(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp)
+                                        .height(1.dp)
+                                        .background(c.hairline),
+                                )
+                                Column {
+                                    vm.engines.forEach { e ->
+                                        val selected = e.id == vm.currentEngine.id
+                                        Row(
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(11.dp))
+                                                .clickable {
+                                                    vm.selectEngine(e.id)
+                                                    enginePicker = false
+                                                }
+                                                .padding(horizontal = 12.dp, vertical = 9.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            SiteFavicon(e.host, e.name, 21.dp)
+                                            Spacer(Modifier.width(11.dp))
+                                            Text(
+                                                e.name,
+                                                color = c.text,
+                                                fontSize = 13.5.sp,
+                                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                            if (e.custom) {
+                                                Text(
+                                                    "Custom",
+                                                    color = c.muted,
+                                                    fontSize = 10.sp,
+                                                    modifier = Modifier
+                                                        .border(1.dp, c.stroke, RoundedCornerShape(6.dp))
+                                                        .padding(horizontal = 5.dp, vertical = 1.dp),
+                                                )
+                                                Spacer(Modifier.width(8.dp))
+                                            }
+                                            Text(if (selected) "✓" else "", color = c.accent, fontSize = 13.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         if ("History" in general) SettingsRow(
                             "History",
                             icon = { Glyph(Ico.clock, c.text, size = 20.dp, strokeWidth = 1.9f) },

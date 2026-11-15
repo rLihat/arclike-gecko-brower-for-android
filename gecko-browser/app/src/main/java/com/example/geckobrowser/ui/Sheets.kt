@@ -85,14 +85,28 @@ fun DuckDuckGoBadge(size: Int = 26) {
     }
 }
 
+private data class SearchRow(
+    /** Text handed to submit: the typed query, a page URL, or a suggestion. */
+    val text: String,
+    val label: String,
+    val detail: String? = null,
+    val favicon: String? = null,
+    /** 0 = search the raw query, 1 = history page, 2 = engine suggestion. */
+    val kind: Int = 0,
+)
+
 @Composable
 fun SearchSheet(vm: BrowserViewModel) {
     val c = LocalArc.current
-    // The field owns the text so a prefilled URL can arrive fully selected.
+    // The field owns the text so a prefilled URL can arrive fully selected, and
+    // so an inline completion can be shown as a selected suffix.
     var field by remember {
         mutableStateOf(TextFieldValue(vm.searchText, TextRange(0, vm.searchText.length)))
     }
-    val query = field.text
+    /** What the user actually typed, without the completion suffix. */
+    var typed by remember { mutableStateOf(vm.searchText) }
+    /** The full string currently shown as typed + selected completion, if any. */
+    var completion by remember { mutableStateOf<String?>(null) }
     val engine = vm.currentEngine
     val focus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -105,14 +119,61 @@ fun SearchSheet(vm: BrowserViewModel) {
         focus.requestFocus()
         keyboard?.show()
     }
-    val suggestions = buildList {
-        if (query.isNotBlank()) {
-            add(query)
+
+    fun applyEdit(value: TextFieldValue) {
+        val text = value.text
+        val hadCompletion = completion != null
+        // The first backspace only drops the selected completion, exactly like a
+        // browser address bar; typing over it replaces it and completes again.
+        val suffixGone = hadCompletion && text.length <= typed.length
+        val deleting = text.length < typed.length
+        completion = null
+        typed = text
+        field = value
+        vm.onSearchTextChange(text)
+        if (suffixGone || deleting || text.length < 2 || text.any { it.isWhitespace() }) return
+        if (!value.selection.collapsed || value.selection.end != text.length) return
+        if (value.composition != null) return
+        val done = vm.inlineCompletion(text) ?: return
+        if (done.length > text.length && done.startsWith(text, ignoreCase = true)) {
+            completion = done
+            field = TextFieldValue(done, TextRange(text.length, done.length))
+        }
+    }
+
+    val rows = buildList {
+        if (typed.isNotBlank()) {
+            add(
+                SearchRow(
+                    text = typed,
+                    label = typed,
+                    detail = "Search with ${engine.name}",
+                    favicon = engine.host,
+                    kind = 0,
+                )
+            )
+            vm.historySuggestions
+                .filter { !it.url.equals(typed, ignoreCase = true) }
+                .forEach { visit ->
+                    add(
+                        SearchRow(
+                            text = visit.url,
+                            label = visit.label,
+                            detail = visit.host,
+                            favicon = visit.host,
+                            kind = 1,
+                        )
+                    )
+                }
+            val seen = vm.historySuggestions.map { it.url }.toMutableSet()
             vm.suggestions
                 .asSequence()
-                .filter { !it.equals(query, ignoreCase = true) }
-                .take(5)
-                .forEach { add(it) }
+                .filter { it.isNotBlank() && !it.equals(typed, ignoreCase = true) }
+                .filter { seen.add(it) }
+                .take(6)
+                .forEach { phrase ->
+                    add(SearchRow(text = phrase, label = phrase, favicon = engine.host, kind = 2))
+                }
         }
     }
 
@@ -161,10 +222,7 @@ fun SearchSheet(vm: BrowserViewModel) {
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 BasicTextField(
                     value = field,
-                    onValueChange = {
-                        field = it
-                        vm.onSearchTextChange(it.text)
-                    },
+                    onValueChange = { applyEdit(it) },
                     singleLine = true,
                     textStyle = TextStyle(
                         color = c.text,
@@ -173,10 +231,10 @@ fun SearchSheet(vm: BrowserViewModel) {
                     ),
                     cursorBrush = SolidColor(c.accent),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                    keyboardActions = KeyboardActions(onGo = { vm.submit(query) }),
+                    keyboardActions = KeyboardActions(onGo = { vm.submit(field.text.ifBlank { typed }) }),
                     modifier = Modifier.fillMaxWidth().focusRequester(focus),
                 )
-                if (query.isEmpty()) {
+                if (field.text.isEmpty()) {
                     Text(
                         "Search or enter a site",
                         color = c.muted,
@@ -339,7 +397,7 @@ fun SearchSheet(vm: BrowserViewModel) {
         }
 
         AnimatedVisibility(
-            visible = suggestions.isNotEmpty() && !engineMenu,
+            visible = rows.isNotEmpty() && !engineMenu,
             enter = fadeIn(tween(160)) +
                 slideInVertically(initialOffsetY = { it / 2 }, animationSpec = tween(260)) +
                 expandVertically(animationSpec = tween(260), expandFrom = Alignment.Top),
@@ -348,29 +406,44 @@ fun SearchSheet(vm: BrowserViewModel) {
         ) {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                 Spacer(Modifier.height(8.dp))
-                suggestions.forEachIndexed { index, s ->
+                rows.forEach { row ->
                     Row(
                         Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .clickable { vm.submit(s) }
-                            .padding(horizontal = 12.dp, vertical = 12.dp),
+                            .clickable { vm.submit(row.text) }
+                            .padding(horizontal = 12.dp, vertical = 11.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        if (index == 0) {
-                            SiteFavicon(engine.host, engine.name, 17.dp)
-                        } else {
-                            Glyph(Ico.find, c.muted, size = 17.dp, strokeWidth = 2f)
+                        when (row.kind) {
+                            0 -> SiteFavicon(row.favicon ?: engine.host, engine.name, 18.dp)
+                            1 -> SiteFavicon(row.favicon.orEmpty(), row.label.take(1), 22.dp)
+                            else -> SiteFavicon(row.favicon ?: engine.host, engine.name, 16.dp)
                         }
                         Spacer(Modifier.width(12.dp))
-                        Text(
-                            s,
-                            color = c.text,
-                            fontSize = 14.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                row.label,
+                                color = c.text,
+                                fontSize = 14.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                            if (row.detail != null) {
+                                Spacer(Modifier.height(1.dp))
+                                Text(
+                                    row.detail,
+                                    color = c.muted,
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                        if (row.kind == 1) {
+                            Glyph(Ico.clock, c.muted, size = 14.dp, strokeWidth = 1.8f)
+                            Spacer(Modifier.width(8.dp))
+                        }
                         Glyph(Ico.chevronLeft, c.muted, size = 15.dp, strokeWidth = 2f,
                             modifier = Modifier.rotate(180f))
                     }

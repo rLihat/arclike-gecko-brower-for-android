@@ -28,6 +28,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
 import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
@@ -98,7 +99,12 @@ enum class Overlay {
     History,
 }
 
-/** A search engine: built in, or added by the user with a %s URL template. */
+/**
+ * A search engine: built in, or added by the user with a %s URL template.
+ * [suggestTemplate] is the matching autocomplete endpoint, `%s` being the query;
+ * engines without a usable endpoint leave it null and simply offer no network
+ * suggestions.
+ */
 data class SearchEngine(
     val id: String,
     val name: String,
@@ -106,6 +112,7 @@ data class SearchEngine(
     val host: String,
     val color: Long = 0xFF2F5C69,
     val custom: Boolean = false,
+    val suggestTemplate: String? = null,
 )
 
 /** History kept for the swipe-back/forward notice text only; navigation is Gecko's. */
@@ -213,6 +220,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     var suggestions by mutableStateOf<List<String>>(emptyList())
+        private set
+
+    /** History rows that match what is typed in the search field, best first. */
+    var historySuggestions by mutableStateOf<List<Visit>>(emptyList())
         private set
 
     var toastMessage by mutableStateOf<String?>(null)
@@ -388,6 +399,17 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private fun applySnapshot(snapshot: SettingsSnapshot) {
         darkMode = snapshot.dark
         suggestionsEnabled = snapshot.suggestions
+        // DataStore is the source of truth; a store written before engines were
+        // saved there falls back to the prefs value and migrates it once.
+        val savedEngine = snapshot.engine.ifBlank {
+            prefs.getString("search_engine", "").orEmpty()
+        }
+        if (savedEngine.isNotBlank() && engines.any { it.id == savedEngine }) {
+            searchEngineId = savedEngine
+            if (snapshot.engine.isBlank()) {
+                scope.launch(Dispatchers.IO) { settingsStore.setEngine(savedEngine) }
+            }
+        }
         zoomByHost.clear()
         zoomByHost.putAll(snapshot.zoom)
         permissionsByHost.clear()
@@ -1363,6 +1385,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         closeOverlay()
         expandPill()
         suggestions = emptyList()
+        historySuggestions = emptyList()
     }
 
     private fun historySeed(id: Long, url: String) {
@@ -2197,6 +2220,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         clearNavNotice()
         searchText = prefill.orEmpty()
         suggestions = emptyList()
+        historySuggestions = historyStore.suggest(searchText, 4)
         overlay = Overlay.Search
         compactPill = false
         requestSuggestions(searchText)
@@ -2385,12 +2409,18 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         if (!suggestionsEnabled) suggestions = emptyList()
         val value = suggestionsEnabled
         scope.launch { withContext(Dispatchers.IO) { settingsStore.setSuggestions(value) } }
+        requestSuggestions(searchText)
     }
 
     fun onSearchTextChange(value: String) {
         searchText = value
+        // History is in memory, so this never waits on the network.
+        historySuggestions = if (value.isBlank()) emptyList() else historyStore.suggest(value, 4)
         requestSuggestions(value)
     }
+
+    /** The inline completion for what has been typed, or null when nothing fits. */
+    fun inlineCompletion(query: String): String? = historyStore.complete(query)
 
     fun onSettingsSearchChange(value: String) {
         settingsSearch = value
@@ -2402,63 +2432,124 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun requestSuggestions(query: String) {
         suggestJob?.cancel()
-        if (!suggestionsEnabled || query.isBlank() || looksLikeUrl(query)) {
+        if (!suggestionsEnabled || query.isBlank() || looksLikeUrl(query) ||
+            currentEngine.suggestTemplate == null
+        ) {
             suggestions = emptyList()
             return
         }
+        val engineId = currentEngine.id
         suggestJob = scope.launch {
             delay(150)
             val found = withContext(Dispatchers.IO) {
                 runCatching { fetchSuggestions(query) }.getOrDefault(emptyList())
             }
-            if (searchText == query) suggestions = found.take(5)
+            // Drop a reply for an engine or a query the user has moved on from.
+            if (searchText == query && searchEngineId == engineId) suggestions = found.take(6)
         }
     }
 
     private fun fetchSuggestions(query: String): List<String> {
-        val endpoint = "https://duckduckgo.com/ac/?q=${Uri.encode(query)}&type=list"
-        val conn = URL(endpoint).openConnection() as HttpURLConnection
+        val template = currentEngine.suggestTemplate ?: return emptyList()
+        val conn = URL(template.replace("%s", Uri.encode(query))).openConnection() as HttpURLConnection
         conn.connectTimeout = 4000
         conn.readTimeout = 4000
         conn.instanceFollowRedirects = true
         conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) horiZen")
         return try {
             val body = conn.inputStream.bufferedReader().use { it.readText() }
-            val arr = JSONArray(body)
-            buildList {
-                for (i in 0 until arr.length()) {
-                    // DuckDuckGo answers with either {"phrase": "..."} objects or
-                    // plain strings depending on the endpoint version.
-                    val phrase = when (val item = arr.opt(i)) {
-                        is JSONObject -> item.optString("phrase")
-                        is String -> item
-                        else -> ""
-                    }
-                    if (phrase.isNotBlank() && phrase != query && none { it.equals(phrase, ignoreCase = true) }) {
-                        add(phrase)
-                    }
-                }
-            }
+            parseSuggestions(body, query)
         } finally {
             conn.disconnect()
         }
     }
 
+    /**
+     * Reads the suggestion payloads the built-in engines actually return:
+     * OpenSearch (`["query", ["a", "b"], …]`, Google/Bing), DuckDuckGo's
+     * `[{"phrase": "a"}, …]`, and a plain or wrapped string array. Anything
+     * unexpected yields no suggestions rather than an error.
+     */
+    private fun parseSuggestions(body: String, query: String): List<String> {
+        val trimmed = body.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        val found = LinkedHashSet<String>()
+        fun add(value: String?) {
+            val phrase = value?.trim().orEmpty()
+            if (phrase.isEmpty() || phrase.equals(query, ignoreCase = true)) return
+            if (found.none { it.equals(phrase, ignoreCase = true) }) found.add(phrase)
+        }
+        fun collect(node: Any?) {
+            when (node) {
+                is JSONArray -> for (i in 0 until node.length()) collect(node.opt(i))
+                is JSONObject -> {
+                    add(node.optString("phrase"))
+                    add(node.optString("text"))
+                    add(node.optString("name"))
+                    for (key in WRAPPED_SUGGESTION_KEYS) {
+                        val nested = node.optJSONArray(key) ?: continue
+                        for (i in 0 until nested.length()) collect(nested.opt(i))
+                    }
+                }
+                is String -> add(node)
+            }
+        }
+        runCatching { collect(JSONTokener(trimmed).nextValue()) }
+        return found.take(6)
+    }
+
     fun looksLikeUrl(text: String): Boolean {
         val t = text.trim()
-        if (t.isEmpty() || t.contains(' ')) return false
-        if (t.startsWith("http://") || t.startsWith("https://") ||
-            t.startsWith("about:") || t.startsWith("file:") || t.startsWith("www.")
+        if (t.isEmpty() || t.any { it.isWhitespace() }) return false
+        val lower = t.lowercase(Locale.US)
+        if (lower.startsWith("http://") || lower.startsWith("https://") ||
+            lower.startsWith("about:") || lower.startsWith("file:") ||
+            lower.startsWith("data:") || lower.startsWith("javascript:") ||
+            lower.startsWith("view-source:") || lower.startsWith("resource:")
         ) return true
-        return t.contains('.') || t == "localhost" || t.contains("://")
+        if (lower.contains("://")) return true
+
+        // Judge only the authority: drop a path, query and any userinfo.
+        val authority = t.substringBefore('/').substringBefore('?').substringBefore('#')
+        val hostPart = authority.substringAfterLast('@')
+        val bracketed = hostPart.startsWith("[")
+        val host = if (bracketed) {
+            hostPart.substringBefore(']').removePrefix("[").lowercase(Locale.US)
+        } else {
+            hostPart.substringBefore(':').lowercase(Locale.US)
+        }
+        if (host.isEmpty()) return false
+        // A bracketed IPv6 literal, e.g. [::1].
+        if (bracketed) return hostPart.contains(']') && host.contains(':')
+        if (host == "localhost" || isIpv4(host)) return true
+
+        // host.tld: at least two labels, a final label of letters, no empty labels.
+        val labels = host.split('.')
+        if (labels.size < 2 || labels.any { it.isEmpty() }) return false
+        val tld = labels.last()
+        return tld.length in 2..63 && tld.all { it.isLetter() }
+    }
+
+    private fun isIpv4(host: String): Boolean {
+        val parts = host.split('.')
+        if (parts.size != 4) return false
+        return parts.all { part ->
+            if (part.isEmpty() || part.length > 3 || !part.all { it.isDigit() }) return@all false
+            val value = part.toIntOrNull() ?: return@all false
+            value in 0..255
+        }
     }
 
     /* ------------------------------------------------------------ search engines */
 
     fun selectEngine(id: String) {
-        if (engines.none { it.id == id }) return
+        if (id == searchEngineId || engines.none { it.id == id }) return
         searchEngineId = id
         prefs.edit().putString("search_engine", id).apply()
+        scope.launch { withContext(Dispatchers.IO) { settingsStore.setEngine(id) } }
+        // Drop the old engine's suggestions and ask the new one.
+        suggestions = emptyList()
+        requestSuggestions(searchText)
     }
 
     /** Adds and selects a custom engine. Returns false when the input is invalid. */
@@ -2529,15 +2620,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun toUrl(input: String): String {
         val t = input.trim()
-        if (t.startsWith("http://") || t.startsWith("https://") || t.startsWith("about:") ||
-            t.startsWith("file:")
+        val lower = t.lowercase(Locale.US)
+        if (lower.startsWith("http://") || lower.startsWith("https://") ||
+            lower.startsWith("about:") || lower.startsWith("file:") ||
+            lower.startsWith("data:") || lower.startsWith("javascript:") ||
+            lower.startsWith("view-source:")
         ) return t
-        if (t.startsWith("www.")) return "https://$t"
-        val looksLikeHost = !t.contains(" ") &&
-            (t.contains(".") || t == "localhost") &&
-            !t.endsWith(".")
-        return if (looksLikeHost) "https://$t" else
-            currentEngine.urlTemplate.replace("%s", Uri.encode(t))
+        return if (looksLikeUrl(t)) "https://$t"
+        else currentEngine.urlTemplate.replace("%s", Uri.encode(t))
     }
 
     fun showToast(message: String) {
@@ -2620,15 +2710,32 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             "resource", "wyciwyg", "view-source",
         )
 
+        /** Object keys some suggestion endpoints wrap the phrase array in. */
+        private val WRAPPED_SUGGESTION_KEYS = listOf("suggestions", "phrases", "results")
+
         fun isBlankUrl(url: String): Boolean =
             url.isEmpty() || url == "about:blank" || url.startsWith("about:blank#")
 
         val BUILTIN_ENGINES = listOf(
-            SearchEngine("duckduckgo", "DuckDuckGo", "https://duckduckgo.com/?q=%s", "duckduckgo.com", 0xFFDE5833),
-            SearchEngine("google", "Google", "https://www.google.com/search?q=%s", "google.com", 0xFF4285F4),
-            SearchEngine("bing", "Bing", "https://www.bing.com/search?q=%s", "bing.com", 0xFF008373),
-            SearchEngine("brave", "Brave", "https://search.brave.com/search?q=%s", "search.brave.com", 0xFFFB542B),
+            SearchEngine(
+                "duckduckgo", "DuckDuckGo", "https://duckduckgo.com/?q=%s", "duckduckgo.com", 0xFFDE5833,
+                suggestTemplate = "https://duckduckgo.com/ac/?q=%s&type=list",
+            ),
+            SearchEngine(
+                "google", "Google", "https://www.google.com/search?q=%s", "google.com", 0xFF4285F4,
+                suggestTemplate = "https://www.google.com/complete/search?client=firefox&q=%s",
+            ),
+            SearchEngine(
+                "bing", "Bing", "https://www.bing.com/search?q=%s", "bing.com", 0xFF008373,
+                suggestTemplate = "https://api.bing.com/osjson.aspx?query=%s",
+            ),
+            SearchEngine(
+                "brave", "Brave", "https://search.brave.com/search?q=%s", "search.brave.com", 0xFFFB542B,
+                suggestTemplate = "https://search.brave.com/api/suggest?q=%s",
+            ),
+            // No suggestion endpoint (a request just returns 404 HTML).
             SearchEngine("ecosia", "Ecosia", "https://www.ecosia.org/search?q=%s", "ecosia.org", 0xFF008009),
+            // Startpage publishes no autocomplete API we can rely on.
             SearchEngine("startpage", "Startpage", "https://www.startpage.com/sp/search?query=%s", "startpage.com", 0xFF6573FF),
         )
 

@@ -15,6 +15,8 @@ data class SettingsSnapshot(
     val dark: Boolean = false,
     val suggestions: Boolean = true,
     val schema: Int = 0,
+    /** Selected search engine id; blank on a store written before engines were saved. */
+    val engine: String = "",
     val zoom: Map<String, Int> = emptyMap(),
     /** Keyed by `host|kind`, value is "allow" or "deny". */
     val permissions: Map<String, String> = emptyMap(),
@@ -63,6 +65,7 @@ class AppSettings(context: Context) {
             dark = p[KEY_DARK] ?: false,
             suggestions = p[KEY_SUGGESTIONS] ?: true,
             schema = p[KEY_SCHEMA] ?: 0,
+            engine = p[KEY_ENGINE].orEmpty(),
             zoom = zoom,
             permissions = permissions,
             desktop = desktop,
@@ -72,6 +75,11 @@ class AppSettings(context: Context) {
     suspend fun setDark(value: Boolean) = store.edit { it[KEY_DARK] = value }
 
     suspend fun setSuggestions(value: Boolean) = store.edit { it[KEY_SUGGESTIONS] = value }
+
+    suspend fun setEngine(value: String) {
+        if (value.isBlank()) return
+        store.edit { it[KEY_ENGINE] = value }
+    }
 
     suspend fun setSchema(value: Int) = store.edit { it[KEY_SCHEMA] = value }
 
@@ -101,6 +109,7 @@ class AppSettings(context: Context) {
     companion object {
         private val KEY_DARK = booleanPreferencesKey("dark")
         private val KEY_SUGGESTIONS = booleanPreferencesKey("search_suggestions")
+        private val KEY_ENGINE = stringPreferencesKey("search_engine")
         private val KEY_SCHEMA = intPreferencesKey("schema_version")
         private const val ZOOM_PREFIX = "zoom|"
         private const val PERM_PREFIX = "perm|"

@@ -212,7 +212,84 @@ class HistoryStore(context: Context) {
         BooleanArray(urls.size) { byUrl.containsKey(urls[it]) }
     }
 
+    /**
+     * Autocomplete rows for [query], best first: a host that starts with the
+     * query beats a prefix further along the URL or title, and ties fall back to
+     * frecency (recent and often-visited pages win).
+     */
+    fun suggest(query: String, limit: Int = 5): List<Visit> {
+        val q = query.trim().lowercase(Locale.US)
+        if (q.isEmpty()) return emptyList()
+        val now = System.currentTimeMillis()
+        return synchronized(lock) {
+            byUrl.values
+                .asSequence()
+                .filter { it.matches(q) }
+                .sortedWith(
+                    compareByDescending<Visit> { it.prefixRank(q) }
+                        .thenByDescending { it.frecency(now) },
+                )
+                .take(limit)
+                .toList()
+        }
+    }
+
+    /**
+     * The string that would finish [query] from history, for inline completion.
+     * Hosts complete first (`gith` → `github.com`); otherwise the full URL is
+     * offered when it starts with what was typed.
+     */
+    fun complete(query: String): String? {
+        val q = query.trim().lowercase(Locale.US)
+        if (q.length < 2 || q.any { it.isWhitespace() }) return null
+        val now = System.currentTimeMillis()
+        val best = synchronized(lock) {
+            byUrl.values.asSequence()
+                .mapNotNull { visit ->
+                    val host = visit.host.lowercase(Locale.US)
+                    val candidate = when {
+                        host.startsWith(q) -> host
+                        visit.url.lowercase(Locale.US).startsWith(q) -> visit.url
+                        else -> null
+                    }
+                    if (candidate == null || candidate.length <= q.length) null
+                    else candidate to visit.frecency(now)
+                }
+                .maxByOrNull { it.second }
+        }
+        return best?.first
+    }
+
     val count: Int get() = synchronized(lock) { byUrl.size }
+
+    private fun Visit.matches(q: String): Boolean =
+        host.lowercase(Locale.US).contains(q) ||
+            url.lowercase(Locale.US).contains(q) ||
+            title.lowercase(Locale.US).contains(q)
+
+    private fun Visit.prefixRank(q: String): Int = when {
+        host.lowercase(Locale.US).startsWith(q) -> 3
+        url.lowercase(Locale.US).startsWith(q) -> 2
+        title.lowercase(Locale.US).startsWith(q) -> 1
+        else -> 0
+    }
+
+    /**
+     * Firefox-style frecency: the visit count is damped logarithmically and the
+     * result weighted by how recently the page was last opened.
+     */
+    private fun Visit.frecency(now: Long): Double {
+        val days = (now - lastVisit).coerceAtLeast(0L) / 86_400_000.0
+        val recency = when {
+            days < 1.0 -> 100.0
+            days < 3.0 -> 70.0
+            days < 7.0 -> 40.0
+            days < 14.0 -> 20.0
+            days < 30.0 -> 10.0
+            else -> 4.0
+        }
+        return recency * (1.0 + kotlin.math.ln(1.0 + visitCount))
+    }
 
     private fun maybePrune(now: Long) {
         val due = synchronized(lock) {
