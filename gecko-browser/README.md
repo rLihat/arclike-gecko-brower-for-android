@@ -1,4 +1,4 @@
-# Arc Gecko — native Android browser
+# horiZen — native Android browser
 
 An Arc-inspired Android browser built on **GeckoView** (Firefox's engine). The chrome is
 native Kotlin + Jetpack Compose; only the page content is Gecko. The UI follows
@@ -22,6 +22,31 @@ native Kotlin + Jetpack Compose; only the page content is Gecko. The UI follows
 | `ui/Screens.kt` | Home, Firefox-style settings, site settings (with dark mode and tri-state permissions), downloads manager, extensions, Mozilla account. |
 | `ui/Tabs.kt` | Horizontal recents carousel with captured page thumbnails and a new-tab card. |
 | `ui/Components.kt` | Stroke icons, switches, settings rows, favicon tiles, glow. |
+| `ui/Splash.kt` | horiZen mark drawn on a Compose canvas, the animated splash, and `BrowserRoot` (splash clock + hand-over into the browser). |
+| `res/values/themes.xml` | `Theme.horiZen`, and `Theme.horiZen.Starting` for the Android 12+ system splash. |
+| `res/drawable/ic_*launcher*`, `res/mipmap-anydpi*/ic_launcher.xml` | Vector launch mark and adaptive icon (foreground + monochrome). |
+
+## Branding
+
+The in-development name is **horiZen** (`@string/app_name`); the package, `applicationId`
+and Kotlin namespaces stay `com.example.geckobrowser`. The mark is the supplied logo SVG
+rebuilt as vector paths and Compose drawing — no bitmaps, no blur filters:
+
+- `drawable/ic_splash_logo.xml` — the mark alone (rings, mirrored reflection, horizon
+  glint) on the Android 12+ system splash, scaled to 0.6 so it fits the 192dp masked circle.
+- `drawable/ic_launcher_foreground.xml` + `ic_launcher_monochrome.xml` +
+  `mipmap-anydpi-v26/ic_launcher.xml` — adaptive icon on the `#160C42` night colour, with a
+  themed (monochrome) layer for Android 13+.
+- `ui/Splash.kt` — the same bands as gradients on a canvas so they can expand out of the
+  horizon. The rings grow over 1.2s on `cubic-bezier(.32,.72,0,1)` while the wordmark fades
+  in with the capital **Z** on the logo gradient; the screen cuts short as soon as restored
+  tabs are ready (420ms floor) and hands over by shrinking the mark as the browser rises.
+
+Wiring: the activity theme is `Theme.horiZen.Starting` (`postSplashScreenTheme` →
+`Theme.horiZen`), `MainActivity` calls `installSplashScreen()` before `super.onCreate` and
+keeps the system splash until `BrowserViewModel.ready` (900ms cap), then `BrowserRoot`
+runs the Compose animation. Below Android 12 `core-splashscreen` shows the static mark.
+With the system animator scale at 0 the mark is drawn at rest and the hand-over is instant.
 
 ## Chrome behaviour
 

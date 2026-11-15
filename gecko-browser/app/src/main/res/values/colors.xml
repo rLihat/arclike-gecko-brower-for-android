@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- horiZen brand: a near-black indigo night with the ring stack above a
+         bright horizon. Kept out of the chrome palette so the splash never
+         changes with dark mode. -->
+    <color name="horizen_night">#FF160C42</color>
+    <color name="horizen_deep">#FF140A38</color>
+    <color name="horizen_band_outer">#FF8A3DF0</color>
+    <color name="horizen_band_two">#FFE0309F</color>
+    <color name="horizen_band_three">#FFC23FD8</color>
+    <color name="horizen_band_inner">#FFB49CFF</color>
+    <color name="horizen_glint">#FFFFFFFF</color>
+</resources>

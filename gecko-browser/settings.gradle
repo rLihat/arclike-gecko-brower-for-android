@@ -16,5 +16,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ArcBrowser"
+rootProject.name = "horiZen"
 include ':app'

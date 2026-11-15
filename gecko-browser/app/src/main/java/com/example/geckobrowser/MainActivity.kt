@@ -2,6 +2,7 @@ package com.example.geckobrowser
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -16,14 +17,22 @@ import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.example.geckobrowser.ui.BrowserApp
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import com.example.geckobrowser.ui.BrowserRoot
 
 class MainActivity : ComponentActivity() {
 
     private val vm: BrowserViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // The system splash holds the first frame; keep it only long enough for
+        // the restored tab list to exist, then hand over to the Compose splash.
+        val splash = installSplashScreen()
+        val splashStartedAt = SystemClock.uptimeMillis()
         super.onCreate(savedInstanceState)
+        splash.setKeepOnScreenCondition {
+            !vm.ready && SystemClock.uptimeMillis() - splashStartedAt < 900
+        }
         WindowCompat.setDecorFitsSystemWindows(window, false)
         hideSystemBars()
         if (savedInstanceState == null) vm.handleIntent(intent)
@@ -62,7 +71,7 @@ class MainActivity : ComponentActivity() {
                 permissionLauncher.launch(request.permissions.toTypedArray())
             }
 
-            BrowserApp(vm) {
+            BrowserRoot(vm) {
                 addonPicker.launch(
                     arrayOf(
                         "application/x-xpinstall",

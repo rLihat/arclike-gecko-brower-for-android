@@ -643,7 +643,7 @@ private fun openConnection(url: String, rangeStart: Long?): HttpURLConnection {
     conn.connectTimeout = 15_000
     conn.readTimeout = 30_000
     conn.instanceFollowRedirects = true
-    conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) ArcBrowser")
+    conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) horiZen")
     conn.setRequestProperty("Accept", "*/*")
     if (rangeStart != null && rangeStart > 0L) {
         conn.setRequestProperty("Range", "bytes=$rangeStart-")

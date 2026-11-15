@@ -695,7 +695,7 @@ private object FaviconCache {
                 conn.connectTimeout = 4000
                 conn.readTimeout = 4000
                 conn.instanceFollowRedirects = true
-                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) ArcBrowser")
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) horiZen")
                 conn.inputStream.use { BitmapFactory.decodeStream(it) }
             } catch (_: Throwable) {
                 null

@@ -1,7 +1,11 @@
-# Arc-inspired GeckoView Browser
+# horiZen
 
 An Android browser built on GeckoView (Firefox's engine) with a custom, edge-to-edge
 UI: no status bar, no address bar, and a single morphing navigation pill.
+
+horiZen is the in-development name (the logo is a ring stack rising over a horizon);
+the package and `applicationId` stay `com.example.geckobrowser`, and the chrome still
+follows the Arc-inspired mockup.
 
 Extensions install as AMO-compatible signed XPIs — the app uses Mozilla's add-on
 system rather than shipping its own store.

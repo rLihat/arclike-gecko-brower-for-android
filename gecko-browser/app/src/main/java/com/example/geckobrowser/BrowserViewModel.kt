@@ -131,10 +131,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private val scrollY = HashMap<Long, Int>()
     /** Accumulated scroll since the pill last changed state. */
     private val scrollAcc = HashMap<Long, Int>()
-    private var bootstrapped = false
+    private var bootstrappedState by mutableStateOf(false)
     private var pendingIntent: Intent? = null
 
-    private val zoomByHost = HashMap<String, Int>()    private val permissionsByHost = HashMap<String, Boolean>()
+    /** True once settings, downloads and the restored tab list are in place. */
+    val ready: Boolean get() = bootstrappedState
+
+    private val zoomByHost = HashMap<String, Int>()
+    private val permissionsByHost = HashMap<String, Boolean>()
     private val desktopByHost = HashMap<String, Boolean>()
 
     private var geckoView: GeckoView? = null
@@ -359,7 +363,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         configureExtensions()
         restoreTabs()
         refreshExtensions()
-        bootstrapped = true
+        bootstrappedState = true
         pendingIntent?.let { pending ->
             pendingIntent = null
             handleIntent(pending)
@@ -1235,7 +1239,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         if (intent == null) return
         // On a cold start the activity is created before tabs and settings are
         // restored; hold the intent so it can't wipe the restored tab list.
-        if (!bootstrapped) {
+        if (!bootstrappedState) {
             pendingIntent = intent
             return
         }
@@ -2299,7 +2303,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         conn.connectTimeout = 4000
         conn.readTimeout = 4000
         conn.instanceFollowRedirects = true
-        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) ArcBrowser")
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) horiZen")
         return try {
             val body = conn.inputStream.bufferedReader().use { it.readText() }
             val arr = JSONArray(body)
