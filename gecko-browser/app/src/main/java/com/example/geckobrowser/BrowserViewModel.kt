@@ -314,6 +314,27 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private val offlineJobs = HashMap<Long, Job>()
     private val errorToastSkip = HashSet<Long>()
 
+    // ---- find in page -----------------------------------------------------
+
+    var findOpen by mutableStateOf(false)
+        private set
+
+    var findQuery by mutableStateOf("")
+        private set
+
+    /** 1-based index of the highlighted match, and how many there are. */
+    var findCurrent by mutableStateOf(0)
+        private set
+
+    var findTotal by mutableStateOf(0)
+        private set
+
+    var findFound by mutableStateOf(false)
+        private set
+
+    /** Bumped on every request so a slow reply can't overwrite a newer one. */
+    private var findGeneration = 0
+
     // ---- extensions -------------------------------------------------------
 
     var extensions by mutableStateOf<List<ExtensionItem>>(emptyList())
@@ -696,6 +717,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 scrollAcc[id] = 0
                 blockedByTab[id] = 0
                 if (id == activeId) blockedCount = 0
+                // A new document has none of the old matches in it.
+                if (id == activeId && findOpen) closeFind()
                 updateTab(id) { it.copy(url = url, isHome = false) }
                 if (noLoadUi.contains(id)) {
                     updateTab(id) { it.copy(isLoading = false) }
@@ -852,7 +875,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             override fun onKill(session: GeckoSession) = recoverSession(id)
 
             override fun onFullScreen(session: GeckoSession, fullScreen: Boolean) {
-                if (id == activeId) fullscreen = fullScreen
+                if (id != activeId) return
+                // The bar lives in the chrome, which fullscreen video hides.
+                if (fullScreen && findOpen) closeFind()
+                fullscreen = fullScreen
             }
         }
 
@@ -1166,7 +1192,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun trackingProtectionEnabled(host: String): Boolean =
         host.isNotBlank() && host !in trackingExceptions
 
-    fun setEtpStrict(strict: Boolean) {
+    fun setTrackingStrict(strict: Boolean) {
         if (etpStrict == strict) return
         etpStrict = strict
         applyContentBlocking()
@@ -1323,6 +1349,93 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         selectionObject = null
         selectionState = null
         runCatching { selection.hide() }
+    }
+
+    /* ----------------------------------------------------------- find in page */
+
+    /** Opens the find bar over the page, dismissing any sheet first. */
+    fun openFind() {
+        val tab = activeTab ?: return
+        if (tab.isHome || tab.url.isBlank()) {
+            showToast("Open a page to search it")
+            return
+        }
+        if (overlay != Overlay.None) closeOverlay()
+        findOpen = true
+        findQuery = ""
+        findCurrent = 0
+        findTotal = 0
+        findFound = false
+        findGeneration++
+        compactPill = false
+        // Dim the page and highlight every hit while the bar is up; Gecko keeps
+        // these flags on the session, so closing has to clear them by hand.
+        runCatching {
+            tabsManager.session(tab.id)?.finder?.setDisplayFlags(
+                GeckoSession.FINDER_DISPLAY_HIGHLIGHT_ALL or GeckoSession.FINDER_DISPLAY_DIM_PAGE,
+            )
+        }
+    }
+
+    /** Closes the bar, drops the highlight and forgets the query. */
+    fun closeFind() {
+        if (!findOpen) return
+        findOpen = false
+        findQuery = ""
+        findCurrent = 0
+        findTotal = 0
+        findFound = false
+        findGeneration++
+        runCatching {
+            activeSession?.finder?.let {
+                it.clear()
+                it.setDisplayFlags(0)
+            }
+        }
+    }
+
+    fun updateFindQuery(text: String) {
+        if (!findOpen) return
+        findQuery = text
+        runFind(forward = true)
+    }
+
+    fun findNext() = runFind(forward = true)
+
+    fun findPrev() = runFind(forward = false)
+
+    /**
+     * Asks the page for the next (or previous) match. Gecko answers
+     * asynchronously; [findGeneration] discards a reply that belongs to a query
+     * the user has already typed past.
+     */
+    private fun runFind(forward: Boolean) {
+        val tab = activeTab ?: return
+        val session = tabsManager.session(tab.id) ?: return
+        val query = findQuery
+        val generation = ++findGeneration
+        if (query.isBlank()) {
+            runCatching { session.finder.clear() }
+            findCurrent = 0
+            findTotal = 0
+            findFound = false
+            return
+        }
+        val flags = if (forward) GeckoSession.FINDER_FIND_FORWARD
+        else GeckoSession.FINDER_FIND_BACKWARDS
+        val result = runCatching { session.finder.find(query, flags) }.getOrNull() ?: return
+        result.accept(
+            { reply ->
+                if (generation == findGeneration) {
+                    findFound = reply.found
+                    findTotal = reply.total
+                    findCurrent = reply.current
+                }
+            },
+            { _ ->
+                // A failed search leaves the previous count in place.
+            },
+        )
     }
 
     fun answerButton(id: Long, confirm: Boolean) {
@@ -2372,6 +2485,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         captureActiveThumbnail()
         dismissPromptsForTab(activeId)
         dismissPopupNotice()
+        if (findOpen) closeFind()
         selectionObject?.let { runCatching { it.hide() } }
         selectionObject = null
         selectionState = null
@@ -2399,6 +2513,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         if (idx < 0) return
         dismissPromptsForTab(id)
         dismissPopupNotice()
+        if (id == activeId) closeFind()
         cancelDownloadPrompt()
         dismissContextMenu()
         tabsManager.close(id)
@@ -2668,6 +2783,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
         if (contextMenu != null) {
             dismissContextMenu()
+            return true
+        }
+        if (findOpen) {
+            closeFind()
             return true
         }
         if (fullscreen) {

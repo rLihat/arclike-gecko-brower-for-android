@@ -69,6 +69,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -84,6 +86,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -515,12 +518,13 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         // The nav pill floats above the sheet, exactly like the mockup. While a
         // back/forward notice is up it steps aside entirely, handing its
         // footprint to the popup for the same brief dwell. Immersive mode, the
-        // download question, a blocked popup and a page-level toast all borrow
-        // that footprint.
-        val popupPill = vm.popupBlocked != null && overlay == Overlay.None
+        // download question, a blocked popup, find-in-page and a page-level
+        // toast all borrow that footprint.
+        val popupPill = vm.popupBlocked != null && overlay == Overlay.None &&
+            !vm.findOpen
         val pillVisible = (overlay == Overlay.None || overlay == Overlay.Menu ||
             overlay == Overlay.Search) && vm.navNotice == null && !immersive &&
-            vm.pendingDownload == null && !popupPill &&
+            vm.pendingDownload == null && !popupPill && !vm.findOpen &&
             !(overlay == Overlay.None && vm.toastMessage != null)
         if (pillVisible) {
             val searchMode = overlay == Overlay.Search
@@ -539,7 +543,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         // The live download chip sits in the free gutter beside the 70% pill.
         // The expanded menu always offers it; on the page it only appears once
         // something has been downloaded.
-        val chipVisible = !immersive && vm.flight == null &&
+        val chipVisible = !immersive && vm.flight == null && !vm.findOpen &&
             vm.pendingDownload == null && !popupPill &&
             !(overlay == Overlay.None && vm.toastMessage != null) && (
             when (overlay) {
@@ -572,6 +576,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         BrowserPromptHost(vm)
 
         DownloadPromptHost(vm)
+        FindBarHost(vm)
         PopupBlockedHost(vm)
         SelectionHost(vm, screenW, screenH)
         ContextMenuHost(vm, screenW, screenH)
@@ -1505,7 +1510,8 @@ private fun BoxScope.PopupBlockedHost(vm: BrowserViewModel) {
     if (notice != null) last = notice
     // A sheet takes the stage; the request times out and is denied on its own.
     AnimatedVisibility(
-        visible = notice != null && vm.overlay == Overlay.None && !vm.fullscreen,
+        visible = notice != null && vm.overlay == Overlay.None && !vm.fullscreen &&
+            !vm.findOpen,
         enter = fadeIn(tween(if (reduceMotion) 0 else 160)) +
             scaleIn(tween(if (reduceMotion) 0 else 260, easing = morphEasing), initialScale = 0.96f) +
             slideInVertically(tween(if (reduceMotion) 0 else 260, easing = morphEasing)) { it / 6 },
@@ -1590,6 +1596,126 @@ private data class CtxAction(
     val icon: List<Path>,
     val onClick: () -> Unit,
 )
+
+/**
+ * Find in page: a field in the pill's footprint with the match counter and
+ * previous/next. It keeps focus and raises the keyboard as it opens, and Gecko
+ * highlights every hit and dims the rest of the page while it is up.
+ */
+@Composable
+private fun BoxScope.FindBarHost(vm: BrowserViewModel) {
+    val c = LocalArc.current
+    val reduceMotion = rememberReduceMotion()
+    val open = vm.findOpen
+    AnimatedVisibility(
+        visible = open && vm.overlay == Overlay.None,
+        enter = fadeIn(tween(if (reduceMotion) 0 else 150)) +
+            scaleIn(tween(if (reduceMotion) 0 else 240, easing = morphEasing), initialScale = 0.96f) +
+            slideInVertically(tween(if (reduceMotion) 0 else 240, easing = morphEasing)) { it / 6 },
+        exit = fadeOut(tween(if (reduceMotion) 0 else 120)),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            val focus = remember { FocusRequester() }
+            val keyboard = LocalSoftwareKeyboardController.current
+            val density = LocalDensity.current
+            // With edge-to-edge the keyboard is an inset, not a window resize.
+            val imeBottom = with(density) { WindowInsets.ime.getBottom(this).toDp() }
+            // The field is the reason the bar exists, so it starts focused.
+            LaunchedEffect(Unit) {
+                runCatching { focus.requestFocus() }
+                keyboard?.show()
+            }
+            Row(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 18.dp + imeBottom)
+                    .fillMaxWidth(0.88f)
+                    .widthIn(max = 430.dp)
+                    .height(54.dp)
+                    .shadow(20.dp, RoundedCornerShape(27.dp))
+                    .clip(RoundedCornerShape(27.dp))
+                    .background(c.navSurface)
+                    .border(1.dp, c.stroke, RoundedCornerShape(27.dp))
+                    .padding(start = 13.dp, end = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Glyph(Ico.find, c.muted, size = 17.dp, strokeWidth = 1.9f)
+                Spacer(Modifier.width(9.dp))
+                BasicTextField(
+                    value = vm.findQuery,
+                    onValueChange = { vm.updateFindQuery(it) },
+                    singleLine = true,
+                    textStyle = TextStyle(color = c.text, fontSize = 14.sp),
+                    cursorBrush = SolidColor(c.accent),
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(onSearch = { vm.findNext() }),
+                    modifier = Modifier
+                        .weight(1f)
+                        .focusRequester(focus),
+                    decorationBox = { inner ->
+                        if (vm.findQuery.isEmpty()) {
+                            Text("Find in page", color = c.muted, fontSize = 14.sp)
+                        }
+                        inner()
+                    },
+                )
+                val counter = when {
+                    vm.findQuery.isBlank() -> ""
+                    vm.findTotal == 0 -> "No results"
+                    else -> "${vm.findCurrent}/${vm.findTotal}"
+                }
+                if (counter.isNotEmpty()) {
+                    Text(
+                        counter,
+                        color = if (vm.findTotal == 0) c.muted else c.text,
+                        fontSize = 11.5.sp,
+                        maxLines = 1,
+                        modifier = Modifier.padding(start = 6.dp, end = 2.dp),
+                    )
+                }
+                FindButton(Ico.chevronUp, enabled = vm.findTotal > 1) { vm.findPrev() }
+                FindButton(Ico.chevronUp, enabled = vm.findTotal > 1, flipped = true) {
+                    vm.findNext()
+                }
+                Box(
+                    Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { vm.closeFind() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Glyph(Ico.close, c.muted, size = 15.dp, strokeWidth = 2f)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FindButton(
+    icon: List<Path>,
+    enabled: Boolean,
+    flipped: Boolean = false,
+    onClick: () -> Unit,
+) {
+    val c = LocalArc.current
+    Box(
+        Modifier
+            .size(31.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Glyph(
+            icon,
+            if (enabled) c.text else c.muted,
+            size = 16.dp,
+            strokeWidth = 2f,
+            modifier = if (flipped) Modifier.rotate(180f) else Modifier,
+        )
+    }
+}
 
 @Composable
 private fun BoxScope.SelectionHost(vm: BrowserViewModel, screenW: Dp, screenH: Dp) {

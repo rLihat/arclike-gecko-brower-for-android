@@ -10,7 +10,7 @@ native Kotlin + Jetpack Compose; only the page content is Gecko. The UI follows
 | --- | --- |
 | `MainActivity.kt` | Immersive edge-to-edge host, system back handling, `VIEW` / `WEB_SEARCH` / `SEND` intents, XPI and file pickers, Android runtime-permission launcher. |
 | `ArcApplication.kt` | One process-wide `GeckoRuntime` shared by every session. |
-| `BrowserViewModel.kt` | One `GeckoSession` per tab, delegates, tab history, prompts, permissions, downloads, extensions, suggestions, scroll-driven chrome state, sheets, zoom, desktop site, persistence. |
+| `BrowserViewModel.kt` | One `GeckoSession` per tab, delegates, tab history, prompts, permissions, downloads, extensions, suggestions, find in page, scroll-driven chrome state, sheets, zoom, desktop site, persistence. |
 | `TabManager.kt` | Session ownership: create, restore under the previous id, reopen closed tabs. |
 | `AppSettings.kt` | DataStore snapshot (dark mode, suggestions, search engine, per-host zoom/desktop, remembered permissions, tracking level, cookie-banner toggle, tracking exemptions) read before the first session. |
 | `BrowserFiles.kt` | Private JSON payloads: tab list, per-tab `SessionState` blobs, download list. |
@@ -19,7 +19,7 @@ native Kotlin + Jetpack Compose; only the page content is Gecko. The UI follows
 | `Prompts.kt` | Prompt, permission, file-picker, popup-notice, selection and extension state types. |
 | `ErrorPages.kt` | Themed local HTML for network and certificate failures, with retry/back. |
 | `ui/Theme.kt` | Light/dark design tokens transcribed from the mockup. |
-| `ui/Root.kt` | Persistent `GeckoView` host, home overlay, morphing sheet, nav pill, prompt hosts, blocked-popup pill, selection bar, loading glow, download chip with swipe-to-cancel, extension popup sheet, back/forward notice, toasts. |
+| `ui/Root.kt` | Persistent `GeckoView` host, home overlay, morphing sheet, nav pill, prompt hosts, blocked-popup pill, find bar, selection bar, loading glow, download chip with swipe-to-cancel, extension popup sheet, back/forward notice, toasts. |
 | `ui/Sheets.kt` | DuckDuckGo search sheet with live suggestions, and the menu (address bar with tap-to-edit URL, actions, zoom, desktop site, site settings, extensions). |
 | `ui/Screens.kt` | Home, Firefox-style settings, site settings (dark mode, tri-state permissions, per-site tracking protection and blocked count), downloads manager, extensions, Mozilla account. |
 | `ui/Tabs.kt` | Horizontal recents carousel with captured page thumbnails and a new-tab card. |
@@ -100,6 +100,20 @@ With the system animator scale at 0 the mark is drawn at rest and the hand-over 
   the pill's footprint; the pill steps aside, a tap outside cancels, and a message over a
   sheet sits 92dp up. Finished downloads don't pop anything — the live chip says it.
 - Reduced motion (system animator scale 0) collapses these transitions to their end state.
+
+## Find in page
+
+- The menu's **Find** opens a bar in the pill's footprint, lifted above the keyboard, with
+  the field already focused and the IME raised.
+- Typing searches as you go through `GeckoSession.finder`: every hit is highlighted and the
+  rest of the page dims (`FINDER_DISPLAY_HIGHLIGHT_ALL | FINDER_DISPLAY_DIM_PAGE`).
+- The counter reads `3/17`, or **No results**. ↑ and ↓ step backwards and forwards
+  (`FINDER_FIND_BACKWARDS` / `FINDER_FIND_FORWARD`) and are disabled for a single hit; the
+  IME's search key goes to the next hit.
+- ✕, system back, a new page load, a tab switch or fullscreen close the bar, clear the
+  query and reset the session's display flags so the page returns to normal.
+- Each request carries a generation number, so a slow answer for an older query can never
+  overwrite the counter for what is currently typed.
 
 ## Build
 
@@ -293,3 +307,5 @@ never leaves the page waiting:
   only **Go back**, and Retry is omitted where it could only fail again.
 - The selection bar is the app's own: `SelectionActionDelegate` is wired for Copy /
   Select all, but the full set of editing actions (cut, paste, collapse) has no UI yet.
+- Find in page uses Gecko's case-insensitive default: `FINDER_FIND_MATCH_CASE` and
+  `FINDER_FIND_WHOLE_WORD` have no toggles in the bar yet.

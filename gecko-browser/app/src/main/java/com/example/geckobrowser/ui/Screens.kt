@@ -401,7 +401,7 @@ fun SettingsScreen(
                             icon = { Glyph(Ico.lock, c.text, size = 20.dp, strokeWidth = 1.8f) },
                             value = if (vm.etpStrict) "Strict" else "Standard",
                             onClick = {
-                                vm.setEtpStrict(!vm.etpStrict)
+                                vm.setTrackingStrict(!vm.etpStrict)
                                 vm.showToast(
                                     if (vm.etpStrict) "Tracking protection: strict"
                                     else "Tracking protection: standard"

@@ -49,6 +49,8 @@ Native Kotlin reimplementation of the mockup chrome with real GeckoView content:
   optional cookie-banner answering, a per-page blocked count and per-site exemptions.
 - Failed loads render a themed local error page with retry/back; an offline page retries the
   URL by itself. Fullscreen video hides the chrome, rotates and keeps the screen on.
+- Find in page opens a bar over the pill, highlights every hit, dims the rest of the page
+  and steps through matches with a live `3/17` counter.
 - Search sheet shows the chosen engine's live suggestions plus history matches with
   inline completion; the browser accepts `VIEW`, `WEB_SEARCH` and `SEND` intents.
 - Local history keeps one row per URL, grouped by day in the History page with search,
