@@ -43,6 +43,12 @@ Native Kotlin reimplementation of the mockup chrome with real GeckoView content:
   are published to the system Downloads collection.
 - Site prompts and permission requests render as pill-sized popups, with per-site
   remember-me answers editable in Site settings.
+- Blocked popups get a pill with **Allow once**; long-press brings a context sheet and text
+  selections get Copy / Select all, both with haptic feedback.
+- Tracking protection (Standard/Strict), so-called "block cross-site trackers" cookies,
+  optional cookie-banner answering, a per-page blocked count and per-site exemptions.
+- Failed loads render a themed local error page with retry/back; an offline page retries the
+  URL by itself. Fullscreen video hides the chrome, rotates and keeps the screen on.
 - Search sheet shows the chosen engine's live suggestions plus history matches with
   inline completion; the browser accepts `VIEW`, `WEB_SEARCH` and `SEND` intents.
 - Local history keeps one row per URL, grouped by day in the History page with search,

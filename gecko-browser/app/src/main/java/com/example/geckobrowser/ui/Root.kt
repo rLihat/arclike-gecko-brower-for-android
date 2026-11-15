@@ -80,8 +80,10 @@ import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
@@ -102,6 +104,7 @@ import com.example.geckobrowser.NavNotice
 import com.example.geckobrowser.Overlay
 import com.example.geckobrowser.PendingDownload
 import com.example.geckobrowser.PermissionPromptState
+import com.example.geckobrowser.PopupNotice
 import com.example.geckobrowser.TabInfo
 import com.example.geckobrowser.downKindLabel
 import com.example.geckobrowser.formatBytes
@@ -512,10 +515,12 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         // The nav pill floats above the sheet, exactly like the mockup. While a
         // back/forward notice is up it steps aside entirely, handing its
         // footprint to the popup for the same brief dwell. Immersive mode, the
-        // download question and a page-level toast all borrow that footprint.
+        // download question, a blocked popup and a page-level toast all borrow
+        // that footprint.
+        val popupPill = vm.popupBlocked != null && overlay == Overlay.None
         val pillVisible = (overlay == Overlay.None || overlay == Overlay.Menu ||
             overlay == Overlay.Search) && vm.navNotice == null && !immersive &&
-            vm.pendingDownload == null &&
+            vm.pendingDownload == null && !popupPill &&
             !(overlay == Overlay.None && vm.toastMessage != null)
         if (pillVisible) {
             val searchMode = overlay == Overlay.Search
@@ -535,7 +540,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         // The expanded menu always offers it; on the page it only appears once
         // something has been downloaded.
         val chipVisible = !immersive && vm.flight == null &&
-            vm.pendingDownload == null &&
+            vm.pendingDownload == null && !popupPill &&
             !(overlay == Overlay.None && vm.toastMessage != null) && (
             when (overlay) {
                 Overlay.Menu -> true
@@ -567,6 +572,8 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         BrowserPromptHost(vm)
 
         DownloadPromptHost(vm)
+        PopupBlockedHost(vm)
+        SelectionHost(vm, screenW, screenH)
         ContextMenuHost(vm, screenW, screenH)
         ToastHost(vm)
         DownloadFlightLayer(vm, screenW, screenH)
@@ -1488,6 +1495,96 @@ private fun BoxScope.DownloadPromptHost(vm: BrowserViewModel) {
     }
 }
 
+@Composable
+private fun BoxScope.PopupBlockedHost(vm: BrowserViewModel) {
+    val c = LocalArc.current
+    val reduceMotion = rememberReduceMotion()
+    val notice = vm.popupBlocked
+    var last by remember { mutableStateOf<PopupNotice?>(null) }
+    // Keep the last request so the pill has content while it animates away.
+    if (notice != null) last = notice
+    // A sheet takes the stage; the request times out and is denied on its own.
+    AnimatedVisibility(
+        visible = notice != null && vm.overlay == Overlay.None && !vm.fullscreen,
+        enter = fadeIn(tween(if (reduceMotion) 0 else 160)) +
+            scaleIn(tween(if (reduceMotion) 0 else 260, easing = morphEasing), initialScale = 0.96f) +
+            slideInVertically(tween(if (reduceMotion) 0 else 260, easing = morphEasing)) { it / 6 },
+        exit = fadeOut(tween(if (reduceMotion) 0 else 130)),
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            val shown = last
+            if (shown != null) {
+                // The same footprint as the pill, so it reads as the browser
+                // speaking rather than the page.
+                Row(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 18.dp)
+                        .fillMaxWidth(0.7f)
+                        .height(58.dp)
+                        .shadow(20.dp, RoundedCornerShape(29.dp))
+                        .clip(RoundedCornerShape(29.dp))
+                        .background(c.navSurface)
+                        .border(1.dp, c.stroke, RoundedCornerShape(29.dp))
+                        .padding(start = 10.dp, end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(c.chip),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Glyph(Ico.tabs, c.iconInk, size = 17.dp, strokeWidth = 1.9f)
+                    }
+                    Spacer(Modifier.width(9.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Popup blocked",
+                            color = c.text,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(Modifier.height(1.dp))
+                        Text(
+                            shown.host,
+                            color = c.muted,
+                            fontSize = 10.5.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Text(
+                        "Allow once",
+                        color = c.accent,
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(c.chip)
+                            .clickable { vm.answerPopup(shown.id, allow = true) }
+                            .padding(horizontal = 9.dp, vertical = 6.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Box(
+                        Modifier
+                            .size(26.dp)
+                            .clip(RoundedCornerShape(9.dp))
+                            .clickable { vm.dismissPopupNotice() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Glyph(Ico.close, c.muted, size = 14.dp, strokeWidth = 2f)
+                    }
+                }
+            }
+        }
+    }
+}
+
 private data class CtxAction(
     val label: String,
     val icon: List<Path>,
@@ -1495,9 +1592,84 @@ private data class CtxAction(
 )
 
 @Composable
+private fun BoxScope.SelectionHost(vm: BrowserViewModel, screenW: Dp, screenH: Dp) {
+    val c = LocalArc.current
+    val haptics = LocalHapticFeedback.current
+    val state = vm.selectionState ?: return
+    if (vm.overlay != Overlay.None || vm.fullscreen) return
+    LaunchedEffect(state) {
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
+    val width = 216.dp
+    val maxX = (screenW - width - 8.dp).coerceAtLeast(8.dp)
+    val x = (state.x.dp - width / 2).coerceIn(8.dp, maxX)
+    val maxY = (screenH - 64.dp).coerceAtLeast(8.dp)
+    val y = (state.y.dp + 10.dp).coerceIn(8.dp, maxY)
+
+    Row(
+        Modifier
+            .offset(x = x, y = y)
+            .widthIn(min = 186.dp, max = width)
+            .shadow(18.dp, RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(14.dp))
+            .background(c.sheet)
+            .border(1.dp, c.stroke, RoundedCornerShape(14.dp))
+            .padding(horizontal = 4.dp, vertical = 3.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (state.canCopy) {
+            SelectionAction("Copy", Ico.copy) {
+                vm.runSelectionAction(GeckoSession.SelectionActionDelegate.ACTION_COPY)
+            }
+        }
+        if (state.canSelectAll) {
+            SelectionAction("Select all", Ico.tabs) {
+                vm.runSelectionAction(GeckoSession.SelectionActionDelegate.ACTION_SELECT_ALL)
+            }
+        }
+        Box(
+            Modifier
+                .size(30.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .clickable { vm.hideSelection() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Glyph(Ico.close, c.muted, size = 14.dp, strokeWidth = 2f)
+        }
+    }
+}
+
+@Composable
+private fun SelectionAction(label: String, icon: List<Path>, onClick: () -> Unit) {
+    val c = LocalArc.current
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 9.dp, vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Glyph(icon, c.iconInk, size = 15.dp, strokeWidth = 1.9f)
+        Spacer(Modifier.width(6.dp))
+        Text(
+            label,
+            color = c.text,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+        )
+    }
+}
+
+@Composable
 private fun BoxScope.ContextMenuHost(vm: BrowserViewModel, screenW: Dp, screenH: Dp) {
     val c = LocalArc.current
     val ctx = vm.contextMenu ?: return
+    // A long-press should feel like one: the sheet and the buzz land together.
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(ctx) {
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
     val actions = contextActions(vm, ctx)
     if (actions.isEmpty()) return
     val width = 248.dp

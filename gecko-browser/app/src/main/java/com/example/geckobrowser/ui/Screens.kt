@@ -390,7 +390,7 @@ fun SettingsScreen(
                 }
 
                 val privacy = listOf(
-                    "Tracking protection", "HTTPS-Only Mode", "Site permissions",
+                    "Tracking protection", "Cookie banners", "HTTPS-Only Mode", "Site permissions",
                     "Autofill and passwords", "Clear browsing data"
                 ).filter { matches(query, it) }
                 if (privacy.isNotEmpty()) {
@@ -399,8 +399,23 @@ fun SettingsScreen(
                         if ("Tracking protection" in privacy) SettingsRow(
                             "Tracking protection",
                             icon = { Glyph(Ico.lock, c.text, size = 20.dp, strokeWidth = 1.8f) },
-                            value = "Strict",
-                            onClick = { vm.showToast("Tracking protection: strict") },
+                            value = if (vm.etpStrict) "Strict" else "Standard",
+                            onClick = {
+                                vm.setEtpStrict(!vm.etpStrict)
+                                vm.showToast(
+                                    if (vm.etpStrict) "Tracking protection: strict"
+                                    else "Tracking protection: standard"
+                                )
+                            },
+                        )
+                        if ("Cookie banners" in privacy) SettingsRow(
+                            "Cookie banners",
+                            icon = { Glyph(Ico.close, c.text, size = 19.dp, strokeWidth = 2f) },
+                            value = if (vm.cookieBannerHandling) "Auto-answer" else "Off",
+                            trailing = {
+                                ArcSwitch(vm.cookieBannerHandling) { vm.toggleCookieBannerHandling() }
+                            },
+                            onClick = { vm.toggleCookieBannerHandling() },
                         )
                         if ("HTTPS-Only Mode" in privacy) SettingsRow(
                             "HTTPS-Only Mode",
@@ -546,6 +561,30 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 fontSize = 13.sp,
                 modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp),
             )
+
+            if (vm.activeTab?.isHome != true) {
+                SectionLabel("Privacy")
+                SettingsGroup {
+                    SettingsRow(
+                        "Tracking protection",
+                        icon = { Glyph(Ico.lock, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                        value = if (vm.trackingProtectionEnabled(host)) "On" else "Off",
+                        trailing = {
+                            ArcSwitch(vm.trackingProtectionEnabled(host)) {
+                                vm.setSiteTrackingProtection(host, it)
+                            }
+                        },
+                        onClick = {
+                            vm.setSiteTrackingProtection(host, !vm.trackingProtectionEnabled(host))
+                        },
+                    )
+                    SettingsRow(
+                        "Trackers blocked",
+                        icon = { Glyph(Ico.grid, c.text, size = 19.dp, strokeWidth = 1.7f) },
+                        value = vm.blockedCount.toString(),
+                    )
+                }
+            }
 
             SectionLabel("Appearance")
             SettingsGroup {

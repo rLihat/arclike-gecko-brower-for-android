@@ -15,6 +15,29 @@ data class PermissionPromptState(
     val host: String,
 )
 
+/**
+ * A popup Gecko wanted to open, held rather than allowed. The pill offers a
+ * one-off Allow; doing nothing (or ✕) denies it after a short dwell.
+ */
+data class PopupNotice(
+    val id: Long,
+    val host: String,
+)
+
+/**
+ * A text selection's action menu, mirrored for Compose. The real Gecko
+ * `Selection` object stays in the view model; this only carries what to draw.
+ */
+data class SelectionState(
+    val text: String,
+    val canCopy: Boolean,
+    val canSelectAll: Boolean,
+    /** Anchor in dp, relative to the browser surface. */
+    val x: Float,
+    val y: Float,
+    val editable: Boolean,
+)
+
 /** Android runtime permissions the activity has to request before we can ask. */
 data class AndroidPermissionRequest(
     val id: Long,

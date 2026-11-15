@@ -21,6 +21,12 @@ data class SettingsSnapshot(
     /** Keyed by `host|kind`, value is "allow" or "deny". */
     val permissions: Map<String, String> = emptyMap(),
     val desktop: Map<String, Boolean> = emptyMap(),
+    /** Standard tracking protection unless the user switched to strict. */
+    val etpStrict: Boolean = false,
+    /** Whether Gecko tries to answer cookie banners on the user's behalf. */
+    val cookieBanner: Boolean = false,
+    /** Hosts where tracking protection is switched off. */
+    val trackingExceptions: Set<String> = emptySet(),
 )
 
 private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore(name = "arc_settings")
@@ -40,6 +46,7 @@ class AppSettings(context: Context) {
         val zoom = HashMap<String, Int>()
         val permissions = HashMap<String, String>()
         val desktop = HashMap<String, Boolean>()
+        val trackingExceptions = HashSet<String>()
         for ((key, value) in p.asMap()) {
             val name = key.name
             when {
@@ -59,6 +66,10 @@ class AppSettings(context: Context) {
                     val host = name.removePrefix(DESKTOP_PREFIX)
                     (value as? Boolean)?.let { desktop[host] = it }
                 }
+                name.startsWith(TRACKING_PREFIX) -> {
+                    val host = name.removePrefix(TRACKING_PREFIX)
+                    if (host.isNotEmpty() && value == true) trackingExceptions.add(host)
+                }
             }
         }
         return SettingsSnapshot(
@@ -69,6 +80,9 @@ class AppSettings(context: Context) {
             zoom = zoom,
             permissions = permissions,
             desktop = desktop,
+            etpStrict = p[KEY_ETP_STRICT] ?: false,
+            cookieBanner = p[KEY_COOKIE_BANNER] ?: false,
+            trackingExceptions = trackingExceptions,
         )
     }
 
@@ -106,13 +120,30 @@ class AppSettings(context: Context) {
         store.edit { it[booleanPreferencesKey(DESKTOP_PREFIX + host)] = enabled }
     }
 
+    suspend fun setEtpStrict(strict: Boolean) = store.edit { it[KEY_ETP_STRICT] = strict }
+
+    suspend fun setCookieBanner(enabled: Boolean) =
+        store.edit { it[KEY_COOKIE_BANNER] = enabled }
+
+    /** Tracking protection is on by default, so only exemptions are stored. */
+    suspend fun setTrackingException(host: String, exempt: Boolean) {
+        if (host.isBlank()) return
+        store.edit {
+            if (exempt) it[booleanPreferencesKey(TRACKING_PREFIX + host)] = true
+            else it.remove(booleanPreferencesKey(TRACKING_PREFIX + host))
+        }
+    }
+
     companion object {
         private val KEY_DARK = booleanPreferencesKey("dark")
         private val KEY_SUGGESTIONS = booleanPreferencesKey("search_suggestions")
         private val KEY_ENGINE = stringPreferencesKey("search_engine")
         private val KEY_SCHEMA = intPreferencesKey("schema_version")
+        private val KEY_ETP_STRICT = booleanPreferencesKey("etp_strict")
+        private val KEY_COOKIE_BANNER = booleanPreferencesKey("cookie_banner_handling")
         private const val ZOOM_PREFIX = "zoom|"
         private const val PERM_PREFIX = "perm|"
         private const val DESKTOP_PREFIX = "desktop|"
+        private const val TRACKING_PREFIX = "tracking|"
     }
 }

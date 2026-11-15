@@ -30,6 +30,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONTokener
 import org.mozilla.geckoview.AllowOrDeny
+import org.mozilla.geckoview.ContentBlocking
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
@@ -39,6 +40,7 @@ import org.mozilla.geckoview.GeckoWebExecutor
 import org.mozilla.geckoview.WebExtension
 import org.mozilla.geckoview.WebExtensionController
 import org.mozilla.geckoview.WebRequest
+import org.mozilla.geckoview.WebRequestError
 import org.mozilla.geckoview.WebResponse
 import java.io.File
 import java.io.InputStream
@@ -277,6 +279,41 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var filePickerRequest by mutableStateOf<FilePickerRequest?>(null)
         private set
 
+    /**
+     * A popup waiting on the user's answer. Hosted in the pill's footprint for a
+     * few seconds; silence means no.
+     */
+    var popupBlocked by mutableStateOf<PopupNotice?>(null)
+        private set
+
+    /** The text-selection action bar, when Gecko has a live selection. */
+    var selectionState by mutableStateOf<SelectionState?>(null)
+        private set
+
+    private var selectionObject: GeckoSession.SelectionActionDelegate.Selection? = null
+    private var selectionTabId = -1L
+
+    // ---- privacy ----------------------------------------------------------
+
+    /** Strict tracking protection; standard is the default. */
+    var etpStrict by mutableStateOf(false)
+        private set
+
+    var cookieBannerHandling by mutableStateOf(false)
+        private set
+
+    /** Trackers blocked on the active page, shown on the shield. */
+    var blockedCount by mutableStateOf(0)
+        private set
+
+    private val trackingExceptions = HashSet<String>()
+    private val blockedByTab = HashMap<Long, Int>()
+    private val popupDismissJobs = HashMap<Long, Job>()
+    private val offlineRetries = HashMap<Long, Int>()
+    private val offlineFailedUrl = HashMap<Long, String>()
+    private val offlineJobs = HashMap<Long, Job>()
+    private val errorToastSkip = HashSet<Long>()
+
     // ---- extensions -------------------------------------------------------
 
     var extensions by mutableStateOf<List<ExtensionItem>>(emptyList())
@@ -418,9 +455,27 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
         desktopByHost.clear()
         desktopByHost.putAll(snapshot.desktop)
+        etpStrict = snapshot.etpStrict
+        cookieBannerHandling = snapshot.cookieBanner
+        trackingExceptions.clear()
+        trackingExceptions.addAll(snapshot.trackingExceptions)
         // Runtime-wide font prefs are ready before the first session opens.
         runtime.settings.setFontInflationEnabled(true)
         runtime.settings.setFontSizeFactor(zoomByHost[hostOfActive()]?.div(100f) ?: 1f)
+        applyContentBlocking()
+    }
+
+    /** Pushes the stored privacy choices into Gecko before any page loads. */
+    private fun applyContentBlocking() {
+        val settings = runtime.settings.contentBlocking
+        settings.setEnhancedTrackingProtectionLevel(
+            if (etpStrict) ContentBlocking.EtpLevel.STRICT else ContentBlocking.EtpLevel.DEFAULT,
+        )
+        settings.setCookieBehavior(ContentBlocking.CookieBehavior.ACCEPT_NON_TRACKERS)
+        settings.setCookieBannerMode(
+            if (cookieBannerHandling) ContentBlocking.CookieBannerMode.REJECT_OR_ACCEPT
+            else ContentBlocking.CookieBannerMode.DISABLED,
+        )
     }
 
     private fun restoreTabs() {
@@ -561,6 +616,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 recordNavigation(id, target)
                 updateTab(id) { it.copy(url = target, isHome = false) }
                 if (id == activeId) syncZoomForHost(target)
+                applyTrackingProtection(session, target)
             }
 
             override fun onCanGoBack(session: GeckoSession, canGoBack: Boolean) {
@@ -592,6 +648,23 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 val opened = tabsManager.session(newId) ?: return GeckoResult.fromValue(session)
                 return GeckoResult.fromValue(opened)
             }
+
+            /**
+             * Top-level load failures get a themed local page instead of Gecko's
+             * own. Returning null hands the failure back to Gecko.
+             */
+            override fun onLoadError(
+                session: GeckoSession,
+                uri: String?,
+                error: WebRequestError,
+            ): GeckoResult<String>? {
+                val target = uri ?: return null
+                val page = ErrorPages.forError(target, error) ?: return null
+                // Our page speaks for itself; don't stack a toast on top of it.
+                if (id == activeId) errorToastSkip.add(id)
+                if (error.code == WebRequestError.ERROR_OFFLINE) scheduleOfflineRetry(id, target)
+                return GeckoResult.fromValue(page)
+            }
         }
 
         session.historyDelegate = object : GeckoSession.HistoryDelegate {
@@ -621,6 +694,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 if (isBlankUrl(url)) return
                 scrollY[id] = 0
                 scrollAcc[id] = 0
+                blockedByTab[id] = 0
+                if (id == activeId) blockedCount = 0
                 updateTab(id) { it.copy(url = url, isHome = false) }
                 if (noLoadUi.contains(id)) {
                     updateTab(id) { it.copy(isLoading = false) }
@@ -641,9 +716,23 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                     updateTab(id) { it.copy(isLoading = false) }
                     return
                 }
+                if (success) {
+                    // A real page arrived — but the offline page also reports the
+                    // failed URL, so only a different URL resets the budget.
+                    val failed = offlineFailedUrl[id]
+                    val current = tabs.firstOrNull { it.id == id }?.url
+                    if (failed == null || failed != current) {
+                        offlineFailedUrl.remove(id)
+                        offlineRetries.remove(id)
+                        offlineJobs.remove(id)?.cancel()
+                    }
+                }
                 if (id == activeId) {
                     loadZoomEnd++
-                    if (!success && activeTab?.isHome != true) showToast("Couldn't load the page")
+                    val selfExplained = errorToastSkip.remove(id)
+                    if (!success && activeTab?.isHome != true && !selfExplained) {
+                        showToast("Couldn't load the page")
+                    }
                 }
                 val started = loadStartedAt[id] ?: SystemClock.uptimeMillis()
                 val wait = (LOADING_HOLD_MS - (SystemClock.uptimeMillis() - started)).coerceAtLeast(0L)
@@ -1000,9 +1089,136 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 session: GeckoSession,
                 prompt: GeckoSession.PromptDelegate.PopupPrompt,
             ): GeckoResult<GeckoSession.PromptDelegate.PromptResponse> {
-                // New windows are handled by onNewSession; popups are allowed.
-                return GeckoResult.fromValue(prompt.confirm(AllowOrDeny.ALLOW))
+                // A popup from a background tab, or while a sheet is open, is an
+                // interruption the user didn't ask for: deny it outright. The
+                // active page gets a short-lived pill instead.
+                if (id != activeId || overlay != Overlay.None || fullscreen) {
+                    return GeckoResult.fromValue(prompt.confirm(AllowOrDeny.DENY))
+                }
+                val promptId = nextPromptId++
+                val result = registerPrompt(promptId, prompt)
+                popupBlocked = PopupNotice(
+                    id = promptId,
+                    host = hostOf(prompt.targetUri ?: activeTab?.url.orEmpty()),
+                )
+                compactPill = false
+                dismissPopupAfterDwell(promptId)
+                return result
             }
+        }
+
+        session.contentBlockingDelegate = object : ContentBlocking.Delegate {
+            override fun onContentBlocked(
+                session: GeckoSession,
+                event: ContentBlocking.BlockEvent,
+            ) {
+                if (!event.isBlocking) return
+                val count = (blockedByTab[id] ?: 0) + 1
+                blockedByTab[id] = count
+                if (id == activeId) blockedCount = count
+            }
+        }
+
+        session.selectionActionDelegate = object : GeckoSession.SelectionActionDelegate {
+            override fun onShowActionRequest(
+                session: GeckoSession,
+                selection: GeckoSession.SelectionActionDelegate.Selection,
+            ) {
+                if (id != activeId) {
+                    selection.hide()
+                    return
+                }
+                val density = application.resources.displayMetrics.density.coerceAtLeast(0.1f)
+                val rect = selection.screenRect
+                selectionObject = selection
+                selectionTabId = id
+                selectionState = SelectionState(
+                    text = selection.text.orEmpty(),
+                    canCopy = selection.isActionAvailable(
+                        GeckoSession.SelectionActionDelegate.ACTION_COPY
+                    ),
+                    canSelectAll = selection.isActionAvailable(
+                        GeckoSession.SelectionActionDelegate.ACTION_SELECT_ALL
+                    ),
+                    x = if (rect != null) rect.centerX() / density else 0f,
+                    y = if (rect != null) rect.bottom / density else 0f,
+                    editable = (selection.flags and
+                        GeckoSession.SelectionActionDelegate.FLAG_IS_EDITABLE) != 0,
+                )
+                compactPill = false
+            }
+
+            override fun onHideAction(session: GeckoSession, reason: Int) {
+                if (selectionTabId != id) return
+                selectionObject = null
+                selectionState = null
+            }
+        }
+
+        // Restored tabs have no location yet; the session default applies until
+        // onLocationChange refines it for the host that actually loads.
+        runCatching { session.settings.setUseTrackingProtection(true) }
+    }
+
+    /* -------------------------------------------------------------- privacy */
+
+    /** Whether tracking protection is on for [host] on the current session. */
+    fun trackingProtectionEnabled(host: String): Boolean =
+        host.isNotBlank() && host !in trackingExceptions
+
+    fun setEtpStrict(strict: Boolean) {
+        if (etpStrict == strict) return
+        etpStrict = strict
+        applyContentBlocking()
+        scope.launch(Dispatchers.IO) { settingsStore.setEtpStrict(strict) }
+    }
+
+    fun toggleCookieBannerHandling() {
+        cookieBannerHandling = !cookieBannerHandling
+        applyContentBlocking()
+        val value = cookieBannerHandling
+        scope.launch(Dispatchers.IO) { settingsStore.setCookieBanner(value) }
+    }
+
+    /**
+     * Turns tracking protection off for one host and reloads the page so the
+     * change takes effect. Exemptions are stored, so they survive a restart.
+     */
+    fun setSiteTrackingProtection(host: String, enabled: Boolean) {
+        if (host.isBlank()) return
+        if (enabled) trackingExceptions.remove(host) else trackingExceptions.add(host)
+        scope.launch(Dispatchers.IO) {
+            settingsStore.setTrackingException(host, exempt = !enabled)
+        }
+        val tab = activeTab ?: return
+        val session = tabsManager.session(tab.id) ?: return
+        runCatching { session.settings.setUseTrackingProtection(enabled) }
+        blockedByTab[tab.id] = 0
+        blockedCount = 0
+        if (tab.url.startsWith("http")) session.reload()
+    }
+
+    private fun applyTrackingProtection(session: GeckoSession, url: String) {
+        val host = hostOf(url)
+        runCatching { session.settings.setUseTrackingProtection(host !in trackingExceptions) }
+    }
+
+    /* ---------------------------------------------------------- error pages */
+
+    private fun scheduleOfflineRetry(id: Long, url: String) {
+        val attempt = offlineRetries[id] ?: 0
+        if (attempt >= MAX_OFFLINE_RETRIES) return
+        offlineRetries[id] = attempt + 1
+        offlineFailedUrl[id] = url
+        offlineJobs.remove(id)?.cancel()
+        offlineJobs[id] = scope.launch {
+            delay(OFFLINE_RETRY_MS)
+            offlineJobs.remove(id)
+            if (!tabsManager.ids.contains(id)) return@launch
+            // A page that has since moved elsewhere shouldn't be yanked back.
+            val tab = tabs.firstOrNull { it.id == id } ?: return@launch
+            // reload() would reload the error document itself, so go to the URL.
+            if (tab.url == url) tabsManager.session(id)?.loadUri(url)
         }
     }
 
@@ -1021,6 +1237,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 // complete it after dismiss() has already fired this callback.
                 promptObjects.remove(id)
                 if (browserPrompt?.id == id) browserPrompt = null
+                // A popup the page withdrew shouldn't leave its pill behind.
+                if (popupBlocked?.id == id) {
+                    popupBlocked = null
+                    popupDismissJobs.remove(id)?.cancel()
+                }
             }
         })
         return result
@@ -1057,6 +1278,51 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun answerAlert(id: Long) {
         val prompt = promptObjects[id]
         completePrompt(id, prompt?.let { runCatching { it.dismiss() }.getOrNull() })
+    }
+
+    /* --------------------------------------------------------------- popups */
+
+    private fun dismissPopupAfterDwell(id: Long) {
+        popupDismissJobs.remove(id)?.cancel()
+        popupDismissJobs[id] = scope.launch {
+            delay(POPUP_DWELL_MS)
+            popupDismissJobs.remove(id)
+            if (popupBlocked?.id == id) answerPopup(id, allow = false)
+        }
+    }
+
+    /** Answers a held popup; [allow] opens it as a new tab. */
+    fun answerPopup(id: Long, allow: Boolean) {
+        if (popupBlocked?.id == id) popupBlocked = null
+        popupDismissJobs.remove(id)?.cancel()
+        val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.PopupPrompt
+        val response = prompt?.let {
+            runCatching {
+                it.confirm(if (allow) AllowOrDeny.ALLOW else AllowOrDeny.DENY)
+            }.getOrNull()
+        }
+        completePrompt(id, response ?: prompt?.dismiss())
+    }
+
+    /** Quietly drops the popup notice, denying the request. */
+    fun dismissPopupNotice() {
+        popupBlocked?.let { answerPopup(it.id, allow = false) }
+    }
+
+    /* ------------------------------------------------------------ selection */
+
+    fun runSelectionAction(action: String) {
+        val selection = selectionObject ?: return
+        selectionObject = null
+        selectionState = null
+        runCatching { selection.execute(action) }
+    }
+
+    fun hideSelection() {
+        val selection = selectionObject ?: return
+        selectionObject = null
+        selectionState = null
+        runCatching { selection.hide() }
     }
 
     fun answerButton(id: Long, confirm: Boolean) {
@@ -1379,6 +1645,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         noLoadUi.remove(tab.id)
+        resetOfflineRetries(tab.id)
         historySeed(tab.id, url)
         tabsManager.load(tab.id, url)
         updateTab(tab.id) { it.copy(url = url, isHome = false, title = hostOf(url)) }
@@ -1398,6 +1665,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun goBack() {
         val tab = activeTab ?: return
         if (!tab.canGoBack) return
+        resetOfflineRetries(tab.id)
         noLoadUi.add(tab.id)
         clearLoadingNow(tab.id)
         loadingJobs.remove(tab.id)?.cancel()
@@ -1409,6 +1677,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun goForward() {
         val tab = activeTab ?: return
         if (!tab.canGoForward) return
+        resetOfflineRetries(tab.id)
         noLoadUi.add(tab.id)
         clearLoadingNow(tab.id)
         loadingJobs.remove(tab.id)?.cancel()
@@ -1420,9 +1689,28 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun reload() {
         val tab = activeTab ?: return
         if (tab.isHome) return
+        resetOfflineRetries(tab.id)
         noLoadUi.remove(tab.id)
         tabsManager.session(tab.id)?.reload()
         expandPill()
+    }
+
+    private fun resetOfflineRetries(id: Long) {
+        offlineRetries.remove(id)
+        offlineFailedUrl.remove(id)
+        offlineJobs.remove(id)?.cancel()
+    }
+
+    /** Leaves a page's fullscreen video and restores the chrome. */
+    fun exitFullscreen() {
+        if (!fullscreen) return
+        fullscreen = false
+        runCatching { tabsManager.session(activeId)?.exitFullScreen() }
+    }
+
+    /** Called from the activity when the app goes to the background. */
+    fun onActivityPause() {
+        exitFullscreen()
     }
 
     fun stop() {
@@ -2083,10 +2371,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         if (id == activeId) return
         captureActiveThumbnail()
         dismissPromptsForTab(activeId)
+        dismissPopupNotice()
+        selectionObject?.let { runCatching { it.hide() } }
+        selectionObject = null
+        selectionState = null
         cancelDownloadPrompt()
         dismissContextMenu()
         tabSwitch = null
-        fullscreen = false
+        exitFullscreen()
         // A tab that was still loading when we left it shouldn't throw the
         // loading glow back on screen just because we returned to it.
         if (tabs.firstOrNull { it.id == id }?.isLoading == true) {
@@ -2095,6 +2387,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
         loadZoomEnd++
         activeId = id
+        blockedCount = blockedByTab[id] ?: 0
         closeOverlay()
         expandPill()
         syncZoomForActive()
@@ -2105,6 +2398,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         val idx = tabs.indexOfFirst { it.id == id }
         if (idx < 0) return
         dismissPromptsForTab(id)
+        dismissPopupNotice()
         cancelDownloadPrompt()
         dismissContextMenu()
         tabsManager.close(id)
@@ -2114,6 +2408,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         noLoadUi.remove(id)
         scrollY.remove(id)
         scrollAcc.remove(id)
+        blockedByTab.remove(id)
+        offlineJobs.remove(id)?.cancel()
+        offlineRetries.remove(id)
+        offlineFailedUrl.remove(id)
 
         val remaining = tabs.filterNot { it.id == id }
         if (remaining.isEmpty()) {
@@ -2127,6 +2425,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 activeId = remaining[getSafeIndex(idx, remaining.size)].id
             }
         }
+        blockedCount = blockedByTab[activeId] ?: 0
         persistTabs()
         compactPill = false
         loadZoomEnd++
@@ -2209,6 +2508,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         if (overlay == Overlay.ExtensionPopup) closeExtensionPopup(returnToPrevious = false)
         cancelDownloadPrompt()
         dismissContextMenu()
+        dismissPopupNotice()
+        hideSelection()
         overlay = Overlay.None
         compactPill = false
     }
@@ -2357,12 +2658,20 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             cancelDownloadPrompt()
             return true
         }
+        if (popupBlocked != null) {
+            dismissPopupNotice()
+            return true
+        }
+        if (selectionState != null) {
+            hideSelection()
+            return true
+        }
         if (contextMenu != null) {
             dismissContextMenu()
             return true
         }
         if (fullscreen) {
-            fullscreen = false
+            exitFullscreen()
             return true
         }
         return when (overlay) {
@@ -2669,6 +2978,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     override fun onCleared() {
         browserPrompt?.let { cancelPromptById(it.id) }
         browserPrompt = null
+        popupBlocked?.let { answerPopup(it.id, allow = false) }
+        popupBlocked = null
+        popupDismissJobs.values.forEach { it.cancel() }
+        popupDismissJobs.clear()
+        offlineJobs.values.forEach { it.cancel() }
+        offlineJobs.clear()
         permissionPrompt?.let {
             permissionTargets.remove(it.id)
         }
@@ -2704,6 +3019,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         const val EXTRA_OPEN_DOWNLOADS = "com.example.geckobrowser.OPEN_DOWNLOADS"
         private const val SETTINGS_SCHEMA = 1
         private const val LOADING_HOLD_MS = 1700L
+        /** How long a blocked popup waits for an Allow before it is denied. */
+        private const val POPUP_DWELL_MS = 6000L
+        private const val OFFLINE_RETRY_MS = 5000L
+        private const val MAX_OFFLINE_RETRIES = 4
 
         private val INTERNAL_SCHEMES = setOf(
             "http", "https", "about", "file", "data", "blob", "javascript",

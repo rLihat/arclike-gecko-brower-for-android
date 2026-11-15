@@ -12,15 +12,16 @@ native Kotlin + Jetpack Compose; only the page content is Gecko. The UI follows
 | `ArcApplication.kt` | One process-wide `GeckoRuntime` shared by every session. |
 | `BrowserViewModel.kt` | One `GeckoSession` per tab, delegates, tab history, prompts, permissions, downloads, extensions, suggestions, scroll-driven chrome state, sheets, zoom, desktop site, persistence. |
 | `TabManager.kt` | Session ownership: create, restore under the previous id, reopen closed tabs. |
-| `AppSettings.kt` | DataStore snapshot (dark mode, suggestions, per-host zoom/desktop, remembered permissions) read before the first session. |
+| `AppSettings.kt` | DataStore snapshot (dark mode, suggestions, search engine, per-host zoom/desktop, remembered permissions, tracking level, cookie-banner toggle, tracking exemptions) read before the first session. |
 | `BrowserFiles.kt` | Private JSON payloads: tab list, per-tab `SessionState` blobs, download list. |
 | `HistoryStore.kt` | Local history: one SQLite `visit` row per URL (`id`, `url`, `title`, `lastVisit`, `visitCount`), an in-memory mirror for instant reads, queued writes, 90-day/5000-row pruning. |
 | `Downloads.kt` | Download records, `DownloadCenter`, and the foreground `DownloadService` (pause/resume/retry, MediaStore publishing). |
-| `Prompts.kt` | Prompt, permission, file-picker and extension state types. |
+| `Prompts.kt` | Prompt, permission, file-picker, popup-notice, selection and extension state types. |
+| `ErrorPages.kt` | Themed local HTML for network and certificate failures, with retry/back. |
 | `ui/Theme.kt` | Light/dark design tokens transcribed from the mockup. |
-| `ui/Root.kt` | Persistent `GeckoView` host, home overlay, morphing sheet, nav pill, prompt hosts, loading glow, download chip with swipe-to-cancel, extension popup sheet, back/forward notice, toasts. |
+| `ui/Root.kt` | Persistent `GeckoView` host, home overlay, morphing sheet, nav pill, prompt hosts, blocked-popup pill, selection bar, loading glow, download chip with swipe-to-cancel, extension popup sheet, back/forward notice, toasts. |
 | `ui/Sheets.kt` | DuckDuckGo search sheet with live suggestions, and the menu (address bar with tap-to-edit URL, actions, zoom, desktop site, site settings, extensions). |
-| `ui/Screens.kt` | Home, Firefox-style settings, site settings (with dark mode and tri-state permissions), downloads manager, extensions, Mozilla account. |
+| `ui/Screens.kt` | Home, Firefox-style settings, site settings (dark mode, tri-state permissions, per-site tracking protection and blocked count), downloads manager, extensions, Mozilla account. |
 | `ui/Tabs.kt` | Horizontal recents carousel with captured page thumbnails and a new-tab card. |
 | `ui/Components.kt` | Stroke icons, switches, settings rows, favicon tiles, glow. |
 | `ui/Splash.kt` | horiZen mark drawn on a Compose canvas, the animated splash, and `BrowserRoot` (splash clock + hand-over into the browser). |
@@ -194,13 +195,56 @@ never leaves the page waiting:
 - Media autoplay permissions are granted silently — this chrome has no UI for them.
 - Unknown permissions are denied, and prompts from a background tab are dismissed rather
   than queued.
+- **Popups.** A page that tries to open a popup puts a pill in the nav pill's footprint:
+  "Popup blocked", the host, **Allow once** and ✕. Silence (six seconds) or ✕ denies it,
+  as does a sheet opening over it. A popup from a background tab, or while the page is
+  fullscreen, is denied without asking.
+
+## Fullscreen, errors and selection
+
+- A page's fullscreen request hides the chrome and the pill, lets the phone rotate and keeps
+  the screen on. Back, switching tabs, leaving the app, or the page leaving fullscreen all
+  call `GeckoSession.exitFullScreen()`, restore portrait and clear the keep-awake flag.
+  A configuration change (rotation) is not treated as leaving the app.
+- **Error pages.** `onLoadError` returns a themed local page for network and certificate
+  failures on `http(s)` URLs — offline, unknown host, refused, timeout, bad certificate and
+  a generic failure. The page keeps the failed address, offers **Try again** and **Go back**
+  (via `history.back()`), and has no bypass for certificate errors. Content, URI, proxy and
+  safe-browsing failures fall through to Gecko's own page; the generic "Couldn't load the
+  page" toast is suppressed when a themed page was shown.
+- **Offline retry.** An `ERROR_OFFLINE` failure schedules a real reload of the failed URL
+  after five seconds, up to four attempts; typing a new address, reload, back or forward
+  resets the budget, and a successful load cancels the pending attempt.
+- **Long press.** A link or image raises the context sheet next to the finger with a
+  `HapticFeedbackType.LongPress` buzz.
+- **Text selection.** A `SelectionActionDelegate` puts a small bar under the selection with
+  **Copy**, **Select all** (when Gecko offers them) and ✕. Actions run on the live
+  `Selection`, so the system clipboard and the page's own state stay in sync.
+
+## Privacy
+
+- **Tracking protection** is Standard by default and can be switched to Strict in
+  **Settings → Privacy & security**. The choice is stored in DataStore as `etp_strict` and
+  applied to `ContentBlocking.Settings.setEnhancedTrackingProtectionLevel` at bootstrap.
+- Cookies are set to `ACCEPT_NON_TRACKERS`, so cross-site trackers don't get a cookie jar.
+- **Cookie banners** can be auto-answered (`COOKIE_BANNER_MODE_REJECT_OR_ACCEPT`); the
+  toggle is off by default, which leaves `COOKIE_BANNER_MODE_DISABLED`.
+- **Blocked count.** Each session has a `ContentBlocking.Delegate`; every `onContentBlocked`
+  event with `isBlocking` increments that tab's count, which resets on a new page and is
+  shown as **Trackers blocked** in **Site settings**.
+- **Per-site exceptions.** GeckoView 138's `ContentBlockingController` exposes only
+  `getLog`, with no `addException`/`removeException`, so an exception is applied per session
+  through `GeckoSessionSettings.setUseTrackingProtection` for the host being loaded. The
+  exemption is stored as `tracking|<host>` in DataStore, re-applied on every location
+  change, and turning it off reloads the page.
 
 ## Persistence and intents
 
 - Tabs and their `SessionState` blobs are written on every navigation change; on a cold
   start the previous tab list, active tab, titles and back/forward stacks are restored.
 - Settings live in DataStore: dark mode, search suggestions, the search engine, per-host
-  zoom, per-host desktop mode and remembered permissions all survive a restart.
+  zoom, per-host desktop mode, remembered permissions, the tracking-protection level, the
+  cookie-banner toggle and per-site tracking exemptions all survive a restart.
 - `VIEW` intents open the URL in a new tab, `WEB_SEARCH` runs the query through the current
   search engine, and `SEND` text is treated the same way. A cold start handles the intent
   once; a configuration change doesn't duplicate the tab.
@@ -241,3 +285,11 @@ never leaves the page waiting:
 - Zoom combines a visual scale of the web surface with Gecko's runtime font-size factor, so
   text grows with the page. GeckoView 138 exposes no page-zoom API, so the layout itself is
   not re-zoomed the way Firefox's pinch zoom would.
+- GeckoView 138's `ContentBlockingController` has no per-site exception API, so a tracking
+  exemption is enforced with `GeckoSessionSettings.setUseTrackingProtection` per session
+  rather than stored in Gecko's own exception list; the stored host set is the source of
+  truth and is re-applied on every location change.
+- Certificate failures deliberately have no "continue anyway"; the themed error page offers
+  only **Go back**, and Retry is omitted where it could only fail again.
+- The selection bar is the app's own: `SelectionActionDelegate` is wired for Copy /
+  Select all, but the full set of editing actions (cut, paste, collapse) has no UI yet.

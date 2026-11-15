@@ -1,8 +1,10 @@
 package com.example.geckobrowser
 
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.os.Bundle
 import android.os.SystemClock
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -71,6 +73,18 @@ class MainActivity : ComponentActivity() {
                 permissionLauncher.launch(request.permissions.toTypedArray())
             }
 
+            // Fullscreen video gets the whole screen and may turn; leaving it
+            // hands the phone back to the portrait chrome.
+            LaunchedEffect(vm.fullscreen) {
+                if (vm.fullscreen) {
+                    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                } else {
+                    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                }
+            }
+
             BrowserRoot(vm) {
                 addonPicker.launch(
                     arrayOf(
@@ -96,6 +110,14 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         vm.handleIntent(intent)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        // A paused app can't hold a page in fullscreen; the chrome returns and
+        // the page gets its normal viewport back. A rotation is not a pause:
+        // fullscreen is allowed to turn with the phone.
+        if (!isChangingConfigurations) vm.onActivityPause()
     }
 
     override fun onResume() {
