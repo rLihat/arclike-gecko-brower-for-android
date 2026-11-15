@@ -266,7 +266,7 @@ fun SettingsScreen(
                     }
                 }
 
-                val general = listOf("Search engine", "Language", "Open links in apps", "Downloads")
+                val general = listOf("Search engine", "History", "Language", "Open links in apps", "Downloads")
                     .filter { matches(query, it) }
                 if (general.isNotEmpty()) {
                     SectionLabel("General")
@@ -276,6 +276,11 @@ fun SettingsScreen(
                             icon = { Glyph(Ico.find, c.text, size = 20.dp, strokeWidth = 1.9f) },
                             value = vm.currentEngine.name,
                             onClick = { vm.showToast("Search engine: ${vm.currentEngine.name}") },
+                        )
+                        if ("History" in general) SettingsRow(
+                            "History",
+                            icon = { Glyph(Ico.clock, c.text, size = 20.dp, strokeWidth = 1.9f) },
+                            onClick = { vm.openHistory() },
                         )
                         if ("Language" in general) SettingsRow(
                             "Language",

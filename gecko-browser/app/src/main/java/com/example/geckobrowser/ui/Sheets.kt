@@ -569,6 +569,22 @@ fun MenuSheet(vm: BrowserViewModel) {
                 Modifier
                     .fillMaxWidth()
                     .height(44.dp)
+                    .clickable { vm.openHistory() }
+                    .padding(horizontal = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Glyph(Ico.clock, c.muted, size = 19.dp, strokeWidth = 1.8f)
+                Spacer(Modifier.width(11.dp))
+                Text("History", color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                Glyph(Ico.chevronRight, c.muted, size = 16.dp, strokeWidth = 1.9f)
+            }
+
+            Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
+
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
                     .clickable { vm.openSiteSettings() }
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,

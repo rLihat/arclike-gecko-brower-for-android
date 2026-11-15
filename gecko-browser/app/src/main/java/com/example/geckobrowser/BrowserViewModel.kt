@@ -13,6 +13,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.SystemClock
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
@@ -94,6 +95,7 @@ data class ContextMenuState(
 
 enum class Overlay {
     None, Search, Menu, Tabs, Settings, SiteSettings, Account, Downloads, Extensions, ExtensionPopup,
+    History,
 }
 
 /** A search engine: built in, or added by the user with a %s URL template. */
@@ -119,6 +121,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private val prefs = app.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
     private val settingsStore = AppSettings(app)
     private val tabsManager = TabManager(runtime)
+    private val historyStore = HistoryStore(app)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val webExecutor by lazy { GeckoWebExecutor(runtime) }
 
@@ -133,6 +136,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private val scrollAcc = HashMap<Long, Int>()
     private var bootstrappedState by mutableStateOf(false)
     private var pendingIntent: Intent? = null
+
+    /** Tabs whose visits stay out of local history, for private browsing later. */
+    private val privateTabs = HashSet<Long>()
+
+    /** Bumped whenever the history table changes, so the sheet re-reads it. */
+    private var historyVersionState by mutableIntStateOf(0)
 
     /** True once settings, downloads and the restored tab list are in place. */
     val ready: Boolean get() = bootstrappedState
@@ -182,6 +191,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private var accountReturn = Overlay.Menu
     private var downloadsReturn = Overlay.Menu
     private var extensionsReturn = Overlay.Menu
+    private var historyReturn = Overlay.Menu
     private var popupReturn = Overlay.None
 
     var darkMode by mutableStateOf(prefs.getBoolean("dark", false))
@@ -360,6 +370,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
         DownloadCenter.restore(application)
         nextDownloadId = (DownloadCenter.current().maxOfOrNull { it.id } ?: 0L) + 1
+        withContext(Dispatchers.IO) {
+            historyStore.load()
+            historyStore.prune(System.currentTimeMillis())
+        }
+        historyVersionState++
         configureExtensions()
         restoreTabs()
         refreshExtensions()
@@ -557,6 +572,28 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
 
+        session.historyDelegate = object : GeckoSession.HistoryDelegate {
+            override fun onVisited(
+                session: GeckoSession,
+                url: String,
+                title: String?,
+                visitType: Int,
+            ): GeckoResult<Boolean> {
+                // Claim the visit so Gecko keeps no second copy of it.
+                val recorded = recordVisit(id, url, title, visitType)
+                return GeckoResult.fromValue(recorded)
+            }
+
+            override fun getVisited(
+                session: GeckoSession,
+                urls: Array<out String>,
+            ): GeckoResult<BooleanArray> {
+                // Link colouring; a private tab learns nothing from local history.
+                if (id in privateTabs) return GeckoResult.fromValue(BooleanArray(urls.size))
+                return GeckoResult.fromValue(historyStore.visited(urls))
+            }
+        }
+
         session.progressDelegate = object : GeckoSession.ProgressDelegate {
             override fun onPageStart(session: GeckoSession, url: String) {
                 if (isBlankUrl(url)) return
@@ -653,7 +690,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         session.contentDelegate = object : GeckoSession.ContentDelegate {
             override fun onTitleChange(session: GeckoSession, title: String?) {
                 if (title.isNullOrBlank()) return
+                val current = tabs.firstOrNull { it.id == id }
                 updateTab(id) { if (it.isHome) it else it.copy(title = title) }
+                // The visit may have been recorded before the title arrived.
+                if (current != null && !current.isHome && current.url.isNotBlank() &&
+                    id !in privateTabs && historyStore.rename(current.url, title)
+                ) {
+                    historyVersionState++
+                }
             }
 
             override fun onContextMenu(
@@ -2078,6 +2122,54 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         syncZoomForActive()
     }
 
+    /* ---------------------------------------------------------------- history */
+
+    /** True when the tab's visits are private; nothing marks a tab yet. */
+    fun isPrivateTab(id: Long): Boolean = id in privateTabs
+
+    /** Private-tab hook: the tab's visits then never reach local history. */
+    fun setPrivateTab(id: Long, private: Boolean) {
+        if (private) privateTabs.add(id) else privateTabs.remove(id)
+    }
+
+    /**
+     * Records a top-level visit. Redirects, error pages and anything that isn't a
+     * web page stay out, and private tabs are skipped entirely.
+     */
+    private fun recordVisit(tabId: Long, url: String, title: String?, visitType: Int): Boolean {
+        if (tabId in privateTabs) return false
+        if (visitType != GeckoSession.HistoryDelegate.VISIT_TOP_LEVEL) return false
+        val scheme = runCatching { Uri.parse(url).scheme?.lowercase(Locale.US) }.getOrNull()
+        if (scheme != "http" && scheme != "https") return false
+        historyStore.record(url, title)
+        historyVersionState++
+        return true
+    }
+
+    /** Changes whenever history is written to, so the sheet re-reads it. */
+    val historyVersion: Int get() = historyVersionState
+
+    fun historyItems(query: String): List<Visit> = historyStore.search(query)
+
+    val historyCount: Int get() = historyStore.count
+
+    fun deleteVisit(id: Long) {
+        historyStore.remove(id)
+        historyVersionState++
+    }
+
+    /** Clears visits newer than [since]; `0` wipes the table. */
+    fun clearHistory(since: Long) {
+        historyStore.clear(since)
+        historyVersionState++
+    }
+
+    /** Opens a history row in the active tab (or a new one) and closes the sheet. */
+    fun openHistoryUrl(url: String) {
+        if (url.isBlank()) return
+        submit(url)
+    }
+
     /* ---------------------------------------------------------------- overlays */
 
     private fun clearLoadingNow(id: Long) {
@@ -2184,6 +2276,28 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         compactPill = false
     }
 
+    fun openHistory() {
+        val current = overlay
+        if (current == Overlay.History) return
+        historyReturn = when (current) {
+            Overlay.Menu, Overlay.Settings, Overlay.SiteSettings, Overlay.Account -> current
+            else -> Overlay.None
+        }
+        clearActiveLoading()
+        cancelDownloadPrompt()
+        dismissContextMenu()
+        overlay = Overlay.History
+        compactPill = false
+        historyVersionState++
+    }
+
+    fun closeHistory() {
+        if (overlay != Overlay.History) return
+        overlay = historyReturn
+        historyReturn = Overlay.Menu
+        compactPill = false
+    }
+
     fun openAccount() {
         clearActiveLoading()
         cancelDownloadPrompt()
@@ -2247,6 +2361,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             }
             Overlay.Downloads -> {
                 closeDownloads()
+                true
+            }
+            Overlay.History -> {
+                closeHistory()
                 true
             }
             else -> {
@@ -2424,7 +2542,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun showToast(message: String) {
         // The manager shows live state; a floating toast on top of it only competes.
-        if (overlay == Overlay.Downloads) return
+        if (overlay == Overlay.Downloads || overlay == Overlay.History) return
         toastMessage = message
     }
 

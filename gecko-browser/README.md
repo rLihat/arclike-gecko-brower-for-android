@@ -14,6 +14,7 @@ native Kotlin + Jetpack Compose; only the page content is Gecko. The UI follows
 | `TabManager.kt` | Session ownership: create, restore under the previous id, reopen closed tabs. |
 | `AppSettings.kt` | DataStore snapshot (dark mode, suggestions, per-host zoom/desktop, remembered permissions) read before the first session. |
 | `BrowserFiles.kt` | Private JSON payloads: tab list, per-tab `SessionState` blobs, download list. |
+| `HistoryStore.kt` | Local history: one SQLite `visit` row per URL (`id`, `url`, `title`, `lastVisit`, `visitCount`), an in-memory mirror for instant reads, queued writes, 90-day/5000-row pruning. |
 | `Downloads.kt` | Download records, `DownloadCenter`, and the foreground `DownloadService` (pause/resume/retry, MediaStore publishing). |
 | `Prompts.kt` | Prompt, permission, file-picker and extension state types. |
 | `ui/Theme.kt` | Light/dark design tokens transcribed from the mockup. |
@@ -23,6 +24,7 @@ native Kotlin + Jetpack Compose; only the page content is Gecko. The UI follows
 | `ui/Tabs.kt` | Horizontal recents carousel with captured page thumbnails and a new-tab card. |
 | `ui/Components.kt` | Stroke icons, switches, settings rows, favicon tiles, glow. |
 | `ui/Splash.kt` | horiZen mark drawn on a Compose canvas, the animated splash, and `BrowserRoot` (splash clock + hand-over into the browser). |
+| `ui/History.kt` | History page: day groups, search, swipe-to-delete rows, and clear by range. |
 | `res/values/themes.xml` | `Theme.horiZen`, and `Theme.horiZen.Starting` for the Android 12+ system splash. |
 | `res/drawable/ic_*launcher*`, `res/mipmap-anydpi*/ic_launcher.xml` | Vector launch mark and adaptive icon (foreground + monochrome). |
 
@@ -156,6 +158,27 @@ backgrounded:
   progress itself is in-memory. A transfer that was mid-flight when the process died comes
   back **paused**, never as a phantom live row.
 
+## History
+
+History is local and lives in one SQLite table, `visit(id, url, title, lastVisit, visitCount)`,
+unique on `url`. **History** in the menu (or in **Settings → General**) opens the page; it
+groups rows into Today / Yesterday / date, filters as you type, opens a row in the active tab,
+deletes on a left swipe, and clears the last hour, today or everything from the header.
+
+- `HistoryDelegate.onVisited` records top-level `http`/`https` visits only and returns `true`
+  so Gecko keeps no second copy; redirect hops, `about:` URLs and unrecoverable-error pages
+  are skipped. A revisit bumps `visitCount` and `lastVisit`; `onTitleChange` fills in a title
+  that arrived after the visit.
+- `getVisited` answers from the same store, which is what colours visited links.
+- Rows older than 90 days are pruned, then the table is capped at 5000 rows (newest kept).
+- Reads come from an in-memory mirror, so the page and link colouring never wait on disk;
+  writes queue on one background thread in order.
+- Private tabs are a hook, not a feature yet: a tab added to `BrowserViewModel.privateTabs`
+  records nothing and learns nothing from history.
+
+The schema is Room-shaped but written against `SQLiteOpenHelper`, keeping the app free of a
+codegen dependency; moving to Room later only touches `HistoryStore.kt`.
+
 ## Prompts and permissions
 
 Site prompts (alert/confirm/prompt, HTTP auth, `<select>`, file inputs) and permission
@@ -190,7 +213,7 @@ never leaves the page waiting:
   clones are replaced by real web content.
 - Tab previews are real captures via `GeckoView.capturePixels()` taken when the carousel
   opens or the active tab changes; a page that is still painting can show a placeholder.
-- There is no autofill or browsing-history UI yet.
+- There is no autofill UI yet; history is native (see **History** above).
 - Zoom combines a visual scale of the web surface with Gecko's runtime font-size factor, so
   text grows with the page. GeckoView 138 exposes no page-zoom API, so the layout itself is
   not re-zoomed the way Firefox's pinch zoom would.

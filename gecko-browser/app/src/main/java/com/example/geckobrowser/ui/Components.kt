@@ -220,6 +220,13 @@ private val IcoDownload: List<Path> = listOf(
         moveTo(4f, 19f); lineTo(20f, 19f)
     }
 )
+private val IcoClock: List<Path> = listOf(
+    p {
+        moveTo(12f, 4f)
+        arcTo(Rect(4f, 4f, 20f, 20f), 180f, -360f, false)
+        moveTo(12f, 8f); lineTo(12f, 12.4f); lineTo(15.4f, 14.4f)
+    }
+)
 private val IcoGrid: List<Path> = listOf(
     p {
         moveTo(5.5f, 4f); lineTo(10.5f, 4f); lineTo(10.5f, 11f); lineTo(5.5f, 11f); close()
@@ -343,6 +350,7 @@ object Ico {
     val moon = IcoMoon
     val textSize = IcoTextSize
     val download = IcoDownload
+    val clock = IcoClock
     val grid = IcoGrid
     val link = IcoLink
     val trash = IcoTrash

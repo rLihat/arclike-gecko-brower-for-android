@@ -366,7 +366,7 @@ private fun WebHost(
 
 private val sheetOverlays = setOf(
     Overlay.Search, Overlay.Menu, Overlay.Settings, Overlay.SiteSettings, Overlay.Account,
-    Overlay.Downloads, Overlay.Extensions, Overlay.ExtensionPopup,
+    Overlay.Downloads, Overlay.Extensions, Overlay.ExtensionPopup, Overlay.History,
 )
 
 @Composable
@@ -383,7 +383,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         val open = overlay in sheetOverlays
         val fullHeight = overlay == Overlay.Settings || overlay == Overlay.SiteSettings ||
             overlay == Overlay.Account || overlay == Overlay.Downloads ||
-            overlay == Overlay.Extensions
+            overlay == Overlay.Extensions || overlay == Overlay.History
 
         var lastSheet by remember { mutableStateOf(Overlay.Menu) }
         if (open) lastSheet = overlay
@@ -412,6 +412,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             Overlay.Account -> ({ AccountScreen(vm) { vm.onBackPressed() } })
             Overlay.Downloads -> ({ DownloadsScreen(vm) { vm.closeDownloads() } })
             Overlay.Extensions -> ({ ExtensionsScreen(vm) { vm.onBackPressed() } })
+            Overlay.History -> ({ HistoryScreen(vm) { vm.closeHistory() } })
             Overlay.ExtensionPopup -> ({ ExtensionPopupSheet(vm) })
             else -> ({})
         }
@@ -490,7 +491,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                         when {
                             closing -> Color.Transparent
                             lastSheet == Overlay.Search || lastSheet == Overlay.Menu -> c.sheetSoft
-                            lastSheet == Overlay.Downloads -> c.settingsBg
+                            lastSheet == Overlay.Downloads || lastSheet == Overlay.History -> c.settingsBg
                             else -> c.surface
                         }
                     ),
