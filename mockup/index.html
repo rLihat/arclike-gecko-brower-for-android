@@ -97,13 +97,17 @@
       box-shadow: 0 30px 80px rgba(0,0,0,0.3); border: 8px solid #111;
       background: radial-gradient(120% 80% at 10% 0%, var(--page-top) 0%, var(--bg1) 40%, var(--bg2) 100%);
     }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
-        animation-duration: .001ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: .001ms !important;
-        scroll-behavior: auto !important;
-      }
+    /* Reduced motion is a mockup switch, not an OS preference: the design
+       reference has to animate for everyone, and the Debug panel can collapse
+       every transition on demand. */
+    #phone.reduce-motion,
+    #phone.reduce-motion *,
+    #phone.reduce-motion *::before,
+    #phone.reduce-motion *::after {
+      animation-duration: .001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: .001ms !important;
+      scroll-behavior: auto !important;
     }
     .screen { position: absolute; inset: 0; display: none; flex-direction: column; }
     .screen.active { display: flex; }
@@ -1828,7 +1832,7 @@
       <p>Arc-inspired GeckoView concept. Click around, then tell me what to change.</p>
       <div class="note"><b>Tabs:</b> favicon in navbar; tap for horizontal recents-style previews. <b>Search (+):</b> expands input only; queries open a DuckDuckGo results page. <b>Menu (⌃):</b> URL with copy, back/forward/refresh, share, extensions, settings + Mozilla pfp.</div>
       <div class="note"><b>Sites:</b> YouTube, GitHub, Gmail and Add-ons clones are long enough to scroll — page content runs edge-to-edge behind the pill, which glows while loading, condenses to a bare domain chip as you scroll down, and hands the icons back the moment you scroll up. A 3px scroll indicator fades in on the page edge.</div>
-      <div class="note"><b>Immersive &amp; tabs:</b> pinch in on a page to hide the pill; pinch in again to bring it back (home and zoomed pages are ignored, trackpad pinch-in works too). In the carousel, swipe a card up to dismiss it (the row closes the gap) or down to focus it; horizontal drags still scroll. Page changes slide with the direction of travel, and reduced motion turns the transitions off.</div>
+      <div class="note"><b>Immersive &amp; tabs:</b> pinch in on a page to hide the pill; pinch in again to bring it back (home and zoomed pages are ignored, trackpad pinch-in works too). In the carousel, swipe a card up to dismiss it (the row closes the gap) or down to focus it; horizontal drags still scroll. Page changes slide with the direction of travel, and the Debug switch for reduced motion collapses all of it.</div>
       <div class="note"><b>Popups:</b> the download question and small messages like “Canceled” or “Opening” use the pill’s own footprint, and the pill steps aside while they show. Finished downloads don’t pop anything — the live chip already says it.</div>
       <div class="note"><b>Gestures:</b> swipe ↑ from the plus or menu arrow for the menu · ↓ from the plus, search ×, menu arrow or a sheet handle dismisses what’s open · ←/→ from the plus slides between tabs · ↑ from the tab icon opens previews (↓ closes them) · ←/→ from the tab icon goes back/forward · ← from the menu arrow goes back · ↑ from the live download chip cancels it and clears the row. Back and forward flash the same pill-sized notice as immersive mode.</div>
       <div class="section-title">Debug</div>
@@ -1839,6 +1843,10 @@
       <div class="debug-row">
         <span>Immersive mode</span>
         <span class="switch" id="debug-immersive-switch" role="switch" aria-checked="false" onclick="toggleImmersive()" title="Hide the nav pill"><span></span></span>
+      </div>
+      <div class="debug-row">
+        <span>Reduced motion<small>Collapse every transition</small></span>
+        <span class="switch" id="debug-motion-switch" role="switch" aria-checked="false" onclick="toggleReducedMotion()" title="Turn transitions off"><span></span></span>
       </div>
       <div class="debug-row">
         <span>Test download<small>Tap twice to see the count badge</small></span>
@@ -4066,6 +4074,21 @@
       // behind a sheet that is still open.
       if (next && document.getElementById('menu-overlay').classList.contains('open')) closeMenuOnly();
       setImmersive(next);
+    }
+    /* The mockup always animates, whatever the OS says. This switch is the
+       reference for the reduced-motion behaviour the native app honours. */
+    let reducedMotion = false;
+    function syncReducedMotionToggle() {
+      const sw = document.getElementById('debug-motion-switch');
+      if (!sw) return;
+      sw.classList.toggle('on', reducedMotion);
+      sw.setAttribute('aria-checked', String(reducedMotion));
+    }
+    function toggleReducedMotion() {
+      reducedMotion = !reducedMotion;
+      document.getElementById('phone').classList.toggle('reduce-motion', reducedMotion);
+      syncReducedMotionToggle();
+      log(reducedMotion ? 'Reduced motion: every transition collapses' : 'Reduced motion off');
     }
     function canPinch() {
       const browse = document.getElementById('screen-browse');

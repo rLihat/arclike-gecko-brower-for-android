@@ -21,6 +21,10 @@ the Mozilla account page, dark mode, and long-form site clones (YouTube, GitHub,
 DuckDuckGo results, Add-ons) with a loading glow, a condensing domain pill and a slim
 scroll indicator.
 
+The mockup always animates, even on a machine that asks for reduced motion. Its Debug
+panel has a **Reduced motion** switch that demonstrates the collapsed-transition
+behaviour, next to a trigger for every gesture.
+
 ## Android app
 
 Native Kotlin reimplementation of the mockup chrome with real GeckoView content:
