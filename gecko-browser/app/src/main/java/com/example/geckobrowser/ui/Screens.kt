@@ -226,7 +226,7 @@ fun SettingsScreen(
                                     "light" -> "dark"
                                     else -> "system"
                                 }
-                                vm.setAppearanceMode(next)
+                                vm.updateAppearanceMode(next)
                             },
                         )
                         if ("Accent colour" in appearance) SettingsRow(
@@ -341,8 +341,8 @@ fun SettingsScreen(
                         if ("Open links in apps" in general) SettingsRow(
                             "Open links in apps",
                             icon = { Glyph(Ico.open, c.text, size = 19.dp, strokeWidth = 1.9f) },
-                            trailing = { ArcSwitch(vm.openLinksInApps) { vm.setOpenLinksInApps(it) } },
-                            onClick = { vm.setOpenLinksInApps(!vm.openLinksInApps) },
+                            trailing = { ArcSwitch(vm.openLinksInApps) { vm.updateOpenLinksInApps(it) } },
+                            onClick = { vm.updateOpenLinksInApps(!vm.openLinksInApps) },
                         )
                         if ("Downloads" in general) SettingsRow(
                             "Downloads",

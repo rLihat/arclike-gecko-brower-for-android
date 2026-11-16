@@ -3507,13 +3507,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setOpenLinksInApps(enabled: Boolean) {
+    fun updateOpenLinksInApps(enabled: Boolean) {
         openLinksInApps = enabled
         prefs.edit().putBoolean("open_links_in_apps", enabled).apply()
         scope.launch { withContext(Dispatchers.IO) { settingsStore.setOpenLinksInApps(enabled) } }
     }
 
-    fun setAppearanceMode(mode: String) {
+    fun updateAppearanceMode(mode: String) {
         appearanceMode = mode
         prefs.edit().putString("appearance_mode", mode).apply()
         scope.launch { withContext(Dispatchers.IO) { settingsStore.setAppearance(mode) } }
