@@ -22,6 +22,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
@@ -1297,9 +1299,30 @@ private fun BoxScope.BrowserPromptHost(vm: BrowserViewModel) {
                 }
 
                 is BrowserPromptState.ExtensionInstall -> {
-                    PromptHeading("Add ${prompt.name}?")
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (prompt.icon != null) {
+                            Image(
+                                bitmap = prompt.icon.asImageBitmap(),
+                                contentDescription = null,
+                                modifier = Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)),
+                            )
+                        } else {
+                            Box(
+                                Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).background(c.chip),
+                                contentAlignment = Alignment.Center,
+                            ) { Glyph(Ico.puzzle, c.accent, size = 24.dp, strokeWidth = 1.8f) }
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            PromptHeading("Add ${prompt.name}?")
+                            Text(
+                                "This add-on is asking for:",
+                                color = c.muted,
+                                fontSize = 11.sp,
+                            )
+                        }
+                    }
                     Spacer(Modifier.height(6.dp))
-                    PromptNote("This add-on is asking for:")
                     prompt.permissions.take(6).forEach { permission ->
                         Text("· $permission", color = c.muted, fontSize = 11.5.sp)
                     }

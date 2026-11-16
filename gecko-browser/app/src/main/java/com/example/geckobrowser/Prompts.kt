@@ -80,6 +80,8 @@ data class ExtensionItem(
     val homepageUrl: String = "",
     val optionsPageUrl: String = "",
     val openOptionsPageInTab: Boolean = true,
+    /** The add-on's decoded icon, when Gecko can supply one. */
+    val icon: android.graphics.Bitmap? = null,
 )
 
 /**
@@ -151,6 +153,8 @@ sealed interface BrowserPromptState {
         val name: String,
         val permissions: List<String>,
         val origins: List<String>,
+        /** The add-on's icon, if Gecko could decode it in time; a glyph is used otherwise. */
+        val icon: android.graphics.Bitmap? = null,
     ) : BrowserPromptState {
         override val tabId: Long get() = -1L
     }

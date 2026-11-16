@@ -568,7 +568,6 @@ fun MenuSheet(vm: BrowserViewModel) {
             MenuAction(
                 "Extensions",
                 Ico.puzzle,
-                badge = if (vm.extensionBadge) "•" else null,
             ) { vm.openExtensionMenu() }
         }
 

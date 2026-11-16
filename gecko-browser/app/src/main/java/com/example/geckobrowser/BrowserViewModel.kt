@@ -2368,7 +2368,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         val handlers = try {
             pm.queryIntentActivities(
                 intent,
-                PackageManager.MATCH_DEFAULT_ONLY or PackageManager.MATCH_ALL
+                PackageManager.MATCH_ALL,
             )
         } catch (_: Throwable) {
             return null
@@ -2717,11 +2717,15 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 val result = GeckoResult<WebExtension.PermissionPromptResponse>()
                 extensionInstallResults[id] = result
                 clearShownPrompt()
+                val icon = runCatching {
+                    extension.metaData?.icon?.getBitmap(96)?.poll(200)
+                }.getOrNull()
                 browserPrompt = BrowserPromptState.ExtensionInstall(
                     id = id,
                     name = extension.metaData?.name ?: "Add-on",
                     permissions = permissions?.toList().orEmpty(),
                     origins = origins?.toList().orEmpty(),
+                    icon = icon,
                 )
                 compactPill = false
                 return result
@@ -2802,6 +2806,28 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         compactPill = false
     }
 
+    /**
+     * Gecko hands out add-on icons asynchronously via [org.mozilla.geckoview.Image.getBitmap];
+     * refresh the list once each bitmap arrives so the rows can draw the real icon.
+     */
+    private fun loadExtensionIcons(items: List<ExtensionItem>) {
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        items.forEach { item ->
+            val extension = extensionObjects[item.id] ?: return@forEach
+            val meta = extension.metaData ?: return@forEach
+            val result = runCatching { meta.icon?.getBitmap(96) }.getOrNull() ?: return@forEach
+            result.withHandler(handler).accept(
+                { bitmap ->
+                    if (bitmap != null) {
+                        val current = extensions
+                        extensions = current.map { if (it.id == item.id) it.copy(icon = bitmap) else it }
+                    }
+                },
+                { /* keep the placeholder glyph */ },
+            )
+        }
+    }
+
     fun refreshExtensions() {
         try {
             runtime.webExtensionController.list().accept(
@@ -2812,6 +2838,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                         extensionObjects[extension.id] = extension
                         runCatching { extension.setActionDelegate(extensionActionDelegate) }
                         val meta = extension.metaData
+                        val base = meta?.baseUrl.orEmpty()
+                        val rawOptions = meta?.optionsPageUrl.orEmpty()
+                        val optionsUrl = when {
+                            rawOptions.isBlank() -> ""
+                            rawOptions.startsWith("moz-extension") || rawOptions.startsWith("http") || rawOptions.startsWith("about:") -> rawOptions
+                            base.isNotBlank() -> base.trimEnd('/') + "/" + rawOptions.trimStart('/')
+                            else -> rawOptions
+                        }
                         mapped += ExtensionItem(
                             id = extension.id,
                             name = meta?.name ?: extension.id,
@@ -2827,12 +2861,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                             updateDate = meta?.updateDate.orEmpty(),
                             amoListingUrl = meta?.amoListingUrl.orEmpty(),
                             homepageUrl = meta?.homepageUrl.orEmpty(),
-                            optionsPageUrl = meta?.optionsPageUrl.orEmpty(),
+                            optionsPageUrl = optionsUrl,
                             openOptionsPageInTab = meta?.openOptionsPageInTab != false,
                         )
                     }
                     extensions = mapped
-                },
+                    loadExtensionIcons(mapped)
                 { /* listing failures leave the last snapshot in place */ },
             )
         } catch (_: Throwable) {

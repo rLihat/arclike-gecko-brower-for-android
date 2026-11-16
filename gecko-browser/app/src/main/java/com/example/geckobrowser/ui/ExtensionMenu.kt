@@ -1,6 +1,7 @@
 package com.example.geckobrowser.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -122,7 +124,15 @@ private fun ExtensionMenuRow(vm: BrowserViewModel, item: ExtensionItem) {
             Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(c.chip),
             contentAlignment = Alignment.Center,
         ) {
-            Glyph(Ico.puzzle, c.accent, size = 18.dp, strokeWidth = 1.8f)
+            if (item.icon != null) {
+                Image(
+                    bitmap = item.icon.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)),
+                )
+            } else {
+                Glyph(Ico.puzzle, c.accent, size = 18.dp, strokeWidth = 1.8f)
+            }
         }
         Spacer(Modifier.width(11.dp))
         Column(Modifier.weight(1f)) {

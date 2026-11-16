@@ -6,6 +6,7 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -44,6 +45,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -1215,7 +1217,15 @@ private fun ExtensionRow(vm: BrowserViewModel, item: ExtensionItem) {
                     .background(c.chip),
                 contentAlignment = Alignment.Center,
             ) {
-                Glyph(Ico.puzzle, c.accent, size = 18.dp, strokeWidth = 1.8f)
+                if (item.icon != null) {
+                    Image(
+                        bitmap = item.icon.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)),
+                    )
+                } else {
+                    Glyph(Ico.puzzle, c.accent, size = 18.dp, strokeWidth = 1.8f)
+                }
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
