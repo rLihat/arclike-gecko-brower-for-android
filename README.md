@@ -51,6 +51,8 @@ Native Kotlin reimplementation of the mockup chrome with real GeckoView content:
   URL by itself. Fullscreen video hides the chrome, rotates and keeps the screen on.
 - Find in page opens a bar over the pill, highlights every hit, dims the rest of the page
   and steps through matches with a live `3/17` counter.
+- Page translation goes through Gecko's own engine: source language detected (or picked),
+  any supported target, models downloaded on first use, and one tap back to the original.
 - Search sheet shows the chosen engine's live suggestions plus history matches with
   inline completion; the browser accepts `VIEW`, `WEB_SEARCH` and `SEND` intents.
 - Local history keeps one row per URL, grouped by day in the History page with search,

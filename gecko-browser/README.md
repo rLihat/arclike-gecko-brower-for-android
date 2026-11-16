@@ -10,22 +10,23 @@ native Kotlin + Jetpack Compose; only the page content is Gecko. The UI follows
 | --- | --- |
 | `MainActivity.kt` | Immersive edge-to-edge host, system back handling, `VIEW` / `WEB_SEARCH` / `SEND` intents, XPI and file pickers, Android runtime-permission launcher. |
 | `ArcApplication.kt` | One process-wide `GeckoRuntime` shared by every session. |
-| `BrowserViewModel.kt` | One `GeckoSession` per tab, delegates, tab history, prompts, permissions, downloads, extensions, suggestions, find in page, scroll-driven chrome state, sheets, zoom, desktop site, persistence. |
+| `BrowserViewModel.kt` | One `GeckoSession` per tab, delegates, tab history, prompts, permissions, downloads, extensions, suggestions, find in page, translation, scroll-driven chrome state, sheets, zoom, desktop site, persistence. |
 | `TabManager.kt` | Session ownership: create, restore under the previous id, reopen closed tabs. |
 | `AppSettings.kt` | DataStore snapshot (dark mode, suggestions, search engine, per-host zoom/desktop, remembered permissions, tracking level, cookie-banner toggle, tracking exemptions) read before the first session. |
 | `BrowserFiles.kt` | Private JSON payloads: tab list, per-tab `SessionState` blobs, download list. |
 | `HistoryStore.kt` | Local history: one SQLite `visit` row per URL (`id`, `url`, `title`, `lastVisit`, `visitCount`), an in-memory mirror for instant reads, queued writes, 90-day/5000-row pruning. |
 | `Downloads.kt` | Download records, `DownloadCenter`, and the foreground `DownloadService` (pause/resume/retry, MediaStore publishing). |
-| `Prompts.kt` | Prompt, permission, file-picker, popup-notice, selection and extension state types. |
+| `Prompts.kt` | Prompt, permission, file-picker, popup-notice, selection, extension and translate-language state types. |
 | `ErrorPages.kt` | Themed local HTML for network and certificate failures, with retry/back. |
 | `ui/Theme.kt` | Light/dark design tokens transcribed from the mockup. |
-| `ui/Root.kt` | Persistent `GeckoView` host, home overlay, morphing sheet, nav pill, prompt hosts, blocked-popup pill, find bar, selection bar, loading glow, download chip with swipe-to-cancel, extension popup sheet, back/forward notice, toasts. |
-| `ui/Sheets.kt` | DuckDuckGo search sheet with live suggestions, and the menu (address bar with tap-to-edit URL, actions, zoom, desktop site, site settings, extensions). |
+| `ui/Root.kt` | Persistent `GeckoView` host, home overlay, morphing sheet, nav pill, prompt hosts, blocked-popup pill, find bar, selection bar, translate page, loading glow, download chip with swipe-to-cancel, extension popup sheet, back/forward notice, toasts. |
+| `ui/Sheets.kt` | DuckDuckGo search sheet with live suggestions, and the menu (address bar with tap-to-edit URL, actions including find and translate, zoom, desktop site, site settings, extensions). |
 | `ui/Screens.kt` | Home, Firefox-style settings, site settings (dark mode, tri-state permissions, per-site tracking protection and blocked count), downloads manager, extensions, Mozilla account. |
 | `ui/Tabs.kt` | Horizontal recents carousel with captured page thumbnails and a new-tab card. |
 | `ui/Components.kt` | Stroke icons, switches, settings rows, favicon tiles, glow. |
 | `ui/Splash.kt` | horiZen mark drawn on a Compose canvas, the animated splash, and `BrowserRoot` (splash clock + hand-over into the browser). |
 | `ui/History.kt` | History page: day groups, search, swipe-to-delete rows, and clear by range. |
+| `ui/Translate.kt` | Translation page: detected/picked source, target picker, Translate/Restore action, support and error states. |
 | `res/values/themes.xml` | `Theme.horiZen`, and `Theme.horiZen.Starting` for the Android 12+ system splash. |
 | `res/drawable/ic_*launcher*`, `res/mipmap-anydpi*/ic_launcher.xml` | Vector launch mark and adaptive icon (foreground + monochrome). |
 
@@ -114,6 +115,35 @@ With the system animator scale at 0 the mark is drawn at rest and the hand-over 
   query and reset the session's display flags so the page returns to normal.
 - Each request carries a generation number, so a slow answer for an older query can never
   overwrite the counter for what is currently typed.
+
+## Translate
+
+**Translate** in the menu opens a full-height page that drives GeckoView's own translation
+engine. Nothing is sent to a cloud service; the language models run on the device.
+
+- Support is checked once per process: `RuntimeTranslation.isTranslationsEngineSupported()`
+  gates the screen, then `listSupportedLanguages()` fills the source and target pickers.
+  If the check fails the page says so and offers **Check again**.
+- The source language comes from `TranslationState.detectedLanguages.docLangTag`; the picker
+  lists `fromLanguages` plus **Detect automatically**. A detected language Gecko can't read
+  is called out, and choosing another is one tap away.
+- The target defaults to `preferredLanguages()`, then the device locale, then English, and is
+  stored per tab so switching tabs keeps the choice.
+- **Translate page** calls `session.sessionTranslation.translate(from, to, options)` with
+  `downloadModel(true)`, so the first use of a pair downloads its model. While that or the
+  translation runs the action reads **Working…**; the first translation can take a minute.
+- `TranslationsSessionDelegate.onTranslationStateChange` keeps the screen honest: it mirrors
+  the requested pair, `hasVisibleChange` (translated vs original) and engine readiness, and
+  maps state errors to plain sentences.
+- Once translated, the same button becomes **Show original page** and calls
+  `restoreOriginalPage()`. Failures surface through `TranslationsException.code` (engine,
+  language pair, model download, restore) rather than a generic toast.
+- A new document load clears that tab's translated flag, detected language and error but
+  keeps its language pair; closing the tab drops the per-tab state. Back in the language
+  list returns to the controls, and back on the screen returns to the menu.
+- The runtime's automatic translate offer is not surfaced: translation starts from the menu,
+  not from a popup on every foreign page. Firefox's per-site "never translate" list is
+  likewise not exposed yet.
 
 ## Build
 
@@ -309,3 +339,7 @@ never leaves the page waiting:
   Select all, but the full set of editing actions (cut, paste, collapse) has no UI yet.
 - Find in page uses Gecko's case-insensitive default: `FINDER_FIND_MATCH_CASE` and
   `FINDER_FIND_WHOLE_WORD` have no toggles in the bar yet.
+- Translation depends on GeckoView reporting a translation engine and on-device models; when
+  `isTranslationsEngineSupported()` returns false the page explains that instead of falling
+  back to a remote service. The automatic translate offer and the per-site never-translate
+  list are not wired up.

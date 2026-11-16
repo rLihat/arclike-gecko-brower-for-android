@@ -38,6 +38,12 @@ data class SelectionState(
     val editable: Boolean,
 )
 
+/** A language Gecko's translation engine can read or write. */
+data class TranslateLanguage(
+    val code: String,
+    val label: String,
+)
+
 /** Android runtime permissions the activity has to request before we can ask. */
 data class AndroidPermissionRequest(
     val id: Long,

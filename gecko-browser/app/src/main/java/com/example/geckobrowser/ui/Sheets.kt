@@ -563,7 +563,7 @@ fun MenuSheet(vm: BrowserViewModel) {
                 .padding(6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            MenuAction("Translate", Ico.translate) { vm.showToast("Translate page") }
+            MenuAction("Translate", Ico.translate) { vm.openTranslate() }
             MenuAction("Find", Ico.find) { vm.openFind() }
             MenuAction("Share", Ico.share) { vm.shareCurrentUrl() }
             MenuAction(

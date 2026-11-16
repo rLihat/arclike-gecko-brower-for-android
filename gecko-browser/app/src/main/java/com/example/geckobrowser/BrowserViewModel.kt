@@ -14,6 +14,7 @@ import android.os.Build
 import android.os.SystemClock
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
@@ -37,6 +38,7 @@ import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoView
 import org.mozilla.geckoview.GeckoWebExecutor
+import org.mozilla.geckoview.TranslationsController
 import org.mozilla.geckoview.WebExtension
 import org.mozilla.geckoview.WebExtensionController
 import org.mozilla.geckoview.WebRequest
@@ -98,8 +100,22 @@ data class ContextMenuState(
 
 enum class Overlay {
     None, Search, Menu, Tabs, Settings, SiteSettings, Account, Downloads, Extensions, ExtensionPopup,
-    History,
+    History, Translate,
 }
+
+/** What a tab's translation looks like right now; kept per tab. */
+private data class TabTranslation(
+    /** Language Gecko detected in the document, or blank. */
+    val detected: String = "",
+    val detectedSupported: Boolean = true,
+    /** Language the user picked to translate from; blank means the detected one. */
+    val from: String = "",
+    /** Target language; blank until the supported list arrives. */
+    val to: String = "",
+    val active: Boolean = false,
+    val busy: Boolean = false,
+    val error: String? = null,
+)
 
 /**
  * A search engine: built in, or added by the user with a %s URL template.
@@ -201,6 +217,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private var downloadsReturn = Overlay.Menu
     private var extensionsReturn = Overlay.Menu
     private var historyReturn = Overlay.Menu
+    private var translateReturn = Overlay.Menu
     private var popupReturn = Overlay.None
 
     var darkMode by mutableStateOf(prefs.getBoolean("dark", false))
@@ -334,6 +351,27 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Bumped on every request so a slow reply can't overwrite a newer one. */
     private var findGeneration = 0
+
+    // ---- translate --------------------------------------------------------
+
+    /** Runtime-wide translation support, fetched once and cached. */
+    var translateEngineSupported by mutableStateOf(true)
+        private set
+
+    var translateSupportLoading by mutableStateOf(false)
+        private set
+
+    var translateSupportLoaded by mutableStateOf(false)
+        private set
+
+    var translateFromLanguages by mutableStateOf<List<TranslateLanguage>>(emptyList())
+        private set
+
+    var translateToLanguages by mutableStateOf<List<TranslateLanguage>>(emptyList())
+        private set
+
+    /** Per-tab translation state; a snapshot map so sheets recompose. */
+    private val translations = mutableStateMapOf<Long, TabTranslation>()
 
     // ---- extensions -------------------------------------------------------
 
@@ -719,6 +757,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 if (id == activeId) blockedCount = 0
                 // A new document has none of the old matches in it.
                 if (id == activeId && findOpen) closeFind()
+                resetTranslation(id)
                 updateTab(id) { it.copy(url = url, isHome = false) }
                 if (noLoadUi.contains(id)) {
                     updateTab(id) { it.copy(isLoading = false) }
@@ -1181,6 +1220,36 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
 
+        session.translationsSessionDelegate =
+            object : TranslationsController.SessionTranslation.Delegate {
+                override fun onTranslationStateChange(
+                    session: GeckoSession,
+                    state: TranslationsController.SessionTranslation.TranslationState,
+                ) {
+                    val detected = state.detectedLanguages
+                    val pair = state.requestedTranslationPair
+                    val visible = state.hasVisibleChange
+                    val errorText = translateStateError(state.error)
+                    updateTranslation(id) { current ->
+                        current.copy(
+                            detected = detected?.docLangTag?.takeIf { it.isNotBlank() }
+                                ?: current.detected,
+                            detectedSupported = detected?.isDocLangTagSupported != false,
+                            from = pair?.fromLanguage?.takeIf { it.isNotBlank() }
+                                ?: current.from,
+                            to = pair?.toLanguage?.takeIf { it.isNotBlank() } ?: current.to,
+                            active = when {
+                                visible == true -> true
+                                pair == null -> false
+                                else -> current.active
+                            },
+                            busy = if (visible == true || errorText != null) false else current.busy,
+                            error = errorText ?: current.error,
+                        )
+                    }
+                }
+            }
+
         // Restored tabs have no location yet; the session default applies until
         // onLocationChange refines it for the host that actually loads.
         runCatching { session.settings.setUseTrackingProtection(true) }
@@ -1436,6 +1505,303 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 // A failed search leaves the previous count in place.
             },
         )
+    }
+
+    /* ------------------------------------------------------------- translate */
+
+    private val activeTranslation: TabTranslation
+        get() = translations[activeId] ?: TabTranslation()
+
+    val translateDetected: String get() = activeTranslation.detected
+
+    val translateFrom: String get() = activeTranslation.from
+
+    val translateTo: String get() = activeTranslation.to
+
+    val translateActive: Boolean get() = activeTranslation.active
+
+    val translateBusy: Boolean get() = activeTranslation.busy
+
+    val translateError: String? get() = activeTranslation.error
+
+    /** True when Gecko detected a document language it can translate from. */
+    val translateDetectedSupported: Boolean get() = activeTranslation.detectedSupported
+
+    /** Display name for a language code, falling back to the system locale. */
+    fun translateLanguageName(code: String): String {
+        if (code.isBlank()) return "Detect automatically"
+        translateFromLanguages.firstOrNull { it.code == code }?.let { return it.label }
+        translateToLanguages.firstOrNull { it.code == code }?.let { return it.label }
+        return runCatching {
+            Locale.forLanguageTag(code).getDisplayLanguage(Locale.getDefault())
+        }.getOrNull().orEmpty().ifBlank { code }
+    }
+
+    /** Opens the translate page from the menu, dismissing any sheet first. */
+    fun openTranslate() {
+        val current = overlay
+        translateReturn = when (current) {
+            Overlay.Menu, Overlay.Settings, Overlay.SiteSettings, Overlay.Account -> current
+            else -> Overlay.Menu
+        }
+        clearActiveLoading()
+        cancelDownloadPrompt()
+        dismissContextMenu()
+        overlay = Overlay.Translate
+        compactPill = false
+        loadTranslateSupport()
+        updateTranslation(activeId) { it.copy(error = null) }
+        if ((translations[activeId]?.to ?: "").isBlank()) {
+            val target = defaultTargetLanguage()
+            if (target.isNotBlank()) updateTranslation(activeId) { it.copy(to = target) }
+        }
+    }
+
+    fun closeTranslate() {
+        if (overlay != Overlay.Translate) return
+        overlay = translateReturn
+        translateReturn = Overlay.Menu
+        compactPill = false
+    }
+
+    fun retryTranslateSupport() {
+        translateSupportLoaded = false
+        loadTranslateSupport()
+    }
+
+    /**
+     * Asks the runtime whether translations are available and, if so, which
+     * language pairs it can handle. Cached for the life of the process.
+     */
+    fun loadTranslateSupport() {
+        if (translateSupportLoading) return
+        if (translateSupportLoaded) return
+        translateSupportLoading = true
+        val engine = runCatching {
+            TranslationsController.RuntimeTranslation.isTranslationsEngineSupported()
+        }.getOrNull()
+        if (engine == null) {
+            translateEngineSupported = false
+            translateSupportLoading = false
+            translateSupportLoaded = true
+            return
+        }
+        engine.accept(
+            { supported ->
+                translateEngineSupported = supported == true
+                translateSupportLoading = false
+                translateSupportLoaded = true
+                if (supported == true) loadTranslateLanguages()
+            },
+            { _ ->
+                translateEngineSupported = false
+                translateSupportLoading = false
+                translateSupportLoaded = true
+            },
+        )
+    }
+
+    private fun loadTranslateLanguages() {
+        val result = runCatching {
+            TranslationsController.RuntimeTranslation.listSupportedLanguages()
+        }.getOrNull() ?: return
+        result.accept(
+            { support ->
+                translateFromLanguages = support.fromLanguages.orEmpty().map {
+                    TranslateLanguage(it.code, it.localizedDisplayName.ifBlank { it.code })
+                }
+                translateToLanguages = support.toLanguages.orEmpty().map {
+                    TranslateLanguage(it.code, it.localizedDisplayName.ifBlank { it.code })
+                }
+                val target = defaultTargetLanguage()
+                if (target.isNotBlank()) {
+                    translations.keys.toList().forEach { id ->
+                        if ((translations[id]?.to ?: "").isBlank()) {
+                            updateTranslation(id) { it.copy(to = target) }
+                        }
+                    }
+                }
+                refineTargetFromPreferred()
+            },
+            { _ ->
+                // The screen shows the empty state and offers a retry.
+            },
+        )
+    }
+
+    /**
+     * Gecko knows the user's preferred translation targets; the platform locale
+     * is only a fallback. This quietly overrides a fallback target.
+     */
+    private fun refineTargetFromPreferred() {
+        val preferred = runCatching {
+            TranslationsController.RuntimeTranslation.preferredLanguages()
+        }.getOrNull() ?: return
+        preferred.accept(
+            { tags ->
+                val match = tags.orEmpty().firstNotNullOfOrNull { tag -> matchLanguage(tag) }
+                if (!match.isNullOrBlank()) {
+                    translations.keys.toList().forEach { id ->
+                        val current = translations[id] ?: TabTranslation()
+                        if (current.to.isBlank() || current.to == defaultTargetLanguage()) {
+                            updateTranslation(id) { it.copy(to = match) }
+                        }
+                    }
+                }
+            },
+            { _ -> /* keep the locale-based default */ },
+        )
+    }
+
+    /** Finds the supported language whose base code matches [tag] ("en-US" → "en"). */
+    private fun matchLanguage(tag: String): String? {
+        val base = tag.substringBefore('-').lowercase(Locale.US)
+        return translateToLanguages.firstOrNull {
+            it.code.substringBefore('-').lowercase(Locale.US) == base
+        }?.code
+    }
+
+    private fun defaultTargetLanguage(): String {
+        val codes = translateToLanguages.map { it.code }
+        if (codes.isEmpty()) return ""
+        val device = Locale.getDefault().language
+        return matchLanguage(device) ?: matchLanguage("en") ?: codes.first()
+    }
+
+    fun setTranslateFrom(code: String) {
+        updateTranslation(activeId) { it.copy(from = code, error = null) }
+    }
+
+    fun setTranslateTo(code: String) {
+        updateTranslation(activeId) { it.copy(to = code, error = null) }
+    }
+
+    /** Translates the active page, downloading the language model if needed. */
+    fun translatePage() {
+        val tab = activeTab ?: return
+        if (tab.isHome || tab.url.isBlank()) {
+            showToast("Open a page to translate it")
+            return
+        }
+        val session = tabsManager.session(tab.id) ?: return
+        val state = translations[tab.id] ?: TabTranslation()
+        val from = state.from.ifBlank { state.detected }
+        if (from.isBlank()) {
+            updateTranslation(tab.id) {
+                it.copy(error = "Pick the language of this page first")
+            }
+            return
+        }
+        val to = state.to.ifBlank { defaultTargetLanguage() }
+        if (to.isBlank()) {
+            updateTranslation(tab.id) {
+                it.copy(error = "No translation languages are available")
+            }
+            return
+        }
+        if (from == to) {
+            updateTranslation(tab.id) {
+                it.copy(error = "That is already the page language — pick another")
+            }
+            return
+        }
+        val options = TranslationsController.SessionTranslation.TranslationOptions.Builder()
+            .downloadModel(true)
+            .build()
+        updateTranslation(tab.id) { it.copy(from = from, to = to, busy = true, error = null) }
+        val result = runCatching {
+            session.sessionTranslation.translate(from, to, options)
+        }.getOrNull()
+        if (result == null) {
+            updateTranslation(tab.id) {
+                it.copy(busy = false, error = "Translation is not available for this page")
+            }
+            return
+        }
+        result.accept(
+            { updateTranslation(tab.id) { it.copy(busy = false, active = true) } },
+            { throwable ->
+                updateTranslation(tab.id) {
+                    it.copy(busy = false, error = translateErrorMessage(throwable))
+                }
+            },
+        )
+    }
+
+    /** Puts the original text back on screen. */
+    fun restoreTranslation() {
+        val tab = activeTab ?: return
+        val session = tabsManager.session(tab.id) ?: return
+        updateTranslation(tab.id) { it.copy(busy = true, error = null) }
+        val result = runCatching { session.sessionTranslation.restoreOriginalPage() }.getOrNull()
+        if (result == null) {
+            updateTranslation(tab.id) { it.copy(busy = false) }
+            return
+        }
+        result.accept(
+            {
+                updateTranslation(tab.id) {
+                    it.copy(busy = false, active = false)
+                }
+            },
+            { throwable ->
+                updateTranslation(tab.id) {
+                    it.copy(busy = false, error = translateErrorMessage(throwable))
+                }
+            },
+        )
+    }
+
+    private fun updateTranslation(id: Long, block: (TabTranslation) -> TabTranslation) {
+        translations[id] = block(translations[id] ?: TabTranslation())
+    }
+
+    /** A fresh document has no translation; keep the language picks. */
+    private fun resetTranslation(id: Long) {
+        val current = translations[id] ?: return
+        if (current.detected.isEmpty() && !current.active && !current.busy &&
+            current.error == null
+        ) {
+            return
+        }
+        translations[id] = current.copy(detected = "", active = false, busy = false, error = null)
+    }
+
+    private fun translateErrorMessage(error: Throwable): String {
+        val translationsError = error as? TranslationsController.TranslationsException
+            ?: error.cause as? TranslationsController.TranslationsException
+        return when (translationsError?.code) {
+            TranslationsController.TranslationsException.ERROR_ENGINE_NOT_SUPPORTED ->
+                "Translation is not supported on this device"
+            TranslationsController.TranslationsException.ERROR_LANGUAGE_NOT_SUPPORTED ->
+                "That language pair is not supported"
+            TranslationsController.TranslationsException.ERROR_MODEL_DOWNLOAD_REQUIRED,
+            TranslationsController.TranslationsException.ERROR_MODEL_LANGUAGE_REQUIRED ->
+                "Choose both languages before translating"
+            TranslationsController.TranslationsException.ERROR_MODEL_COULD_NOT_DOWNLOAD,
+            TranslationsController.TranslationsException.ERROR_MODEL_COULD_NOT_RETRIEVE ->
+                "The language model could not be downloaded — check your connection"
+            TranslationsController.TranslationsException.ERROR_COULD_NOT_LOAD_LANGUAGES ->
+                "The list of languages could not be loaded"
+            TranslationsController.TranslationsException.ERROR_COULD_NOT_RESTORE ->
+                "The original page could not be restored"
+            else -> error.message?.takeIf { it.isNotBlank() }?.let { message ->
+                message.replace('-', ' ').replaceFirstChar { it.uppercase() }
+            } ?: "Translation failed"
+        }
+    }
+
+    /** Turns Gecko's state-machine error codes into something readable. */
+    private fun translateStateError(raw: String?): String? {
+        val text = raw?.trim().orEmpty()
+        if (text.isEmpty()) return null
+        return when (text) {
+            "engine-not-supported" -> "Translation is not supported on this device"
+            "language-not-supported", "unsupported-language" ->
+                "That language pair is not supported"
+            "model-download-required" -> "The language model needs to be downloaded"
+            else -> text.replace('-', ' ').replaceFirstChar { it.uppercase() }
+        }
     }
 
     fun answerButton(id: Long, confirm: Boolean) {
@@ -2524,6 +2890,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         scrollY.remove(id)
         scrollAcc.remove(id)
         blockedByTab.remove(id)
+        translations.remove(id)
         offlineJobs.remove(id)?.cancel()
         offlineRetries.remove(id)
         offlineFailedUrl.remove(id)
@@ -2795,6 +3162,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
         return when (overlay) {
             Overlay.None -> false
+            Overlay.Translate -> {
+                closeTranslate()
+                true
+            }
             Overlay.Account -> {
                 overlay = accountReturn
                 true
