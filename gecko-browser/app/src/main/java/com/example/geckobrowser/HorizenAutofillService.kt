@@ -125,7 +125,7 @@ class HorizenAutofillService : AutofillService() {
             val hintStr = (hints?.joinToString(" ") ?: "") + " " + (node.hint ?: "")
             val isPassword = hints?.any { it.equals("password", ignoreCase = true) } == true ||
                 hintStr.contains("password", ignoreCase = true) ||
-                node.inputType and android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD != 0
+                (node.inputType and android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD) != 0
             val isUsername = !isPassword && (
                 hints?.any {
                     it.equals("username", ignoreCase = true) ||
