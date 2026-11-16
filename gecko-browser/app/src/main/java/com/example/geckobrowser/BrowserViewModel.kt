@@ -2272,25 +2272,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         cancelDownloadPrompt()
         dismissContextMenu()
         val url = toUrl(text)
-        val createNew = newTabPending
-        newTabPending = false
-        if (createNew || activeTab == null) {
-            val id = addTab(url = url)
-            closeOverlay()
-            expandPill()
-            syncZoomForActive()
-            suggestions = emptyList()
-            historySuggestions = emptyList()
-            return
-        }
-        val tab = activeTab ?: return
-        noLoadUi.remove(tab.id)
-        resetOfflineRetries(tab.id)
-        historySeed(tab.id, url)
-        tabsManager.load(tab.id, url)
-        updateTab(tab.id) { it.copy(url = url, isHome = false, title = hostOf(url)) }
+        // Every search completes into a new tab; there is no home tab to reuse.
+        val id = addTab(url = url)
         closeOverlay()
         expandPill()
+        syncZoomForActive()
         suggestions = emptyList()
         historySuggestions = emptyList()
     }

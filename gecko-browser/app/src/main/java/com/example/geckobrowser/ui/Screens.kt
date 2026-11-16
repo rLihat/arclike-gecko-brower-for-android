@@ -108,20 +108,6 @@ fun HomeScreen(onSearch: () -> Unit, onOpen: (String) -> Unit) {
             modifier = Modifier.offset(y = offsetY.value.dp),
         ) {
             HorizenMark(progress = progress.value, modifier = Modifier.size(152.dp))
-            Spacer(Modifier.height(18.dp))
-            Text(
-                "horiZen",
-                color = c.text,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.5.sp,
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Tap to search",
-                color = c.muted,
-                fontSize = 12.sp,
-            )
         }
     }
 }

@@ -203,18 +203,6 @@ private fun TabCard(
                 .clickable { onSelect() },
         ) {
             TabMiniature(tab)
-            Box(
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(Color.Black.copy(alpha = 0.06f))
-                    .clickable { onClose() },
-                contentAlignment = Alignment.Center,
-            ) {
-                Glyph(Ico.close, Color(0xFF5D5D59), size = 14.dp, strokeWidth = 2.2f)
-            }
         }
     }
 }

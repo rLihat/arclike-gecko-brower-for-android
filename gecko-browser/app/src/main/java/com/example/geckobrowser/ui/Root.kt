@@ -137,13 +137,8 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
             if (!canImmersive && vm.immersiveMode) vm.toggleImmersive()
         }
         LaunchedEffect(immersive) {
-            if (immersive) {
-                immBanner = true
-                delay(2200)
-                immBanner = false
-            } else {
-                immBanner = false
-            }
+            if (immersive) immBanner = true
+            else immBanner = false
         }
 
         LaunchedEffect(vm.addonPickerRequest.value) {
@@ -279,13 +274,32 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                 )
             }
 
-            if (immBanner) {
+            val immAppear = remember { Animatable(0f) }
+            LaunchedEffect(immBanner) {
+                if (immBanner) {
+                    immAppear.snapTo(0f)
+                    immAppear.animateTo(1f, tween(320, easing = morphEasing))
+                    delay(1800)
+                    immAppear.animateTo(0f, tween(220))
+                    immBanner = false
+                } else {
+                    immAppear.animateTo(0f, tween(220))
+                }
+            }
+            if (immAppear.value > 0.01f) {
                 Box(
                     Modifier
                         .align(Alignment.BottomCenter)
                         .padding(bottom = 18.dp)
                         .fillMaxWidth(0.7f)
                         .height(58.dp)
+                        .graphicsLayer {
+                            alpha = immAppear.value
+                            val s = 0.96f + 0.04f * immAppear.value
+                            scaleX = s
+                            scaleY = s
+                            translationY = (1f - immAppear.value) * 14.dp.toPx()
+                        }
                         .shadow(20.dp, RoundedCornerShape(29.dp))
                         .clip(RoundedCornerShape(29.dp))
                         .background(c.navSoft)
