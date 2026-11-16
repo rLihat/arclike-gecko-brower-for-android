@@ -373,7 +373,7 @@ private fun WebHost(
 private val sheetOverlays = setOf(
     Overlay.Search, Overlay.Menu, Overlay.Settings, Overlay.SiteSettings, Overlay.Account,
     Overlay.Downloads, Overlay.Extensions, Overlay.ExtensionPopup, Overlay.History,
-    Overlay.Translate,
+    Overlay.Translate, Overlay.Passwords,
 )
 
 @Composable
@@ -391,7 +391,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         val fullHeight = overlay == Overlay.Settings || overlay == Overlay.SiteSettings ||
             overlay == Overlay.Account || overlay == Overlay.Downloads ||
             overlay == Overlay.Extensions || overlay == Overlay.History ||
-            overlay == Overlay.Translate
+            overlay == Overlay.Translate || overlay == Overlay.Passwords
 
         var lastSheet by remember { mutableStateOf(Overlay.Menu) }
         if (open) lastSheet = overlay
@@ -422,6 +422,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             Overlay.Extensions -> ({ ExtensionsScreen(vm) { vm.onBackPressed() } })
             Overlay.History -> ({ HistoryScreen(vm) { vm.closeHistory() } })
             Overlay.Translate -> ({ TranslateScreen(vm) { vm.closeTranslate() } })
+            Overlay.Passwords -> ({ PasswordsScreen(vm) { vm.closePasswords() } })
             Overlay.ExtensionPopup -> ({ ExtensionPopupSheet(vm) })
             else -> ({})
         }
@@ -501,7 +502,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                             closing -> Color.Transparent
                             lastSheet == Overlay.Search || lastSheet == Overlay.Menu -> c.sheetSoft
                             lastSheet == Overlay.Downloads || lastSheet == Overlay.History ||
-                                lastSheet == Overlay.Translate -> c.settingsBg
+                                lastSheet == Overlay.Translate || lastSheet == Overlay.Passwords -> c.settingsBg
                             else -> c.surface
                         }
                     ),

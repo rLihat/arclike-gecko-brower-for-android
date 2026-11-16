@@ -100,7 +100,7 @@ data class ContextMenuState(
 
 enum class Overlay {
     None, Search, Menu, Tabs, Settings, SiteSettings, Account, Downloads, Extensions, ExtensionPopup,
-    History, Translate,
+    History, Translate, Passwords,
 }
 
 /** What a tab's translation looks like right now; kept per tab. */
@@ -218,6 +218,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private var extensionsReturn = Overlay.Menu
     private var historyReturn = Overlay.Menu
     private var translateReturn = Overlay.Menu
+    private var passwordReturn = Overlay.Menu
     private var popupReturn = Overlay.None
 
     var darkMode by mutableStateOf(prefs.getBoolean("dark", false))
@@ -1805,6 +1806,102 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /* ------------------------------------------------------------- passwords */
+
+    var passwordVersion by mutableIntStateOf(0)
+        private set
+
+    var passwordSearch by mutableStateOf("")
+        private set
+
+    private fun appContext(): Context = getApplication<Application>().applicationContext
+
+    fun passwords(): List<SavedLogin> = PasswordStore.all(appContext())
+
+    fun passwordsForHost(host: String): List<SavedLogin> =
+        PasswordStore.forHost(appContext(), host)
+
+    fun openPasswords() {
+        val current = overlay
+        passwordReturn = when (current) {
+            Overlay.Settings, Overlay.Menu, Overlay.SiteSettings, Overlay.Account -> current
+            else -> Overlay.Menu
+        }
+        clearActiveLoading()
+        cancelDownloadPrompt()
+        dismissContextMenu()
+        overlay = Overlay.Passwords
+        compactPill = false
+        passwordVersion++
+    }
+
+    fun closePasswords() {
+        if (overlay != Overlay.Passwords) return
+        overlay = passwordReturn
+        passwordReturn = Overlay.Menu
+        compactPill = false
+    }
+
+    fun saveLogin(login: SavedLogin) {
+        PasswordStore.upsert(appContext(), login)
+        passwordVersion++
+    }
+
+    fun deleteLogin(id: String) {
+        PasswordStore.remove(appContext(), id)
+        passwordVersion++
+    }
+
+    fun setNeverSavePassword(host: String, never: Boolean) {
+        PasswordStore.setNeverSave(appContext(), host, never)
+        passwordVersion++
+    }
+
+    fun isNeverSavePassword(host: String): Boolean =
+        PasswordStore.isNeverSave(appContext(), host)
+
+    fun setAutofillEnabled(enabled: Boolean) {
+        PasswordStore.setAutofillEnabled(appContext(), enabled)
+        passwordVersion++
+    }
+
+    fun isAutofillEnabled(): Boolean = PasswordStore.isAutofillEnabled(appContext())
+
+    fun setOfferToSave(enabled: Boolean) {
+        PasswordStore.setOfferToSave(appContext(), enabled)
+        passwordVersion++
+    }
+
+    fun isOfferToSave(): Boolean = PasswordStore.isOfferToSave(appContext())
+
+    fun generatePassword(length: Int = 16, symbols: Boolean = true): String =
+        PasswordStore.generatePassword(length, symbols)
+
+    fun onPasswordSearchChange(text: String) { passwordSearch = text }
+
+    fun copyPasswordToClipboard(text: String) {
+        val cm = getApplication<Application>().getSystemService(Context.CLIPBOARD_SERVICE)
+            as? ClipboardManager ?: return
+        cm.setPrimaryClip(ClipData.newPlainText("password", text))
+        showToast("Copied")
+    }
+
+    fun isAutofillServiceActive(): Boolean {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) return false
+        val am = appContext().getSystemService(android.view.autofill.AutofillManager::class.java)
+            ?: return false
+        if (!am.hasEnabledAutofillServices()) return false
+        val component = am.autofillServiceComponentName ?: return false
+        return component.packageName == appContext().packageName
+    }
+
+    fun openAutofillSettings() {
+        val intent = android.content.Intent(android.provider.Settings.ACTION_REQUEST_SET_AUTOFILL_SERVICE).apply {
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        runCatching { appContext().startActivity(intent) }
+    }
+
     fun answerButton(id: Long, confirm: Boolean) {
         val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.ButtonPrompt
         val response = prompt?.let {
@@ -3189,6 +3286,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             }
             Overlay.History -> {
                 closeHistory()
+                true
+            }
+            Overlay.Passwords -> {
+                closePasswords()
                 true
             }
             else -> {

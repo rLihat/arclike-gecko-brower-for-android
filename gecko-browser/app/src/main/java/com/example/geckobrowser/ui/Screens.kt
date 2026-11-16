@@ -431,7 +431,8 @@ fun SettingsScreen(
                         if ("Autofill and passwords" in privacy) SettingsRow(
                             "Autofill and passwords",
                             icon = { Glyph(Ico.person, c.text, size = 20.dp, strokeWidth = 1.8f) },
-                            onClick = { vm.showToast("Autofill is off") },
+                            value = "${vm.passwords().size} saved",
+                            onClick = { vm.openPasswords() },
                         )
                         if ("Clear browsing data" in privacy) SettingsRow(
                             "Clear browsing data",

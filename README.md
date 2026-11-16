@@ -53,6 +53,8 @@ Native Kotlin reimplementation of the mockup chrome with real GeckoView content:
   and steps through matches with a live `3/17` counter.
 - Page translation goes through Gecko's own engine: source language detected (or picked),
   any supported target, models downloaded on first use, and one tap back to the original.
+- Passwords live in an encrypted on-device vault (Android Keystore) with a generator and
+  autofill through the system autofill framework.
 - Search sheet shows the chosen engine's live suggestions plus history matches with
   inline completion; the browser accepts `VIEW`, `WEB_SEARCH` and `SEND` intents.
 - Local history keeps one row per URL, grouped by day in the History page with search,

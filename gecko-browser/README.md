@@ -10,18 +10,21 @@ native Kotlin + Jetpack Compose; only the page content is Gecko. The UI follows
 | --- | --- |
 | `MainActivity.kt` | Immersive edge-to-edge host, system back handling, `VIEW` / `WEB_SEARCH` / `SEND` intents, XPI and file pickers, Android runtime-permission launcher. |
 | `ArcApplication.kt` | One process-wide `GeckoRuntime` shared by every session. |
-| `BrowserViewModel.kt` | One `GeckoSession` per tab, delegates, tab history, prompts, permissions, downloads, extensions, suggestions, find in page, translation, scroll-driven chrome state, sheets, zoom, desktop site, persistence. |
+| `BrowserViewModel.kt` | One `GeckoSession` per tab, delegates, tab history, prompts, permissions, downloads, extensions, suggestions, find in page, translation, passwords, scroll-driven chrome state, sheets, zoom, desktop site, persistence. |
 | `TabManager.kt` | Session ownership: create, restore under the previous id, reopen closed tabs. |
 | `AppSettings.kt` | DataStore snapshot (dark mode, suggestions, search engine, per-host zoom/desktop, remembered permissions, tracking level, cookie-banner toggle, tracking exemptions) read before the first session. |
 | `BrowserFiles.kt` | Private JSON payloads: tab list, per-tab `SessionState` blobs, download list. |
 | `HistoryStore.kt` | Local history: one SQLite `visit` row per URL (`id`, `url`, `title`, `lastVisit`, `visitCount`), an in-memory mirror for instant reads, queued writes, 90-day/5000-row pruning. |
 | `Downloads.kt` | Download records, `DownloadCenter`, and the foreground `DownloadService` (pause/resume/retry, MediaStore publishing). |
 | `Prompts.kt` | Prompt, permission, file-picker, popup-notice, selection, extension and translate-language state types. |
+| `PasswordStore.kt` | Encrypted on-device login vault (Android Keystore AES-256/GCM) with CRUD, never-save and autofill toggles. |
+| `HorizenAutofillService.kt` | Android `AutofillService` bridging the vault to GeckoView's login forms. |
 | `ErrorPages.kt` | Themed local HTML for network and certificate failures, with retry/back. |
 | `ui/Theme.kt` | Light/dark design tokens transcribed from the mockup. |
-| `ui/Root.kt` | Persistent `GeckoView` host, home overlay, morphing sheet, nav pill, prompt hosts, blocked-popup pill, find bar, selection bar, translate page, loading glow, download chip with swipe-to-cancel, extension popup sheet, back/forward notice, toasts. |
+| `ui/Root.kt` | Persistent `GeckoView` host, home overlay, morphing sheet, nav pill, prompt hosts, blocked-popup pill, find bar, selection bar, translate and passwords pages, loading glow, download chip with swipe-to-cancel, extension popup sheet, back/forward notice, toasts. |
 | `ui/Sheets.kt` | DuckDuckGo search sheet with live suggestions, and the menu (address bar with tap-to-edit URL, actions including find and translate, zoom, desktop site, site settings, extensions). |
 | `ui/Screens.kt` | Home, Firefox-style settings, site settings (dark mode, tri-state permissions, per-site tracking protection and blocked count), downloads manager, extensions, Mozilla account. |
+| `ui/Passwords.kt` | Password vault: saved logins, search, add/edit, delete, generator, autofill status. |
 | `ui/Tabs.kt` | Horizontal recents carousel with captured page thumbnails and a new-tab card. |
 | `ui/Components.kt` | Stroke icons, switches, settings rows, favicon tiles, glow. |
 | `ui/Splash.kt` | horiZen mark drawn on a Compose canvas, the animated splash, and `BrowserRoot` (splash clock + hand-over into the browser). |
@@ -144,6 +147,25 @@ engine. Nothing is sent to a cloud service; the language models run on the devic
 - The runtime's automatic translate offer is not surfaced: translation starts from the menu,
   not from a popup on every foreign page. Firefox's per-site "never translate" list is
   likewise not exposed yet.
+
+## Passwords
+
+**Autofill & passwords** in Settings opens a vault page. Logins are stored on the device,
+encrypted with an AES-256 key that lives in the Android Keystore; nothing is synced and
+nothing leaves the phone.
+
+- The vault lists saved logins grouped by host, with search, reveal, copy and delete.
+  Adding or editing a login is a dialog with a built-in password generator (length and
+  symbols).
+- **Autofill logins** and **Offer to save logins** are toggles. When horiZen is selected as
+  the device's autofill service (Android 8+), saved logins appear in the system autofill
+  bar over a page's login form, and a submitted login can be offered for saving. The
+  settings page shows whether horiZen is the active autofill service and links to the
+  system autofill settings.
+- Hosts on the never-save list are skipped. Matching is exact or subdomain.
+- Storage is a single encrypted file (`logins.enc`) in the app's private files dir, written
+  atomically; a corrupt or unreadable file degrades to an empty vault rather than
+  crashing.
 
 ## Build
 
@@ -325,7 +347,10 @@ never leaves the page waiting:
   clones are replaced by real web content.
 - Tab previews are real captures via `GeckoView.capturePixels()` taken when the carousel
   opens or the active tab changes; a page that is still painting can show a placeholder.
-- There is no autofill UI yet; history is native (see **History** above).
+- Passwords live in an on-device encrypted vault; in-page filling goes through the Android
+  autofill framework, so horiZen must be selected as the device's autofill service. GeckoView
+  138 exposes no direct login-capture callback beyond the autofill session, so saving happens
+  either through the system save prompt or by adding a login manually.
 - Zoom combines a visual scale of the web surface with Gecko's runtime font-size factor, so
   text grows with the page. GeckoView 138 exposes no page-zoom API, so the layout itself is
   not re-zoomed the way Firefox's pinch zoom would.
