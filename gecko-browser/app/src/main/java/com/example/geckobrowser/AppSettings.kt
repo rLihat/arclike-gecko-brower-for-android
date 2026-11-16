@@ -90,7 +90,7 @@ class AppSettings(context: Context) {
             cookieBanner = p[KEY_COOKIE_BANNER] ?: false,
             trackingExceptions = trackingExceptions,
             accent = p[KEY_ACCENT] ?: "firefox_purple",
-            appearance = p[KEY_APPEARANCE] ?: if (dark) "dark" else "system",
+            appearance = p[KEY_APPEARANCE] ?: if (p[KEY_DARK] == true) "dark" else "system",
             openLinksInApps = p[KEY_OPEN_LINKS] ?: true,
         )
     }

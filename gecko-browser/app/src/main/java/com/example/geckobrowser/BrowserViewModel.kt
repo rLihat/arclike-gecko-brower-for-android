@@ -244,7 +244,6 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     var openLinksInApps by mutableStateOf(true)
         private set
-        private set
 
     var suggestionsEnabled by mutableStateOf(true)
         private set
@@ -2598,7 +2597,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private val extensionActionDelegate = object : WebExtension.ActionDelegate {
         override fun onBrowserAction(
             extension: WebExtension,
-            session: GeckoSession,
+            session: GeckoSession?,
             action: WebExtension.Action,
         ) {
             extensionActions[extension.id] = action
@@ -2606,7 +2605,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
         override fun onPageAction(
             extension: WebExtension,
-            session: GeckoSession,
+            session: GeckoSession?,
             action: WebExtension.Action,
         ) {
             extensionActions[extension.id] = action
