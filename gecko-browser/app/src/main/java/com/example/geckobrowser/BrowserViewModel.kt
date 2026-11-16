@@ -2607,6 +2607,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                             description = meta?.description.orEmpty(),
                             enabled = meta?.enabled ?: true,
                             permissions = meta?.requiredPermissions?.toList().orEmpty(),
+                            origins = meta?.requiredOrigins?.toList().orEmpty(),
+                            optionalPermissions = meta?.optionalPermissions?.toList().orEmpty(),
+                            optionalOrigins = meta?.optionalOrigins?.toList().orEmpty(),
+                            grantedOptionalPermissions = meta?.grantedOptionalPermissions?.toList().orEmpty(),
+                            grantedOptionalOrigins = meta?.grantedOptionalOrigins?.toList().orEmpty(),
+                            updateDate = meta?.updateDate.orEmpty(),
+                            amoListingUrl = meta?.amoListingUrl.orEmpty(),
+                            homepageUrl = meta?.homepageUrl.orEmpty(),
                         )
                     }
                     extensions = mapped
@@ -2691,6 +2699,34 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             },
             { showToast("Couldn't remove the add-on") },
         )
+    }
+
+    fun updateExtension(item: ExtensionItem) {
+        val extension = extensionObjects[item.id] ?: return
+        runtime.webExtensionController.update(extension).accept(
+            { updated ->
+                if (updated != null) extensionObjects[item.id] = updated
+                refreshExtensions()
+                showToast("Add-on updated")
+            },
+            { showToast("Couldn't update the add-on") },
+        )
+    }
+
+    fun updateAllExtensions() {
+        val items = extensions.toList()
+        if (items.isEmpty()) return
+        showToast("Checking for updates…")
+        items.forEach { updateExtension(it) }
+    }
+
+    fun openAmoListing(item: ExtensionItem) {
+        val url = item.amoListingUrl.ifBlank { item.homepageUrl }
+        if (url.isBlank()) {
+            showToast("No listing page available")
+            return
+        }
+        submit(url)
     }
 
     fun openExtensions() {

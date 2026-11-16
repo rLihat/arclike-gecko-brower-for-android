@@ -167,6 +167,14 @@ nothing leaves the phone.
   atomically; a corrupt or unreadable file degrades to an empty vault rather than
   crashing.
 
+## Extensions
+
+The extensions sheet lists installed add-ons with enable/disable, **Update**, **Permissions**
+(required + optional permissions and site access, with granted state), **Listing** (opens the
+AMO page when the add-on carries one) and **Remove** (with confirmation). **Check for
+updates** runs `WebExtensionController.update()` on every installed add-on. Only signed
+XPIs install; unsigned files are rejected by GeckoView.
+
 ## Default browser
 
 The **Default browser** row in Settings shows whether horiZen is the device's default

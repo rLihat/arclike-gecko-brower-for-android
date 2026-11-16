@@ -70,6 +70,14 @@ data class ExtensionItem(
     val description: String,
     val enabled: Boolean,
     val permissions: List<String>,
+    val origins: List<String> = emptyList(),
+    val optionalPermissions: List<String> = emptyList(),
+    val optionalOrigins: List<String> = emptyList(),
+    val grantedOptionalPermissions: List<String> = emptyList(),
+    val grantedOptionalOrigins: List<String> = emptyList(),
+    val updateDate: String = "",
+    val amoListingUrl: String = "",
+    val homepageUrl: String = "",
 )
 
 /**
