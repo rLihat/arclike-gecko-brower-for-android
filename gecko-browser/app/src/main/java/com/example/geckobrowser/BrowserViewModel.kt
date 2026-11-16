@@ -905,6 +905,17 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
             override fun onExternalResponse(session: GeckoSession, response: WebResponse) {
                 val body = response.body
+                // Firefox hosts add-ons as .xpi downloads; intercept them and hand
+                // straight to the add-on manager instead of the download manager.
+                val headersEarly = response.headers
+                val nameEarly = fileNameFor(headersEarly, response.uri)
+                val mimeEarly = mimeFor(headersEarly, nameEarly)
+                if (mimeEarly.equals("application/x-xpinstall", ignoreCase = true)
+                    || response.uri.substringBefore('?').endsWith(".xpi", ignoreCase = true)
+                ) {
+                    installExtensionFromUrl(response.uri)
+                    return
+                }
                 if (body == null) {
                     showToast("Couldn't start this download")
                     return
