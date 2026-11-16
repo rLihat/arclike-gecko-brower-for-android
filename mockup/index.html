@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>horiZen Ã¢â‚¬â€ GeckoView browser mockup</title>
+  <title>horiZen — GeckoView browser mockup</title>
   <style>
     :root {
       --bg1: #dfe7ea;
@@ -603,7 +603,7 @@
       transform: translate(-50%, 22px) scale(.92);
     }
     /* One-shot coach mark when immersive mode turns on. It takes over the nav
-       pill's exact footprint Ã¢â‚¬â€ same width, height, radius and bottom offset Ã¢â‚¬â€
+       pill's exact footprint — same width, height, radius and bottom offset —
        so the chrome reads as morphing into the notice, then fades away. */
     .imm-banner {
       position: absolute; left: 50%; bottom: 18px; z-index: 35;
@@ -1275,14 +1275,14 @@
             </div>
             <div class="section-title">Pinned</div>
             <div class="grid">
-              <div class="pin" onclick="visit('youtube.com','YouTube','Ã¢â€“Â¶','#ff0033')"><div class="icon" style="color:#fff;background:#ff0033">Ã¢â€“Â¶</div><span>YouTube</span></div>
+              <div class="pin" onclick="visit('youtube.com','YouTube','▶','#ff0033')"><div class="icon" style="color:#fff;background:#ff0033">▶</div><span>YouTube</span></div>
               <div class="pin" onclick="visit('github.com','GitHub','G','#24292f')"><div class="icon" style="color:#fff;background:#24292f">G</div><span>GitHub</span></div>
               <div class="pin" onclick="visit('mail.google.com','Gmail','M','#d93b30')"><div class="icon" style="color:#fff;background:#d93b30">M</div><span>Gmail</span></div>
               <div class="pin" onclick="visit('calendar.example','Calendar','C','#f6a04d')"><div class="icon">C</div><span>Calendar</span></div>
               <div class="pin" onclick="visit('news.example','News','N','#7bc96f')"><div class="icon">N</div><span>News</span></div>
-              <div class="pin" onclick="visit('music.example','Music','Ã¢â„¢Âª','#e66a8b')"><div class="icon">Ã¢â„¢Âª</div><span>Music</span></div>
+              <div class="pin" onclick="visit('music.example','Music','♪','#e66a8b')"><div class="icon">♪</div><span>Music</span></div>
               <div class="pin" onclick="visit('files.example','Files','F','#4f93a8')"><div class="icon" style="color:#fff;background:#2f5c69">F</div><span>Files</span></div>
-              <div class="pin" onclick="openDownloads('page')"><div class="icon">Ã¢â€ â€œ</div><span>Downloads</span></div>
+              <div class="pin" onclick="openDownloads('page')"><div class="icon">↓</div><span>Downloads</span></div>
             </div>
             <div class="section-title">Recent</div>
             <div class="card glass" onclick="visit('files.example','Files','F','#4f93a8')"><b>Files</b><small style="display:block;text-align:center">files.example</small></div>
@@ -1322,7 +1322,7 @@
               <div class="pfp pfp-small">M</div>
             </button>
             <button class="nav-btn" id="nav-settings" onclick="openSettings()" title="Settings" aria-label="Settings">
-              <div class="pill-ico">Ã¢Å¡â„¢</div>
+              <div class="pill-ico">⚙</div>
             </button>
             <button class="nav-btn nav-menu-btn" onclick="toggleMenu()" title="Menu" aria-label="Menu">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg>
@@ -1341,7 +1341,7 @@
         <div class="dl-cancel" id="dl-cancel" aria-hidden="true">
           <span class="dlc-trash">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7"/><path d="M6.5 7l.9 11.6a1 1 0 0 0 1 .9h7.2a1 1 0 0 0 1-.9L17.5 7"/><path d="M10 11v4.5"/><path d="M14 11v4.5"/></svg>
-            <span class="dlc-x" aria-hidden="true">Ãƒâ€”</span>
+            <span class="dlc-x" aria-hidden="true">×</span>
           </span>
           <svg class="dlc-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V6"/><path d="M7 11l5-5 5 5"/></svg>
         </div>
@@ -1369,7 +1369,7 @@
             <span class="dl-ftile t-zip" id="dlp-tile">ZIP</span>
             <div class="dlp-meta">
               <b id="dlp-name">file.zip</b>
-              <span id="dlp-meta">4.2 MB Ã‚Â· files.example</span>
+              <span id="dlp-meta">4.2 MB · files.example</span>
             </div>
             <button class="dlp-x" type="button" onclick="cancelDownloadPrompt()" title="Cancel download" aria-label="Cancel download">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
@@ -1401,7 +1401,7 @@
               <div class="engine-menu" id="engine-menu" role="menu" aria-label="Search engines">
                 <div id="engine-list"></div>
                 <div class="engine-add">
-                  <button class="engine-add-btn" type="button" onclick="toggleEngineForm(event)">Ã¯Â¼â€¹ Add search engine</button>
+                  <button class="engine-add-btn" type="button" onclick="toggleEngineForm(event)">＋ Add search engine</button>
                   <div class="engine-form" id="engine-form">
                     <input id="engine-name" class="eng-field" type="text" placeholder="Name" autocomplete="off" spellcheck="false">
                     <input id="engine-url" class="eng-field" type="text" placeholder="https://example.com/search?q=%s" autocomplete="off" spellcheck="false">
@@ -1516,7 +1516,7 @@
                 <button class="settings-back" onclick="closeSettings()" title="Back" aria-label="Back">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>
                 </button>
-                <span class="settings-gear" id="settings-gear" aria-hidden="true">Ã¢Å¡â„¢</span>
+                <span class="settings-gear" id="settings-gear" aria-hidden="true">⚙</span>
                 <div class="settings-title">Settings</div>
               </div>
           <div class="settings-scroll">
@@ -1647,7 +1647,7 @@
               </div>
             </div>
 
-            <div class="settings-footer">Firefox for Android Ã‚Â· GeckoView 133.0</div>
+            <div class="settings-footer">Firefox for Android · GeckoView 133.0</div>
           </div>
             <div class="settings-search">
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.4-4.4"/></svg>
@@ -1754,7 +1754,7 @@
                     <div class="pfp">M</div>
                     <div class="acct-id">
                       <b id="acct-email">tahil@example.com</b>
-                      <span id="acct-sub">Sync on Ã‚Â· Firefox for Android</span>
+                      <span id="acct-sub">Sync on · Firefox for Android</span>
                     </div>
                   </div>
                   <button class="acct-cta" id="acct-cta" onclick="accountAction()"><span id="acct-cta-label">Sync now</span></button>
@@ -1806,7 +1806,7 @@
                   <div class="settings-row" onclick="settingTap('Device name')">
                     <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="3" width="11" height="18" rx="2.5"/><path d="M10.5 18.5h3"/></svg></span>
                     <span class="label">Device name</span>
-                    <span class="value">Pixel 8 Ã‚Â· Arc</span>
+                    <span class="value">Pixel 8 · Arc</span>
                     <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
                   </div>
                 </div>
@@ -1824,24 +1824,24 @@
                   </div>
                 </div>
 
-                <div class="acct-foot">Mozilla account Ã‚Â· end-to-end encrypted sync</div>
+                <div class="acct-foot">Mozilla account · end-to-end encrypted sync</div>
               </div>
             </div><!-- /account-view -->
           </div><!-- /sheet -->
         </div><!-- /menu-overlay -->
       </div><!-- /phone -->
 
-      <div class="hint">Tabs (favicon) Ã¢â€ â€™ iOS-like tab previews Ã‚Â· + Ã¢â€ â€™ search input Ã‚Â· Ã¢Å’Æ’ Ã¢â€ â€™ menu Ã‚Â· Ã¢Å¡â„¢ Ã¢â€ â€™ settings. Edge-to-edge, no status/address bar.</div>
+      <div class="hint">Tabs (favicon) → iOS-like tab previews · + → search input · ⌃ → menu · ⚙ → settings. Edge-to-edge, no status/address bar.</div>
     </div><!-- /phone-wrap -->
 
     <div class="panel">
       <h2>Mockup notes</h2>
       <p>Arc-inspired GeckoView concept. Click around, then tell me what to change.</p>
-      <div class="note"><b>Tabs:</b> favicon in navbar; tap for horizontal recents-style previews. <b>Search (+):</b> expands input only; queries open a DuckDuckGo results page. <b>Menu (Ã¢Å’Æ’):</b> URL with copy, back/forward/refresh, share, extensions, settings + Mozilla pfp.</div>
-      <div class="note"><b>Sites:</b> YouTube, GitHub, Gmail and Add-ons clones are long enough to scroll Ã¢â‚¬â€ page content runs edge-to-edge behind the pill, which glows while loading, condenses to a bare domain chip as you scroll down, and hands the icons back the moment you scroll up. A 3px scroll indicator fades in on the page edge.</div>
+      <div class="note"><b>Tabs:</b> favicon in navbar; tap for horizontal recents-style previews. <b>Search (+):</b> expands input only; queries open a DuckDuckGo results page. <b>Menu (⌃):</b> URL with copy, back/forward/refresh, share, extensions, settings + Mozilla pfp.</div>
+      <div class="note"><b>Sites:</b> YouTube, GitHub, Gmail and Add-ons clones are long enough to scroll — page content runs edge-to-edge behind the pill, which glows while loading, condenses to a bare domain chip as you scroll down, and hands the icons back the moment you scroll up. A 3px scroll indicator fades in on the page edge.</div>
       <div class="note"><b>Immersive &amp; tabs:</b> pinch in on a page to hide the pill; pinch in again to bring it back (home and zoomed pages are ignored, trackpad pinch-in works too). In the carousel, swipe a card up to dismiss it (the row closes the gap) or down to focus it; horizontal drags still scroll. Page changes slide with the direction of travel, and the Debug switch for reduced motion collapses all of it.</div>
-      <div class="note"><b>Popups:</b> the download question and small messages like Ã¢â‚¬Å“CanceledÃ¢â‚¬Â or Ã¢â‚¬Å“OpeningÃ¢â‚¬Â use the pillÃ¢â‚¬â„¢s own footprint, and the pill steps aside while they show. Finished downloads donÃ¢â‚¬â„¢t pop anything Ã¢â‚¬â€ the live chip already says it.</div>
-      <div class="note"><b>Gestures:</b> swipe Ã¢â€ â€˜ from the plus or menu arrow for the menu Ã‚Â· Ã¢â€ â€œ from the plus, search Ãƒâ€”, menu arrow or a sheet handle dismisses whatÃ¢â‚¬â„¢s open Ã‚Â· Ã¢â€ Â/Ã¢â€ â€™ from the plus slides between tabs Ã‚Â· Ã¢â€ â€˜ from the tab icon opens previews (Ã¢â€ â€œ closes them) Ã‚Â· Ã¢â€ Â/Ã¢â€ â€™ from the tab icon goes back/forward Ã‚Â· Ã¢â€ Â from the menu arrow goes back Ã‚Â· Ã¢â€ â€˜ from the live download chip cancels it and clears the row. Back and forward flash the same pill-sized notice as immersive mode.</div>
+      <div class="note"><b>Popups:</b> the download question and small messages like “Canceled” or “Opening” use the pill’s own footprint, and the pill steps aside while they show. Finished downloads don’t pop anything — the live chip already says it.</div>
+      <div class="note"><b>Gestures:</b> swipe ↑ from the plus or menu arrow for the menu · ↓ from the plus, search ×, menu arrow or a sheet handle dismisses what’s open · ←/→ from the plus slides between tabs · ↑ from the tab icon opens previews (↓ closes them) · ←/→ from the tab icon goes back/forward · ← from the menu arrow goes back · ↑ from the live download chip cancels it and clears the row. Back and forward flash the same pill-sized notice as immersive mode.</div>
       <div class="section-title">Debug</div>
       <div class="debug-row">
         <span>Dark mode</span>
@@ -1862,19 +1862,19 @@
       <div class="gesture-card">
         <span>Gestures<small>Simulate each nav swipe</small></span>
         <div class="gesture-grid">
-          <button class="gesture-btn" type="button" onclick="debugGesture('plus-up')" title="Swipe up from the plus"><span class="g-arrow">Ã¢â€ â€˜</span><span class="g-target">+ menu</span></button>
-          <button class="gesture-btn" type="button" onclick="debugGesture('plus-down')" title="Swipe down from the plus"><span class="g-arrow">Ã¢â€ â€œ</span><span class="g-target">+ dismiss</span></button>
-          <button class="gesture-btn" type="button" onclick="debugGesture('plus-left')" title="Swipe left from the plus"><span class="g-arrow">Ã¢â€ Â</span><span class="g-target">+ next tab</span></button>
-          <button class="gesture-btn" type="button" onclick="debugGesture('plus-right')" title="Swipe right from the plus"><span class="g-arrow">Ã¢â€ â€™</span><span class="g-target">+ prev tab</span></button>
-          <button class="gesture-btn" type="button" onclick="debugGesture('tabs-up')" title="Swipe up from the tab icon"><span class="g-arrow">Ã¢â€ â€˜</span><span class="g-target">tab previews</span></button>
-          <button class="gesture-btn" type="button" onclick="debugGesture('tabs-down')" title="Swipe down from the tab icon"><span class="g-arrow">Ã¢â€ â€œ</span><span class="g-target">tabs dismiss</span></button>
-          <button class="gesture-btn" type="button" onclick="debugGesture('tabs-left')" title="Swipe the tab icon left"><span class="g-arrow">Ã¢â€ Â</span><span class="g-target">tab back</span></button>
-          <button class="gesture-btn" type="button" onclick="debugGesture('tabs-right')" title="Swipe the tab icon right"><span class="g-arrow">Ã¢â€ â€™</span><span class="g-target">tab forward</span></button>
-          <button class="gesture-btn" type="button" onclick="debugGesture('card-up')" title="Swipe a tab card up"><span class="g-arrow">Ã¢â€ â€˜</span><span class="g-target">card dismiss</span></button>
-          <button class="gesture-btn" type="button" onclick="debugGesture('card-down')" title="Swipe a tab card down"><span class="g-arrow">Ã¢â€ â€œ</span><span class="g-target">card focus</span></button>
-          <button class="gesture-btn" type="button" onclick="debugGesture('arrow-left')" title="Swipe the menu arrow left"><span class="g-arrow">Ã¢â€ Â</span><span class="g-target">arrow back</span></button>
-          <button class="gesture-btn" type="button" onclick="debugGesture('arrow-right')" title="Swipe the menu arrow right"><span class="g-arrow">Ã¢â€ â€™</span><span class="g-target">arrow forward</span></button>
-          <button class="gesture-btn" type="button" onclick="debugGesture('dl-up')" title="Swipe up from the live download"><span class="g-arrow">Ã¢â€ â€˜</span><span class="g-target">chip cancel</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('plus-up')" title="Swipe up from the plus"><span class="g-arrow">↑</span><span class="g-target">+ menu</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('plus-down')" title="Swipe down from the plus"><span class="g-arrow">↓</span><span class="g-target">+ dismiss</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('plus-left')" title="Swipe left from the plus"><span class="g-arrow">←</span><span class="g-target">+ next tab</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('plus-right')" title="Swipe right from the plus"><span class="g-arrow">→</span><span class="g-target">+ prev tab</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('tabs-up')" title="Swipe up from the tab icon"><span class="g-arrow">↑</span><span class="g-target">tab previews</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('tabs-down')" title="Swipe down from the tab icon"><span class="g-arrow">↓</span><span class="g-target">tabs dismiss</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('tabs-left')" title="Swipe the tab icon left"><span class="g-arrow">←</span><span class="g-target">tab back</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('tabs-right')" title="Swipe the tab icon right"><span class="g-arrow">→</span><span class="g-target">tab forward</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('card-up')" title="Swipe a tab card up"><span class="g-arrow">↑</span><span class="g-target">card dismiss</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('card-down')" title="Swipe a tab card down"><span class="g-arrow">↓</span><span class="g-target">card focus</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('arrow-left')" title="Swipe the menu arrow left"><span class="g-arrow">←</span><span class="g-target">arrow back</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('arrow-right')" title="Swipe the menu arrow right"><span class="g-arrow">→</span><span class="g-target">arrow forward</span></button>
+          <button class="gesture-btn" type="button" onclick="debugGesture('dl-up')" title="Swipe up from the live download"><span class="g-arrow">↑</span><span class="g-target">chip cancel</span></button>
         </div>
       </div>
       <div class="section-title">Interaction log</div>
@@ -1885,7 +1885,7 @@
   <script>
     const tabs = [
       
-      { title: 'YouTube', url: 'youtube.com', favicon: 'Ã¢â€“Â¶', color: '#ff0033' },
+      { title: 'YouTube', url: 'youtube.com', favicon: '▶', color: '#ff0033' },
       { title: 'GitHub', url: 'github.com', favicon: 'G', color: '#24292f' },
       { title: 'Gmail', url: 'mail.google.com', favicon: 'M', color: '#d93b30' },
       { title: 'Example', url: 'example.com', favicon: 'E', color: '#7aa2b8' },
@@ -1977,7 +1977,7 @@
           ${engineIconHTML(e)}
           <span class="eng-row-name">${escapeHTML(e.name)}</span>
           ${e.custom ? '<span class="eng-tag">Custom</span>' : ''}
-          <span class="eng-check">${e.id === engineId ? 'Ã¢Å“â€œ' : ''}</span>
+          <span class="eng-check">${e.id === engineId ? '✓' : ''}</span>
         </button>`).join('');
     }
     function toggleEngineMenu(event) {
@@ -2127,35 +2127,35 @@
       const topic = (q || 'firefox android').replace(/[<>&]/g, '');
       const cap = topic.charAt(0).toUpperCase() + topic.slice(1);
       const results = [
-        { host: 'en.wikipedia.org', fav: 'W', c: '#4a4a4a', url: 'https://en.wikipedia.org Ã¢â‚¬Âº wiki Ã¢â‚¬Âº ' + topic.replace(/\s+/g, '_'),
+        { host: 'en.wikipedia.org', fav: 'W', c: '#4a4a4a', url: 'https://en.wikipedia.org › wiki › ' + topic.replace(/\s+/g, '_'),
           title: cap + ' - Wikipedia',
           snip: cap + ' is a topic covered in the free encyclopedia, with history, references and related articles.' },
-        { host: 'developer.mozilla.org', fav: 'M', c: '#000000', url: 'developer.mozilla.org Ã¢â‚¬Âº en-US Ã¢â‚¬Âº docs Ã¢â‚¬Âº ' + topic.replace(/\s+/g, '_'),
-          title: cap + ' Ã¢â‚¬â€ MDN Web Docs',
+        { host: 'developer.mozilla.org', fav: 'M', c: '#000000', url: 'developer.mozilla.org › en-US › docs › ' + topic.replace(/\s+/g, '_'),
+          title: cap + ' — MDN Web Docs',
           snip: 'Reference documentation, guides and runnable examples, including browser compatibility tables for ' + topic + '.' },
-        { host: 'github.com', fav: 'G', c: '#24292f', url: 'github.com Ã¢â‚¬Âº topics Ã¢â‚¬Âº ' + topic.replace(/\s+/g, '-'),
-          title: 'Build software better, together Ã‚Â· GitHub',
+        { host: 'github.com', fav: 'G', c: '#24292f', url: 'github.com › topics › ' + topic.replace(/\s+/g, '-'),
+          title: 'Build software better, together · GitHub',
           snip: 'Explore open-source projects, issues and pull requests related to ' + topic + '. Over 400 repositories.' },
-        { host: 'support.mozilla.org', fav: 'F', c: '#de5833', url: 'support.mozilla.org Ã¢â‚¬Âº en-US Ã¢â‚¬Âº ' + topic.replace(/\s+/g, '-'),
-          title: 'Firefox for Android help Ã¢â‚¬â€ ' + cap,
+        { host: 'support.mozilla.org', fav: 'F', c: '#de5833', url: 'support.mozilla.org › en-US › ' + topic.replace(/\s+/g, '-'),
+          title: 'Firefox for Android help — ' + cap,
           snip: 'Answers from Mozilla support: set up sync, manage tabs and install extensions on Android.' },
-        { host: 'news.ycombinator.com', fav: 'Y', c: '#ff6600', url: 'news.ycombinator.com Ã¢â‚¬Âº item',
-          title: 'Show HN: ' + cap + ' Ã¢â‚¬â€ a content-first browser shell',
-          snip: '412 points Ã‚Â· 138 comments. Discussion of edge-to-edge browsing and custom chrome on GeckoView.' },
-        { host: 'www.reddit.com', fav: 'R', c: '#ff4500', url: 'reddit.com Ã¢â‚¬Âº r Ã¢â‚¬Âº firefox Ã¢â‚¬Âº comments',
+        { host: 'news.ycombinator.com', fav: 'Y', c: '#ff6600', url: 'news.ycombinator.com › item',
+          title: 'Show HN: ' + cap + ' — a content-first browser shell',
+          snip: '412 points · 138 comments. Discussion of edge-to-edge browsing and custom chrome on GeckoView.' },
+        { host: 'www.reddit.com', fav: 'R', c: '#ff4500', url: 'reddit.com › r › firefox › comments',
           title: 'Anyone else using ' + topic + ' on Android? : r/firefox',
           snip: 'I switched last month and the pill navigation is the part I miss when I go back. Worth trying.' },
-        { host: 'www.youtube.com', fav: 'Ã¢â€“Â¶', c: '#ff0033', url: 'youtube.com Ã¢â‚¬Âº watch',
+        { host: 'www.youtube.com', fav: '▶', c: '#ff0033', url: 'youtube.com › watch',
           title: cap + ' explained in 8 minutes',
           snip: 'A short walkthrough covering the setup, the extension flow and the bits that usually break.' },
-        { host: 'addons.mozilla.org', fav: 'A', c: '#ff7a59', url: 'addons.mozilla.org Ã¢â‚¬Âº android',
-          title: 'Extensions for Firefox Android Ã¢â‚¬â€ ' + cap,
+        { host: 'addons.mozilla.org', fav: 'A', c: '#ff7a59', url: 'addons.mozilla.org › android',
+          title: 'Extensions for Firefox Android — ' + cap,
           snip: 'Signed, reviewed add-ons that install directly in the browser, no store round trip.' }
       ];
       return `<div class="ddg">
         <div class="ddg-top">
           <div class="ddg-logo" style="background:${engine.color || '#de5833'}">${engineLetter(engine)}</div>
-          <div class="ddg-field"><span class="q">${topic}</span><span class="x">Ãƒâ€”</span></div>
+          <div class="ddg-field"><span class="q">${topic}</span><span class="x">×</span></div>
         </div>
         <div class="ddg-tabs"><span class="on" style="border-color:${engine.color || '#de5833'}">All</span><span>Images</span><span>Videos</span><span>News</span><span>Maps</span></div>
         <div class="ddg-answer">
@@ -2203,17 +2203,17 @@
     }
     function youtubeHTML() {
       const vids = [
-        { t: 'GeckoView in 100 seconds', c: 'Fireship', m: '1.2M views Ã‚Â· 3 days ago', len: '2:14', g: 'linear-gradient(135deg,#ff5a5f,#ffb36b)', a: 'F', ac: '#ff5a5f' },
-        { t: 'Designing Arc-style navigation for Android', c: 'Build UI', m: '184K views Ã‚Â· 1 week ago', len: '18:42', g: 'linear-gradient(135deg,#3a4f63,#7aa2b8)', a: 'B', ac: '#3a4f63' },
-        { t: 'Custom View + GeckoView: the whole setup', c: 'Android Devs', m: '92K views Ã‚Â· 2 days ago', len: '24:07', g: 'linear-gradient(135deg,#2f5c69,#8fd0c6)', a: 'A', ac: '#2f5c69' },
+        { t: 'GeckoView in 100 seconds', c: 'Fireship', m: '1.2M views · 3 days ago', len: '2:14', g: 'linear-gradient(135deg,#ff5a5f,#ffb36b)', a: 'F', ac: '#ff5a5f' },
+        { t: 'Designing Arc-style navigation for Android', c: 'Build UI', m: '184K views · 1 week ago', len: '18:42', g: 'linear-gradient(135deg,#3a4f63,#7aa2b8)', a: 'B', ac: '#3a4f63' },
+        { t: 'Custom View + GeckoView: the whole setup', c: 'Android Devs', m: '92K views · 2 days ago', len: '24:07', g: 'linear-gradient(135deg,#2f5c69,#8fd0c6)', a: 'A', ac: '#2f5c69' },
         { t: 'LIVE: Signing an XPI for AMO', c: 'Mozilla Add-ons', m: '3.4K watching', len: '', g: 'linear-gradient(135deg,#7a2b3a,#de5833)', a: 'M', ac: '#de5833', live: true },
-        { t: 'Smooth sheet transitions with CSS clip paths', c: 'Motion Weekly', m: '47K views Ã‚Â· 5 days ago', len: '11:19', g: 'linear-gradient(135deg,#4b3f72,#a58cd8)', a: 'M', ac: '#6c5aa8' },
-        { t: 'Dark mode that does not flash', c: 'Pixel Perfect', m: '66K views Ã‚Â· 3 weeks ago', len: '8:53', g: 'linear-gradient(135deg,#1c2630,#4e6a7a)', a: 'P', ac: '#1c2630' }
+        { t: 'Smooth sheet transitions with CSS clip paths', c: 'Motion Weekly', m: '47K views · 5 days ago', len: '11:19', g: 'linear-gradient(135deg,#4b3f72,#a58cd8)', a: 'M', ac: '#6c5aa8' },
+        { t: 'Dark mode that does not flash', c: 'Pixel Perfect', m: '66K views · 3 weeks ago', len: '8:53', g: 'linear-gradient(135deg,#1c2630,#4e6a7a)', a: 'P', ac: '#1c2630' }
       ];
       return `<div class="yt">
         <div class="yt-top">
           <div class="yt-brand"><span class="yt-logo"></span>YouTube</div>
-          <div class="yt-tools"><span>Ã¢Å’â€¢</span><span>Ã¢Â§â€°</span><span class="yt-avatar">T</span></div>
+          <div class="yt-tools"><span>⌕</span><span>⧉</span><span class="yt-avatar">T</span></div>
         </div>
         <div class="yt-chips"><span class="on">All</span><span>Music</span><span>Gaming</span><span>News</span><span>Live</span><span>Podcasts</span></div>
         <div class="yt-grid">
@@ -2223,7 +2223,7 @@
             </div>
             <div class="yt-meta">
               <div class="yt-ava" style="background:${v.ac}">${v.a}</div>
-              <div><b>${v.t}</b><small>${v.c} Ã‚Â· ${v.m}</small></div>
+              <div><b>${v.t}</b><small>${v.c} · ${v.m}</small></div>
             </div>
           </div>`).join('')}
         </div>
@@ -2250,17 +2250,17 @@
       const fileIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>';
       return `<div class="gh">
         <div class="gh-top">
-          <span class="gh-burger">Ã¢ËœÂ°</span>
+          <span class="gh-burger">☰</span>
           <span class="gh-brand">GitHub</span>
           <span class="gh-avatar">T</span>
         </div>
         <div class="gh-head">
           <div class="gh-path"><span>tahil</span> / <b>arc-browser</b><span class="gh-vis">Public</span></div>
           <div class="gh-desc">Arc-inspired GeckoView browser with an AMO-compatible extension flow.</div>
-          <div class="gh-stats"><span><b>Ã¢Ëœâ€¦ 2.4k</b> stars</span><span><b>Ã¢â€˜â€š 182</b> forks</span><span><b>Ã¢â€”â€° 24</b> watching</span></div>
+          <div class="gh-stats"><span><b>★ 2.4k</b> stars</span><span><b>⑂ 182</b> forks</span><span><b>◉ 24</b> watching</span></div>
         </div>
         <div class="gh-tabs"><span class="on">Code</span><span>Issues <em>12</em></span><span>Pull requests <em>3</em></span></div>
-        <div class="gh-branch"><span>Ã¢Å’Â¥ main</span><span>7 branches Ã‚Â· 42 tags</span></div>
+        <div class="gh-branch"><span>⌥ main</span><span>7 branches · 42 tags</span></div>
         <div class="gh-files">
           ${files.map(([n, k, ago]) => `<div class="gh-file" onclick="log('GitHub: open ${n}')">
             <span class="gh-fico" style="${k === 'folder' ? 'color:#8fb3c2' : ''}">${k === 'folder' ? folderIco : fileIco}</span>
@@ -2282,7 +2282,7 @@
           <h3>Recent commits</h3>
           ${commits.map(([m, who, ago]) => `<div class="gh-commit">
             <span class="gh-dot"></span>
-            <div><span>${m}</span><small>${who} Ã‚Â· ${ago}</small></div>
+            <div><span>${m}</span><small>${who} · ${ago}</small></div>
           </div>`).join('')}
         </div>
       </div>`;
@@ -2299,7 +2299,7 @@
       ];
       const yesterday = [
         ['Vercel', 'Deployment ready for arc-browser', 'Production build finished in 42s. Preview available.', 'Tue', '#111111', 'V', false],
-        ['Apple', 'Your receipt from the App Store', 'Order MG7X2L9 Ã‚Â· Arc Browser Monthly Ã‚Â· $2.99.', 'Tue', '#555555', 'A', false],
+        ['Apple', 'Your receipt from the App Store', 'Order MG7X2L9 · Arc Browser Monthly · $2.99.', 'Tue', '#555555', 'A', false],
         ['Slack', 'You have 4 unread messages', 'Catch up in #browser-shell and #design-review.', 'Mon', '#4a154b', 'S', false],
         ['Dribbble', 'New shots from designers you follow', '12 new shots in your feed this week.', 'Mon', '#ea4c89', 'D', false]
       ];
@@ -2314,10 +2314,10 @@
       </div>`;
       return `<div class="gm">
         <div class="gm-top">
-          <span class="gm-burger">Ã¢ËœÂ°</span>
+          <span class="gm-burger">☰</span>
           <span class="gm-brand"><b>M</b> Gmail</span>
         </div>
-        <div class="gm-search">Ã¢Å’â€¢&nbsp; Search in mail</div>
+        <div class="gm-search">⌕&nbsp; Search in mail</div>
         <div class="gm-top" style="padding-top:10px">
           <span class="gm-avatar">T</span>
           <span style="font-size:11.5px;color:var(--muted)">tahil@example.com</span>
@@ -2327,7 +2327,7 @@
         ${today.map(row).join('')}
         <div class="gm-group">Yesterday</div>
         ${yesterday.map(row).join('')}
-        <div class="gm-fab" onclick="log('Gmail: compose')">Ã¢Å“Å½</div>
+        <div class="gm-fab" onclick="log('Gmail: compose')">✎</div>
       </div>`;
     }
     function amoHTML() {
@@ -2342,7 +2342,7 @@
         ['Stylus', 'Redesign the web with user styles', '#8e44ad', 'S']
       ];
       return `<div class="amo">
-        <div class="amo-top"><span>Ã°Å¸Â¦Å </span> addons.mozilla.org</div>
+        <div class="amo-top"><span>🦊</span> addons.mozilla.org</div>
         <div class="amo-hero"><b>Extensions for Firefox</b><span>Signed and reviewed by Mozilla. Install without leaving the browser.</span></div>
         ${addons.map(([n, d, c, l]) => `<div class="amo-row">
           <div class="amo-ico" style="background:${c}">${l}</div>
@@ -2365,8 +2365,8 @@
         <div class="files-label">Files</div>
         ${files.map(([n, s, k, cls]) => `<div class="files-row" data-link="https://files.example/${n}" data-download="${n}|${s}">
           <span class="dl-ftile ${cls}">${k}</span>
-          <div class="files-main"><b>${n}</b><small>${s} Ã‚Â· hosted on files.example</small></div>
-          <button class="files-dl" type="button" onclick="event.stopPropagation(); requestDownloadFromEvent(event,'${n}','${s}')" title="Download ${n}" aria-label="Download ${n}">Ã¢â€ â€œ</button>
+          <div class="files-main"><b>${n}</b><small>${s} · hosted on files.example</small></div>
+          <button class="files-dl" type="button" onclick="event.stopPropagation(); requestDownloadFromEvent(event,'${n}','${s}')" title="Download ${n}" aria-label="Download ${n}">↓</button>
         </div>`).join('')}
         <div class="files-label">Preview</div>
         <div class="files-shot" data-image="arc-wallpaper-dark.png" data-link="https://files.example/arc-wallpaper-dark.png">
@@ -2462,7 +2462,7 @@
       if (body) body.innerHTML = sitePageHTML(t);
     }
     function updateChrome() {
-      if (tabs.length === 0) { setScreen('home'); return; }
+      if (tabs.length === 0) { setScreen('home'); syncTabsButton(); return; }
       if (currentTab < 0 || currentTab >= tabs.length) currentTab = 0;
       const t = tabs[currentTab];
       const fav = document.getElementById('nav-favicon');
@@ -2474,6 +2474,7 @@
       syncDomainChip();
       const thumb = document.getElementById('sb-thumb');
       if (thumb) thumb.classList.remove('show');
+      syncTabsButton();
       syncDownloadChip();
     }
     function visit(url, title, favicon, color) {
@@ -2540,7 +2541,7 @@
         el.classList.remove('show');
         bar.classList.remove('gesture-hint');
       }, 1150);
-      log((dir === 'back' ? 'Back' : 'Forward') + (url ? ': ' + hostOf(url) : ' Ã‚Â· end of history'));
+      log((dir === 'back' ? 'Back' : 'Forward') + (url ? ': ' + hostOf(url) : ' · end of history'));
     }
     function goBackPage() {
       const target = pageIndex > 0 ? pageHistory[pageIndex - 1] : null;
@@ -2639,6 +2640,7 @@
       layoutTabThumbs();
       setTimeout(shrinkPageIntoPreview, 30);
       syncDownloadChip();
+      syncTabsButton();
       log('Opened tab switcher (swipe horizontally)');
     }
     /* FLIP between the live page and the miniature in its tab card. A moving
@@ -2790,6 +2792,24 @@
       }, 0);
       layoutTabThumbs();
     }
+    function syncTabsButton() {
+      const btn = document.getElementById('nav-tabs');
+      if (!btn) return;
+      const tabsOrEmpty = isTabsOrEmpty();
+      if (tabsOrEmpty) {
+        btn.title = 'History';
+        btn.setAttribute('aria-label', 'History');
+        btn.onclick = openHistory;
+        btn.innerHTML = '<svg class="stroke" viewBox="0 0 24 24" aria-hidden="true" style="width:20px;height:20px;stroke:var(--text);stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+      } else {
+        btn.title = 'Tabs';
+        btn.setAttribute('aria-label', 'Tabs');
+        btn.onclick = toggleTabs;
+        const fav = document.getElementById('nav-favicon');
+        const f = (currentTab >= 0 && tabs[currentTab]) ? (tabs[currentTab].favicon || '') : '';
+        btn.innerHTML = '<div class="tabs-icon-wrap"><div class="fav-in-nav" id="nav-favicon">' + f + '</div></div>';
+      }
+    }
     function openTab(i) {
       const card = document.querySelector(`#tab-stack .tab-preview[data-index="${i}"]`);
       const pageBox = card && card.querySelector('.tp-page');
@@ -2844,11 +2864,19 @@
       setTimeout(() => { activeScreen.style.visibility = ''; }, 430);
     }
     function newTab() {
-      // No home tab: a tab is only created when a search is submitted.
       closeOverlays();
       expandNavPill();
       openSearch();
       log('New tab');
+    }
+    function openHistory() {
+      closeOverlays();
+      expandNavPill();
+      openSearch();
+      log('History');
+    }
+    function isTabsOrEmpty() {
+      return tabs.length === 0 || document.getElementById('tab-overlay').classList.contains('open');
     }
     const SUG_ICONS = {
       search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#DE5833"/><path fill="#fff" d="M12.6 5.4a4.9 4.9 0 0 0-4.1 7.6l-.9 3.4c-.1.5.4.9.9.7l2.9-1.2a4.9 4.9 0 1 0 1.2-10.5z"/><circle cx="14.6" cy="9.7" r="1" fill="#1F3B43"/><path fill="#F5A623" d="M16.8 11.4l2.9 1.2-3 1.1z"/></svg>',
@@ -2931,7 +2959,7 @@
       let url = v.includes('://') ? v : 'https://' + v;
       const host = hostOf(url);
       const known = {
-        'youtube.com': ['YouTube', 'Ã¢â€“Â¶', '#ff0033'],
+        'youtube.com': ['YouTube', '▶', '#ff0033'],
         'github.com': ['GitHub', 'G', '#24292f'],
         'mail.google.com': ['Gmail', 'M', '#d93b30'],
         'addons.mozilla.org': ['Add-ons', 'A', '#ff7a59'],
@@ -2946,7 +2974,7 @@
     }
     function positionSearchPill() {
       // Morph the shrunken pill up into the search field, just inside its right edge,
-      // so the Ãƒâ€” sits on the field's own background instead of floating below it.
+      // so the × sits on the field's own background instead of floating below it.
       const bar = document.getElementById('bottom-bar');
       const phone = document.getElementById('phone').getBoundingClientRect();
       const input = document.getElementById('search-input').getBoundingClientRect();
@@ -2992,7 +3020,7 @@
         if (input.value) input.select();
       }, 50);
       syncDownloadChip();
-      log(prefill ? 'Address editing: ' + prefill : 'Search opened (+ Ã¢â€ â€™ Ãƒâ€”)');
+      log(prefill ? 'Address editing: ' + prefill : 'Search opened (+ → ×)');
     }
     /* Tapping the URL in the menu hands it to the address bar, fully selected. */
     function editAddressBar() {
@@ -3024,7 +3052,7 @@
       document.getElementById('bottom-bar').classList.remove('search-open');
       if (wasOpen) markSheetClosing();
       syncDownloadChip();
-      log('Search closed (Ãƒâ€” Ã¢â€ â€™ +)');
+      log('Search closed (× → +)');
     }
     function toggleSearch() {
       const isOpen = document.getElementById('search-overlay').classList.contains('open');
@@ -3105,7 +3133,7 @@
       if (!email) return;
       document.getElementById('acct-email').textContent = acctSignedIn ? 'tahil@example.com' : 'Not signed in';
       document.getElementById('acct-sub').textContent = acctSignedIn
-        ? 'Sync on Ã‚Â· Firefox for Android'
+        ? 'Sync on · Firefox for Android'
         : 'Sign in to sync tabs, logins & bookmarks';
       document.getElementById('acct-cta-label').textContent = acctSignedIn ? 'Sync now' : 'Sign in';
       document.getElementById('acct-sync-state').textContent = acctSignedIn
@@ -3142,14 +3170,14 @@
       if (!acctSignedIn) {
         acctSignedIn = true;
         renderAccount();
-        document.getElementById('acct-sync-state').textContent = 'Signed in Ã‚Â· sync resumed';
+        document.getElementById('acct-sync-state').textContent = 'Signed in · sync resumed';
         log('Signed in to Mozilla account');
         return;
       }
       if (acctBusy) return;
       acctBusy = true;
-      document.getElementById('acct-cta-label').textContent = 'SyncingÃ¢â‚¬Â¦';
-      document.getElementById('acct-sync-state').textContent = 'SyncingÃ¢â‚¬Â¦';
+      document.getElementById('acct-cta-label').textContent = 'Syncing…';
+      document.getElementById('acct-sync-state').textContent = 'Syncing…';
       setTimeout(() => {
         acctBusy = false;
         document.getElementById('acct-cta-label').textContent = 'Sync now';
@@ -3366,7 +3394,7 @@
         origin: dlOriginFrom(src)
       };
       document.getElementById('dlp-name').textContent = dlPending.name;
-      document.getElementById('dlp-meta').textContent = formatBytes(dlPending.size) + ' Ã‚Â· ' + dlPending.host;
+      document.getElementById('dlp-meta').textContent = formatBytes(dlPending.size) + ' · ' + dlPending.host;
       const tile = document.getElementById('dlp-tile');
       tile.textContent = dlKind(dlPending.name);
       tile.className = 'dl-ftile ' + dlKindClass(dlPending.name);
@@ -3624,8 +3652,8 @@
       const canceled = d.status === 'canceled';
       const pct = Math.max(1, Math.min(99, Math.round(d.done / Math.max(1, d.size) * 100)));
       const meta = active
-        ? formatBytes(d.size) + ' Ã‚Â· ' + escapeHTML(d.host)
-        : (canceled ? 'Canceled Ã‚Â· ' : 'Downloaded Ã‚Â· ') + formatBytes(d.size) + ' Ã‚Â· ' + dlTime(d.ended);
+        ? formatBytes(d.size) + ' · ' + escapeHTML(d.host)
+        : (canceled ? 'Canceled · ' : 'Downloaded · ') + formatBytes(d.size) + ' · ' + dlTime(d.ended);
       const action = active
         ? '<button class="dl-act" data-dl-act="cancel" data-id="' + d.id + '" title="Cancel" aria-label="Cancel download">' + DL_ICON.cancel + '</button>'
         : canceled
@@ -3669,9 +3697,9 @@
       const canceled = downloads.length - done.length - active.length;
       const totalDone = done.reduce((acc, d) => acc + d.size, 0);
       summary.textContent = active.length
-        ? active.length + ' downloading Ã‚Â· ' + dlActiveProgress() + '% overall'
+        ? active.length + ' downloading · ' + dlActiveProgress() + '% overall'
         : done.length
-          ? done.length + ' file' + (done.length === 1 ? '' : 's') + ' Ã‚Â· ' + formatBytes(totalDone) + (canceled ? ' Ã‚Â· ' + canceled + ' canceled' : '')
+          ? done.length + ' file' + (done.length === 1 ? '' : 's') + ' · ' + formatBytes(totalDone) + (canceled ? ' · ' + canceled + ' canceled' : '')
           : downloads.length + ' canceled';
       list.innerHTML =
         (active.length ? '<div class="dl-group-label">Downloading</div>' + active.map(dlRowHTML).join('') : '') +
@@ -3819,7 +3847,7 @@
       if (card) {
         let link = '';
         if (card.classList.contains('ddg-res')) {
-          const host = ((card.querySelector('.host') || {}).textContent || 'example.com').split('Ã¢â‚¬Âº')[0].trim();
+          const host = ((card.querySelector('.host') || {}).textContent || 'example.com').split('›')[0].trim();
           link = 'https://' + host;
         } else if (card.classList.contains('yt-card')) {
           link = 'https://youtube.com/watch?v=demo';
@@ -3879,7 +3907,7 @@
       if (!link) return;
       const host = hostOf(link);
       const known = {
-        'youtube.com': ['YouTube', 'Ã¢â€“Â¶', '#ff0033'],
+        'youtube.com': ['YouTube', '▶', '#ff0033'],
         'github.com': ['GitHub', 'G', '#24292f'],
         'mail.google.com': ['Gmail', 'M', '#d93b30'],
         'addons.mozilla.org': ['Add-ons', 'A', '#ff7a59'],
@@ -3915,7 +3943,7 @@
       } catch {
         log('Clipboard blocked (file://) - showing feedback only');
       }
-      toast(label + ' Ã‚Â· ' + text);
+      toast(label + ' · ' + text);
       log(label + (ok ? '' : ' (demo)') + ': ' + text);
     }
     function shareLink(link) {
@@ -4155,6 +4183,7 @@
       document.querySelectorAll('.overlay').forEach(o => o.classList.remove('open'));
       document.getElementById('menu-overlay').classList.remove('settings-mode', 'site-mode', 'account-mode', 'downloads-mode', 'closing-downloads');
       document.getElementById('bottom-bar').classList.remove('blend', 'search-open', 'menu-open');
+      syncTabsButton();
       closeContextMenu();
       if (document.getElementById('dl-prompt-layer').classList.contains('open')) {
         dlPending = null;
@@ -4248,7 +4277,7 @@
     }
     function bindNavGestures() {
       attachSwipe(document.getElementById('nav-search'), {
-        up: () => openMenu(),
+        up: () => { if (isTabsOrEmpty()) openSearch(); else openMenu(); },
         down: () => closeSurface(),
         left: () => switchTab(1),
         right: () => switchTab(-1),
@@ -4262,10 +4291,10 @@
       }));
       attachSwipe(document.getElementById('nav-tabs'), {
         strictHorizontal: true,
-        up: () => openTabSwitcher(),
-        down: () => closeSurface(),
-        left: () => goBackPage(),
-        right: () => goForwardPage(),
+        up: () => { if (!isTabsOrEmpty()) openTabSwitcher(); },
+        down: () => { if (!isTabsOrEmpty()) closeSurface(); },
+        left: () => { if (!isTabsOrEmpty()) goBackPage(); },
+        right: () => { if (!isTabsOrEmpty()) goForwardPage(); },
       });
       // The handles are the reverse affordance on the sheets themselves.
       attachSwipe(document.querySelector('#search-overlay .handle'), { down: () => closeSearch() });
