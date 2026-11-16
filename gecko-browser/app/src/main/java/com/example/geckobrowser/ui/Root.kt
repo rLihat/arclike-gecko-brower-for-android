@@ -339,7 +339,7 @@ private fun WebHost(
                 // direction (positive VSCROLL) toggles, debounced like the wheel.
                 setOnGenericMotionListener { _, event ->
                     if (event.actionMasked == MotionEvent.ACTION_SCROLL &&
-                        event.isCtrlPressed &&
+                        (event.metaState and android.view.KeyEvent.META_CTRL_ON) != 0 &&
                         event.getAxisValue(MotionEvent.AXIS_VSCROLL) > 0f &&
                         pinchEnabledState.value
                     ) {
