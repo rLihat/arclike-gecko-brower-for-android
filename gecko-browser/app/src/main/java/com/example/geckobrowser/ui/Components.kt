@@ -132,16 +132,8 @@ private val IcoGlobe: List<Path> = listOf(
 )
 private val IcoTabs: List<Path> = listOf(
     p {
-        moveTo(8.5f, 7.5f)
-        lineTo(18f, 7.5f)
-        arcTo(Rect(18f, 7.5f, 21f, 10.5f), 270f, -90f, false)
-        lineTo(21f, 17f)
-        arcTo(Rect(18f, 17f, 21f, 20f), 0f, -90f, false)
-        lineTo(11.5f, 20f)
-        arcTo(Rect(8.5f, 17f, 11.5f, 20f), 90f, -90f, false)
-        lineTo(8.5f, 10.5f)
-        arcTo(Rect(8.5f, 7.5f, 11.5f, 10.5f), 180f, -90f, false)
-        moveTo(5.5f, 4.5f); lineTo(12f, 4.5f)
+        addRect(Rect(8.5f, 8.5f, 19.5f, 19.5f))
+        addRect(Rect(4.5f, 4.5f, 15.5f, 15.5f))
     }
 )
 private val IcoShare: List<Path> = listOf(
@@ -197,9 +189,9 @@ private val IcoPuzzle: List<Path> = listOf(
 )
 private val IcoMoon: List<Path> = listOf(
     p {
-        moveTo(20f, 14.5f)
-        arcTo(Rect(4f, 4f, 20f, 20f), 0f, -130f, false)
-        arcTo(Rect(4f, 4f, 20f, 20f), 130f, 100f, false)
+        moveTo(19.5f, 14.2f)
+        arcTo(Rect(4.5f, 4.5f, 18.5f, 18.5f), 40f, -230f, false)
+        arcTo(Rect(8.5f, 6f, 20.5f, 18f), -70f, 150f, false)
         close()
     }
 )
@@ -253,10 +245,11 @@ private val IcoTrash: List<Path> = listOf(
 )
 private val IcoLock: List<Path> = listOf(
     p {
-        moveTo(5f, 10f); lineTo(19f, 10f); lineTo(19f, 20f); lineTo(5f, 20f); close()
-        moveTo(8f, 10f); lineTo(8f, 7f)
-        arcTo(Rect(4f, 3f, 12f, 11f), 180f, -180f, false)
-        lineTo(8f, 10f)
+        addRoundRect(Rect(5f, 10f, 19f, 20f), floatArrayOf(3f, 3f, 3f, 3f, 3f, 3f, 3f, 3f), Path.Direction.CW)
+        moveTo(8.5f, 10f); lineTo(8.5f, 6.5f)
+        addArc(Rect(8.5f, 2.5f, 15.5f, 11f), 180f, 180f)
+        moveTo(15.5f, 6.5f); lineTo(15.5f, 10f)
+        addOval(Rect(10f, 13.5f, 14f, 17.5f))
     }
 )
 private val IcoPerson: List<Path> = listOf(
