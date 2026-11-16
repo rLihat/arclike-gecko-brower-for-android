@@ -15,8 +15,11 @@
       --surface-strong: #ebebea;
       --nav-surface: #f2f2f0;
       /* Soft surfaces: the only translucent chrome (nav pill + search/menu sheets). */
-      --nav-soft: rgba(246,246,244,0.80);
-      --sheet-soft: rgba(249,249,247,0.88);
+      --nav-soft: rgba(246,246,244,0.55);
+      --sheet-soft: rgba(249,249,247,0.62);
+      --glass-blur: 24px;
+      --glass-border: rgba(255,255,255,0.35);
+      --iridescent: linear-gradient(135deg, rgba(255,155,224,0.35), rgba(180,156,255,0.35), rgba(63,176,255,0.35));
       --field: #ffffff;
       --sheet-bg: #f3f3f1;
       --settings-bg: #f6f6f4;
@@ -56,8 +59,11 @@
       --surface: #1a2024;
       --surface-strong: #232a2e;
       --nav-surface: #1c2226;
-      --nav-soft: rgba(28,34,38,0.80);
-      --sheet-soft: rgba(24,30,34,0.88);
+      --nav-soft: rgba(28,34,38,0.55);
+      --sheet-soft: rgba(24,30,34,0.62);
+      --glass-blur: 24px;
+      --glass-border: rgba(255,255,255,0.12);
+      --iridescent: linear-gradient(135deg, rgba(255,155,224,0.25), rgba(180,156,255,0.25), rgba(63,176,255,0.25));
       --field: #232a2e;
       --sheet-bg: #1a2024;
       --settings-bg: #12171a;
@@ -139,10 +145,10 @@
     .bottom-bar {
       position: absolute; left: 50%; transform: translateX(-50%); bottom: 18px; height: 58px; border-radius: 29px;
       z-index: 50; width: 70%; overflow: hidden; background: var(--nav-soft); padding: 0;
-      -webkit-backdrop-filter: blur(12px) saturate(1.12); backdrop-filter: blur(12px) saturate(1.12);
-      transition: width .35s cubic-bezier(0.4, 0, 1, 1), height .35s cubic-bezier(0.4, 0, 1, 1),
-                  bottom .35s cubic-bezier(0.4, 0, 1, 1), border-radius .35s cubic-bezier(0.4, 0, 1, 1),
-                  transform .35s cubic-bezier(0.4, 0, 1, 1), background .3s ease, border-color .3s ease, box-shadow .3s ease, opacity .3s ease;
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.25); backdrop-filter: blur(var(--glass-blur)) saturate(1.25);
+      transition: width .48s cubic-bezier(0.32, 0.72, 0, 1), height .48s cubic-bezier(0.32, 0.72, 0, 1),
+                  bottom .48s cubic-bezier(0.32, 0.72, 0, 1), border-radius .48s cubic-bezier(0.32, 0.72, 0, 1),
+                  transform .48s cubic-bezier(0.32, 0.72, 0, 1), background .3s ease, border-color .3s ease, box-shadow .3s ease, opacity .3s ease;
     }
     /* While a sheet is open the pill surface is handed over to the expanding panel */
     .bottom-bar.blend,
