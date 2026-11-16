@@ -140,6 +140,8 @@ sealed interface BrowserPromptState {
         override val id: Long,
         override val tabId: Long,
         val url: String,
+        /** The app that can open this link, if any — used by the "ask" flow. */
+        val appName: String = "",
     ) : BrowserPromptState {
         val host: String get() = BrowserViewModel.hostOf(url)
     }

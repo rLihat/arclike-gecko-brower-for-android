@@ -242,7 +242,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var accentKey by mutableStateOf("firefox_purple")
         private set
 
-    var openLinksInApps by mutableStateOf(true)
+    var openLinksMode by mutableStateOf(
+        prefs.getString("open_links_mode", null) ?: "on"
+    )
         private set
 
     private var engineOrderState by mutableStateOf<List<String>>(emptyList())
@@ -599,7 +601,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun applySnapshot(snapshot: SettingsSnapshot) {
         appearanceMode = snapshot.appearance
-        openLinksInApps = snapshot.openLinksInApps
+        openLinksMode = snapshot.openLinksMode
         accentKey = snapshot.accent
         suggestionsEnabled = snapshot.suggestions
         // DataStore is the source of truth; a store written before engines were
@@ -800,8 +802,26 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             ): GeckoResult<AllowOrDeny> {
                 val raw = request.uri ?: return GeckoResult.allow()
                 val scheme = runCatching { Uri.parse(raw).scheme?.lowercase(Locale.US) }.getOrNull()
-                if (scheme == null || scheme in INTERNAL_SCHEMES) return GeckoResult.allow()
-                if (id == activeId) askExternalLink(id, raw)
+                if (scheme == null) return GeckoResult.allow()
+                // http/https links may be verified/default-handleable by an installed
+                // app (App Links). Firefox opens those in the app; we do the same.
+                if (scheme == "http" || scheme == "https") {
+                    if (openLinksMode != "off") {
+                        val app = appNameForLink(raw)
+                        if (app != null) {
+                            if (openLinksMode == "on") {
+                                openExternal(raw)
+                            } else if (id == activeId) {
+                                askExternalLink(id, raw, app)
+                            }
+                            return GeckoResult.deny()
+                        }
+                        return GeckoResult.allow()
+                    }
+                    return GeckoResult.allow()
+                }
+                if (scheme in INTERNAL_SCHEMES) return GeckoResult.allow()
+                if (id == activeId) askExternalLink(id, raw, "")
                 // The external app gets the URL; the page itself must not load it.
                 return GeckoResult.deny()
             }
@@ -2309,12 +2329,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     /* ---------------------------------------------------------- external links */
 
-    private fun askExternalLink(tabId: Long, url: String) {
-        if (!openLinksInApps) return
+    private fun askExternalLink(tabId: Long, url: String, appName: String) {
+        if (openLinksMode == "off") return
         val existing = browserPrompt
         if (existing is BrowserPromptState.ExternalLink && existing.url == url) return
         if (existing != null) clearShownPrompt()
-        browserPrompt = BrowserPromptState.ExternalLink(nextPromptId++, tabId, url)
+        browserPrompt = BrowserPromptState.ExternalLink(nextPromptId++, tabId, url, appName)
         compactPill = false
     }
 
@@ -2335,6 +2355,35 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         } catch (_: Throwable) {
             showToast("No app can open this link")
         }
+    }
+
+    /**
+     * Returns the display name of an installed app that is the verified/default
+     * handler for [url] (http/https), excluding other browsers. Firefox treats
+     * these as App Links that should open in the app rather than the browser.
+     */
+    private fun appNameForLink(url: String): String? {
+        val pm = application.packageManager
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE)
+        val handlers = try {
+            pm.queryIntentActivities(
+                intent,
+                PackageManager.MATCH_DEFAULT_ONLY or PackageManager.MATCH_ALL
+            )
+        } catch (_: Throwable) {
+            return null
+        }
+        val ours = application.packageName
+        for (info in handlers) {
+            val p = info.activityInfo?.packageName ?: continue
+            if (p == ours) continue
+            if (p in BROWSER_PACKAGES) continue
+            val label = runCatching {
+                pm.getApplicationLabel(info.activityInfo.applicationInfo).toString()
+            }.getOrNull()
+            return label?.takeIf { it.isNotBlank() } ?: p
+        }
+        return null
     }
 
     /* ------------------------------------------------------------ intent entry */
@@ -3606,10 +3655,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun updateOpenLinksInApps(enabled: Boolean) {
-        openLinksInApps = enabled
-        prefs.edit().putBoolean("open_links_in_apps", enabled).apply()
-        scope.launch { withContext(Dispatchers.IO) { settingsStore.setOpenLinksInApps(enabled) } }
+    fun updateOpenLinksMode(mode: String) {
+        openLinksMode = mode
+        prefs.edit().putString("open_links_mode", mode).apply()
+        scope.launch { withContext(Dispatchers.IO) { settingsStore.setOpenLinksMode(mode) } }
     }
 
     fun updateAppearanceMode(mode: String) {
@@ -3937,6 +3986,20 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         private val INTERNAL_SCHEMES = setOf(
             "http", "https", "about", "file", "data", "blob", "javascript",
             "resource", "wyciwyg", "view-source",
+        )
+
+        /** Packages that are browsers; those never count as "the app for this link". */
+        private val BROWSER_PACKAGES = setOf(
+            "com.android.chrome",
+            "com.sec.android.app.sbrowser",
+            "org.mozilla.firefox",
+            "org.mozilla.fenix",
+            "com.example.geckobrowser",
+            "com.google.android.apps.nbu.paisa",
+            "com.brave.browser",
+            "com.microsoft.emmx",
+            "com.duckduckgo.mobile.android",
+            "com.opera.browser",
         )
 
         /** Object keys some suggestion endpoints wrap the phrase array in. */

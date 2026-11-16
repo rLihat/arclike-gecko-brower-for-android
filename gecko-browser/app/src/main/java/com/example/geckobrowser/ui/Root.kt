@@ -1274,7 +1274,8 @@ private fun BoxScope.BrowserPromptHost(vm: BrowserViewModel) {
                 }
 
                 is BrowserPromptState.ExternalLink -> {
-                    PromptHeading("Open in another app?")
+                    PromptHeading(if (prompt.appName.isNotBlank()) "Open in ${prompt.appName}?"
+                        else "Open in another app?")
                     Spacer(Modifier.height(6.dp))
                     PromptNote(prompt.host)
                     Spacer(Modifier.height(4.dp))

@@ -31,8 +31,8 @@ data class SettingsSnapshot(
     val accent: String = "firefox_purple",
     /** "system" | "light" | "dark". Defaults to system. */
     val appearance: String = "system",
-    /** Whether external (non-web) links open in the matching app. */
-    val openLinksInApps: Boolean = true,
+    /** "off" | "on" | "ask". Defaults to on. */
+    val openLinksMode: String = "on",
 )
 
 private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore(name = "arc_settings")
@@ -91,7 +91,7 @@ class AppSettings(context: Context) {
             trackingExceptions = trackingExceptions,
             accent = p[KEY_ACCENT] ?: "firefox_purple",
             appearance = p[KEY_APPEARANCE] ?: if (p[KEY_DARK] == true) "dark" else "system",
-            openLinksInApps = p[KEY_OPEN_LINKS] ?: true,
+            openLinksMode = p[KEY_OPEN_LINKS_MODE] ?: "on",
         )
     }
 
@@ -135,8 +135,7 @@ class AppSettings(context: Context) {
 
     suspend fun setAppearance(mode: String) = store.edit { it[KEY_APPEARANCE] = mode }
 
-    suspend fun setOpenLinksInApps(enabled: Boolean) = store.edit { it[KEY_OPEN_LINKS] = enabled }
-
+    suspend fun setOpenLinksMode(mode: String) = store.edit { it[KEY_OPEN_LINKS_MODE] = mode }
     suspend fun setCookieBanner(enabled: Boolean) =
         store.edit { it[KEY_COOKIE_BANNER] = enabled }
 
@@ -158,7 +157,7 @@ class AppSettings(context: Context) {
         private val KEY_COOKIE_BANNER = booleanPreferencesKey("cookie_banner_handling")
     private val KEY_ACCENT = stringPreferencesKey("accent")
     private val KEY_APPEARANCE = stringPreferencesKey("appearance")
-    private val KEY_OPEN_LINKS = booleanPreferencesKey("open_links_in_apps")
+    private val KEY_OPEN_LINKS_MODE = stringPreferencesKey("open_links_mode")
         private const val ZOOM_PREFIX = "zoom|"
         private const val PERM_PREFIX = "perm|"
         private const val DESKTOP_PREFIX = "desktop|"

@@ -467,8 +467,19 @@ fun SettingsScreen(
                         if ("Open links in apps" in general) SettingsRow(
                             "Open links in apps",
                             icon = { Glyph(Ico.open, c.text, size = 19.dp, strokeWidth = 1.9f) },
-                            trailing = { ArcSwitch(vm.openLinksInApps) { vm.updateOpenLinksInApps(it) } },
-                            onClick = { vm.updateOpenLinksInApps(!vm.openLinksInApps) },
+                            value = when (vm.openLinksMode) {
+                                "off" -> "Off"
+                                "on" -> "On"
+                                else -> "Ask each time"
+                            },
+                            onClick = {
+                                val next = when (vm.openLinksMode) {
+                                    "off" -> "on"
+                                    "on" -> "ask"
+                                    else -> "off"
+                                }
+                                vm.updateOpenLinksMode(next)
+                            },
                         )
                         if ("Downloads" in general) SettingsRow(
                             "Downloads",

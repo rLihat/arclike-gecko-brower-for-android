@@ -341,6 +341,7 @@ object Ico {
     val arrowUp = IcoArrowUp
     val chevronLeft = IcoChevronLeft
     val chevronRight = IcoChevronRight
+    val chevronDown = IcoChevronDown
     val close = IcoClose
     val back = IcoBack
     val forward = IcoForward
