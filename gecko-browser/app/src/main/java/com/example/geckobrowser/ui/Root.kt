@@ -1928,7 +1928,7 @@ private fun contextActions(vm: BrowserViewModel, ctx: ContextMenuState): List<Ct
         add(CtxAction("Save image", Ico.download) {
             vm.downloadLink(src, ctx.head, ctx.x, ctx.y)
         })
-        add(CtxAction("Copy image address", Ico.copy) {
+        add(CtxAction("Copy image address", Ico.link) {
             vm.dismissContextMenu()
             vm.copyText(src, "Image address copied")
         })
@@ -1950,7 +1950,7 @@ private fun contextActions(vm: BrowserViewModel, ctx: ContextMenuState): List<Ct
     add(CtxAction("Download link", Ico.download) {
         vm.downloadLink(link, null, ctx.x, ctx.y)
     })
-    add(CtxAction("Copy link", Ico.copy) {
+    add(CtxAction("Copy link", Ico.link) {
         vm.dismissContextMenu()
         vm.copyText(link, "Link copied")
     })
@@ -2121,13 +2121,14 @@ private fun BoxScope.NavPill(
         when {
             searchMode -> Color.Transparent
             menuMode -> Color.Transparent
+            vm.tabs.isEmpty() -> Color.Transparent
             else -> c.navSoft
         },
         tween(if (reduceMotion) 0 else 420, easing = morphEasing),
         label = "pillBg",
     )
     val capsuleStroke by animateColorAsState(
-        if (menuMode) c.stroke else Color.Transparent,
+        Color.Transparent,
         tween(if (reduceMotion) 0 else 420, easing = morphEasing),
         label = "pillStroke",
     )

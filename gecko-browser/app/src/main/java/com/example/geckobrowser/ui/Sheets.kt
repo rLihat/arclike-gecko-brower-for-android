@@ -549,7 +549,7 @@ fun MenuSheet(vm: BrowserViewModel) {
             } else {
                 AddressButton(Ico.refresh) { vm.reload() }
             }
-            AddressButton(Ico.copy) { vm.copyCurrentUrl() }
+            AddressButton(Ico.link) { vm.copyCurrentUrl() }
         }
 
         Spacer(Modifier.height(8.dp))
@@ -623,7 +623,7 @@ fun MenuSheet(vm: BrowserViewModel) {
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Glyph(Ico.tabs, c.muted, size = 19.dp, strokeWidth = 1.8f)
+                Glyph(Ico.expand, c.muted, size = 19.dp, strokeWidth = 1.8f)
                 Spacer(Modifier.width(11.dp))
                 Text(
                     "Immersive view",

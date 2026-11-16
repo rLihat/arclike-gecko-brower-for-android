@@ -130,6 +130,14 @@ private val IcoGlobe: List<Path> = listOf(
         close()
     }
 )
+private val IcoExpand: List<Path> = listOf(
+    p {
+        moveTo(9f, 4f); lineTo(4f, 4f); lineTo(4f, 9f)
+        moveTo(15f, 4f); lineTo(20f, 4f); lineTo(20f, 9f)
+        moveTo(20f, 15f); lineTo(20f, 20f); lineTo(15f, 20f)
+        moveTo(9f, 20f); lineTo(4f, 20f); lineTo(4f, 15f)
+    }
+)
 private val IcoTabs: List<Path> = listOf(
     p {
         addRect(Rect(8.5f, 8.5f, 19.5f, 19.5f))
@@ -319,6 +327,7 @@ fun Glyph(
 
 object Ico {
     val plus = IcoPlus
+    val expand = IcoExpand
     val chevronUp = IcoChevronUp
     val arrowUp = IcoArrowUp
     val chevronLeft = IcoChevronLeft
