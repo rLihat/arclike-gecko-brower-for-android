@@ -532,8 +532,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         )
         settings.setCookieBehavior(ContentBlocking.CookieBehavior.ACCEPT_NON_TRACKERS)
         settings.setCookieBannerMode(
-            if (cookieBannerHandling) ContentBlocking.CookieBannerMode.REJECT_OR_ACCEPT
-            else ContentBlocking.CookieBannerMode.DISABLED,
+            if (cookieBannerHandling) 2 /* reject or accept */
+            else 0 /* disabled */,
         )
     }
 
@@ -667,8 +667,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             override fun onLocationChange(
                 session: GeckoSession,
                 url: String?,
-                perms: List<GeckoSession.PermissionDelegate.ContentPermission>?,
-                hasUserGesture: Boolean?,
+                perms: MutableList<GeckoSession.PermissionDelegate.ContentPermission>,
+                hasUserGesture: Boolean,
             ) {
                 val target = url ?: return
                 if (isBlankUrl(target)) return
@@ -700,9 +700,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
             override fun onNewSession(
                 session: GeckoSession,
-                uri: String?,
-            ): GeckoResult<GeckoSession> {
-                val target = uri ?: return GeckoResult.fromValue(session)
+                uri: String,
+            ): GeckoResult<GeckoSession>? {
+                val target = uri
                 val newId = addTab(url = target, makeActive = false)
                 val opened = tabsManager.session(newId) ?: return GeckoResult.fromValue(session)
                 return GeckoResult.fromValue(opened)
@@ -960,7 +960,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
             override fun onMediaPermissionRequest(
                 session: GeckoSession,
-                uri: String?,
+                uri: String,
                 videoSources: Array<GeckoSession.PermissionDelegate.MediaSource>?,
                 audioSources: Array<GeckoSession.PermissionDelegate.MediaSource>?,
                 callback: GeckoSession.PermissionDelegate.MediaCallback,
@@ -1224,8 +1224,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             object : TranslationsController.SessionTranslation.Delegate {
                 override fun onTranslationStateChange(
                     session: GeckoSession,
-                    state: TranslationsController.SessionTranslation.TranslationState,
+                    state: TranslationsController.SessionTranslation.TranslationState?,
                 ) {
+                    if (state == null) return
                     val detected = state.detectedLanguages
                     val pair = state.requestedTranslationPair
                     val visible = state.hasVisibleChange
@@ -1495,7 +1496,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         val result = runCatching { session.finder.find(query, flags) }.getOrNull() ?: return
         result.accept(
             { reply ->
-                if (generation == findGeneration) {
+                if (reply != null && generation == findGeneration) {
                     findFound = reply.found
                     findTotal = reply.total
                     findCurrent = reply.current
@@ -1607,11 +1608,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }.getOrNull() ?: return
         result.accept(
             { support ->
-                translateFromLanguages = support.fromLanguages.orEmpty().map {
-                    TranslateLanguage(it.code, it.localizedDisplayName.ifBlank { it.code })
+                translateFromLanguages = support?.fromLanguages.orEmpty().map {
+                    TranslateLanguage(it.code, it.localizedDisplayName.orEmpty().ifBlank { it.code })
                 }
-                translateToLanguages = support.toLanguages.orEmpty().map {
-                    TranslateLanguage(it.code, it.localizedDisplayName.ifBlank { it.code })
+                translateToLanguages = support?.toLanguages.orEmpty().map {
+                    TranslateLanguage(it.code, it.localizedDisplayName.orEmpty().ifBlank { it.code })
                 }
                 val target = defaultTargetLanguage()
                 if (target.isNotBlank()) {
@@ -1710,7 +1711,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             .build()
         updateTranslation(tab.id) { it.copy(from = from, to = to, busy = true, error = null) }
         val result = runCatching {
-            session.sessionTranslation.translate(from, to, options)
+            session.sessionTranslation?.translate(from, to, options)
         }.getOrNull()
         if (result == null) {
             updateTranslation(tab.id) {
@@ -1733,7 +1734,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         val tab = activeTab ?: return
         val session = tabsManager.session(tab.id) ?: return
         updateTranslation(tab.id) { it.copy(busy = true, error = null) }
-        val result = runCatching { session.sessionTranslation.restoreOriginalPage() }.getOrNull()
+        val result = runCatching { session.sessionTranslation?.restoreOriginalPage() }.getOrNull()
         if (result == null) {
             updateTranslation(tab.id) { it.copy(busy = false) }
             return
@@ -1767,9 +1768,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         translations[id] = current.copy(detected = "", active = false, busy = false, error = null)
     }
 
-    private fun translateErrorMessage(error: Throwable): String {
+    private fun translateErrorMessage(error: Throwable?): String {
         val translationsError = error as? TranslationsController.TranslationsException
-            ?: error.cause as? TranslationsController.TranslationsException
+            ?: error?.cause as? TranslationsController.TranslationsException
         return when (translationsError?.code) {
             TranslationsController.TranslationsException.ERROR_ENGINE_NOT_SUPPORTED ->
                 "Translation is not supported on this device"
@@ -1785,7 +1786,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 "The list of languages could not be loaded"
             TranslationsController.TranslationsException.ERROR_COULD_NOT_RESTORE ->
                 "The original page could not be restored"
-            else -> error.message?.takeIf { it.isNotBlank() }?.let { message ->
+            else -> error?.message?.takeIf { it.isNotBlank() }?.let { message ->
                 message.replace('-', ' ').replaceFirstChar { it.uppercase() }
             } ?: "Translation failed"
         }
@@ -2376,9 +2377,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         controller.promptDelegate = object : WebExtensionController.PromptDelegate {
             override fun onInstallPromptRequest(
                 extension: WebExtension,
-                permissions: Array<String>?,
-                origins: Array<String>?,
-            ): GeckoResult<WebExtension.PermissionPromptResponse> {
+                permissions: Array<String>,
+                origins: Array<String>,
+            ): GeckoResult<WebExtension.PermissionPromptResponse>? {
                 val id = nextPromptId++
                 val result = GeckoResult<WebExtension.PermissionPromptResponse>()
                 extensionInstallResults[id] = result
@@ -2396,15 +2397,15 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             override fun onUpdatePrompt(
                 extension: WebExtension,
                 updated: WebExtension,
-                permissions: Array<String>?,
-                origins: Array<String>?,
-            ): GeckoResult<AllowOrDeny> = GeckoResult.allow()
+                permissions: Array<String>,
+                origins: Array<String>,
+            ): GeckoResult<AllowOrDeny>? = GeckoResult.allow()
 
             override fun onOptionalPrompt(
                 extension: WebExtension,
-                permissions: Array<String>?,
-                origins: Array<String>?,
-            ): GeckoResult<AllowOrDeny> = GeckoResult.deny()
+                permissions: Array<String>,
+                origins: Array<String>,
+            ): GeckoResult<AllowOrDeny>? = GeckoResult.deny()
         }
     }
 
