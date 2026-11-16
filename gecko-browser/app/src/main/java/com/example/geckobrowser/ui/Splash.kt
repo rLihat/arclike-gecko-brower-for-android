@@ -99,6 +99,32 @@ fun HorizenMark(progress: Float, modifier: Modifier = Modifier) {
         }
 
         clipPath(disc) {
+            // Faint magenta and blue glows behind the stack, as on the SVG disc.
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFFB0268F).copy(alpha = 0.52f * p),
+                        Color.Transparent,
+                    ),
+                    center = Offset(cx - 166f * unit, cy - 146f * unit),
+                    radius = 140f * unit,
+                ),
+                radius = 140f * unit,
+                center = Offset(cx - 166f * unit, cy - 146f * unit),
+            )
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFF2B5FE0).copy(alpha = 0.46f * p),
+                        Color.Transparent,
+                    ),
+                    center = Offset(cx + 184f * unit, cy + 144f * unit),
+                    radius = 150f * unit,
+                ),
+                radius = 150f * unit,
+                center = Offset(cx + 184f * unit, cy + 144f * unit),
+            )
+
             // Above the horizon: stacked half-discs read as rings because each
             // smaller one covers the middle of the previous one.
             clipRect(0f, 0f, size.width, cy) {
@@ -157,6 +183,41 @@ fun HorizenMark(progress: Float, modifier: Modifier = Modifier) {
                             path = path,
                         )
                     }
+                }
+            }
+
+            // Glossy water: a pale wash from the horizon down, then a diagonal
+            // sheen across the glass (both fade with the mark's progress).
+            val wash = ((p - 0.30f) / 0.55f).coerceIn(0f, 1f)
+            if (wash > 0f) {
+                clipRect(0f, cy, size.width, size.height) {
+                    drawRect(
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                Color(0xFFD9C8FF).copy(alpha = 0.10f * wash),
+                                Color.Transparent,
+                            ),
+                            startY = cy,
+                            endY = size.height,
+                        ),
+                        topLeft = Offset(0f, cy),
+                        size = Size(size.width, size.height - cy),
+                    )
+                    drawRect(
+                        brush = Brush.linearGradient(
+                            colorStops = arrayOf(
+                                0f to Color.Transparent,
+                                0.38f to Color.Transparent,
+                                0.5f to Color(0xFFE6DCFF).copy(alpha = 0.30f * wash),
+                                0.62f to Color.Transparent,
+                                1f to Color.Transparent,
+                            ),
+                            start = Offset(cx - discR, cy),
+                            end = Offset(cx + discR, cy + discR),
+                        ),
+                        topLeft = Offset(0f, cy),
+                        size = Size(size.width, size.height - cy),
+                    )
                 }
             }
         }
