@@ -2192,24 +2192,32 @@ private fun BoxScope.NavPill(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        val tabsOrEmpty = vm.overlay == Overlay.Tabs || vm.tabs.isEmpty()
                         PillButton(
-                            onClick = { vm.toggleTabs() },
-                            onSwipeUp = { vm.openTabs() },
+                            onClick = { if (tabsOrEmpty) vm.openHistory() else vm.toggleTabs() },
+                            onSwipeUp = { if (!tabsOrEmpty) vm.openTabs() },
                         ) {
-                            val t = tab
-                            if (t == null || t.isHome || t.url.isBlank()) {
-                                Glyph(Ico.tabs, c.iconInk, size = 21.dp, strokeWidth = 2.1f)
+                            if (tabsOrEmpty) {
+                                Glyph(Ico.clock, c.iconInk, size = 21.dp, strokeWidth = 2.1f)
                             } else {
-                                SiteFavicon(
-                                    host = BrowserViewModel.hostOf(t.url),
-                                    letter = hostLetter(t),
-                                    size = 24.dp,
-                                )
+                                val t = tab
+                                if (t == null || t.isHome || t.url.isBlank()) {
+                                    Glyph(Ico.tabs, c.iconInk, size = 21.dp, strokeWidth = 2.1f)
+                                } else {
+                                    SiteFavicon(
+                                        host = BrowserViewModel.hostOf(t.url),
+                                        letter = hostLetter(t),
+                                        size = 24.dp,
+                                    )
+                                }
                             }
                         }
                         PillButton(
                             onClick = { vm.openSearch() },
-                            onSwipeUp = { vm.openMenu() },
+                            onSwipeUp = {
+                                if (vm.overlay == Overlay.Tabs || vm.tabs.isEmpty()) vm.openSearch()
+                                else vm.openMenu()
+                            },
                             onSwipeDown = { vm.closeOverlay() },
                             onSwipeLeft = { vm.switchTab(1) },
                             onSwipeRight = { vm.switchTab(-1) },

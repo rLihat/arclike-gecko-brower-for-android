@@ -112,31 +112,6 @@ fun TabSwitcher(vm: BrowserViewModel, modifier: Modifier = Modifier) {
                     onClose = { vm.closeTab(tab.id) },
                 )
             }
-            item {
-                Box(
-                    Modifier
-                        .width(cardWidth)
-                        .fillMaxHeight()
-                        .padding(vertical = 2.dp)
-                        .clip(RoundedCornerShape(30.dp))
-                        .clickable { vm.newTab() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(
-                            Modifier
-                                .size(62.dp)
-                                .clip(CircleShape)
-                                .background(c.surface),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Glyph(Ico.plus, c.muted, size = 28.dp, strokeWidth = 2f)
-                        }
-                        Spacer(Modifier.height(12.dp))
-                        Text("New tab", color = c.muted, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-                    }
-                }
-            }
         }
     }
 }

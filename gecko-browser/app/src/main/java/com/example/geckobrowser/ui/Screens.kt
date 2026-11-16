@@ -1,5 +1,7 @@
 package com.example.geckobrowser.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -16,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -77,6 +80,15 @@ private val pins = listOf(
 @Composable
 fun HomeScreen(onSearch: () -> Unit, onOpen: (String) -> Unit) {
     val c = LocalArc.current
+    val progress = remember { Animatable(0f) }
+    val offsetY = remember { Animatable(40f) }
+    LaunchedEffect(Unit) {
+        // Animate the logo up into view only on first show.
+        progress.animateTo(1f, tween(520, easing = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)))
+    }
+    LaunchedEffect(Unit) {
+        offsetY.animateTo(0f, tween(520, easing = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)))
+    }
     // Ultra-minimal new-tab page: nothing but the brand mark. Tapping anywhere
     // opens search; there are no recents, pins or shortcuts.
     Box(
@@ -88,8 +100,11 @@ fun HomeScreen(onSearch: () -> Unit, onOpen: (String) -> Unit) {
             ) { onSearch() },
         contentAlignment = Alignment.Center,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            HorizenMark(progress = 1f, modifier = Modifier.size(152.dp))
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.offset(y = offsetY.value.dp),
+        ) {
+            HorizenMark(progress = progress.value, modifier = Modifier.size(152.dp))
             Spacer(Modifier.height(18.dp))
             Text(
                 "horiZen",

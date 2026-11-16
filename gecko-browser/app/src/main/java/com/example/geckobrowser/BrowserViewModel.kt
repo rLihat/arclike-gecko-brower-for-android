@@ -542,9 +542,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         val list = BrowserFiles.loadTabList(application)
         if (list == null || list.tabs.isEmpty()) {
             if (tabs.isEmpty()) {
-                val id = tabsManager.create(attach = ::attachDelegates)
-                activeId = id
-                tabs = listOf(TabInfo(id))
+                // No home tab: an empty browser shows the logo page until the
+                // user searches, which creates the first real tab.
+                tabs = emptyList()
+                activeId = 0
                 persistTabs()
             }
             return
@@ -3016,13 +3017,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     /* ------------------------------------------------------------------- tabs */
 
     fun newTab() {
-        cancelDownloadPrompt()
-        dismissContextMenu()
-        val id = addTab()
-        closeOverlay()
-        expandPill()
-        syncZoomForActive()
-        persistTabs()
+        // No home tab: creating a tab happens only when a search is submitted.
+        openSearch()
     }
 
     fun selectTab(id: Long) {
@@ -3077,10 +3073,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
         val remaining = tabs.filterNot { it.id == id }
         if (remaining.isEmpty()) {
-            val fresh = tabsManager.create(attach = ::attachDelegates)
-            histories[fresh] = History()
-            tabs = listOf(TabInfo(fresh))
-            activeId = fresh
+            // No home tab: closing the last tab returns to the empty logo page.
+            tabs = emptyList()
+            activeId = 0
         } else {
             tabs = remaining
             if (activeId == id) {
