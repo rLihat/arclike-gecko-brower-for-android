@@ -6,6 +6,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -76,66 +77,34 @@ private val pins = listOf(
 @Composable
 fun HomeScreen(onSearch: () -> Unit, onOpen: (String) -> Unit) {
     val c = LocalArc.current
-    Column(
+    // Ultra-minimal new-tab page: nothing but the brand mark. Tapping anywhere
+    // opens search; there are no recents, pins or shortcuts.
+    Box(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(top = 64.dp, bottom = 120.dp)
-            .padding(horizontal = 22.dp),
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) { onSearch() },
+        contentAlignment = Alignment.Center,
     ) {
-        Text(
-            "Where to?",
-            color = c.text,
-            fontSize = 30.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = (-0.6).sp,
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            "Search-first, edge to edge. No persistent address bar.",
-            color = c.muted,
-            fontSize = 13.sp,
-        )
-        Spacer(Modifier.height(22.dp))
-
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .clip(RoundedCornerShape(28.dp))
-                .background(c.navSurface)
-                .clickable { onSearch() }
-                .padding(horizontal = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                Modifier.size(30.dp).clip(CircleShape).background(c.chip),
-                contentAlignment = Alignment.Center,
-            ) {
-                Glyph(Ico.plus, c.text, size = 17.dp, strokeWidth = 2.2f)
-            }
-            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Text("Search or enter a site", color = c.muted, fontSize = 13.5.sp)
-            }
-            Spacer(Modifier.size(30.dp))
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            HorizenMark(progress = 1f, modifier = Modifier.size(152.dp))
+            Spacer(Modifier.height(18.dp))
+            Text(
+                "horiZen",
+                color = c.text,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.5.sp,
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                "Tap to search",
+                color = c.muted,
+                fontSize = 12.sp,
+            )
         }
-
-        SectionLabel("Pinned")
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            pins.chunked(3).forEach { rowPins ->
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    rowPins.forEach { pin ->
-                        PinCell(pin, Modifier.weight(1f)) { onOpen(pin.url) }
-                    }
-                    repeat(3 - rowPins.size) { Spacer(Modifier.weight(1f)) }
-                }
-            }
-        }
-
-        SectionLabel("Recent")
-        RecentCard("Example", "example.com") { onOpen("https://example.com") }
-        RecentCard("GitHub", "github.com") { onOpen("https://github.com") }
-        RecentCard("Add-ons", "addons.mozilla.org") { onOpen("https://addons.mozilla.org") }
     }
 }
 
