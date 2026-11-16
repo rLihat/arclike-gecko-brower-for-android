@@ -2867,6 +2867,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                     }
                     extensions = mapped
                     loadExtensionIcons(mapped)
+                },
                 { /* listing failures leave the last snapshot in place */ },
             )
         } catch (_: Throwable) {
