@@ -27,6 +27,12 @@ data class SettingsSnapshot(
     val cookieBanner: Boolean = false,
     /** Hosts where tracking protection is switched off. */
     val trackingExceptions: Set<String> = emptySet(),
+    /** Accent preset key (see AccentPresets). Defaults to Firefox purple. */
+    val accent: String = "firefox_purple",
+    /** "system" | "light" | "dark". Defaults to system. */
+    val appearance: String = "system",
+    /** Whether external (non-web) links open in the matching app. */
+    val openLinksInApps: Boolean = true,
 )
 
 private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore(name = "arc_settings")
@@ -83,6 +89,9 @@ class AppSettings(context: Context) {
             etpStrict = p[KEY_ETP_STRICT] ?: false,
             cookieBanner = p[KEY_COOKIE_BANNER] ?: false,
             trackingExceptions = trackingExceptions,
+            accent = p[KEY_ACCENT] ?: "firefox_purple",
+            appearance = p[KEY_APPEARANCE] ?: if (dark) "dark" else "system",
+            openLinksInApps = p[KEY_OPEN_LINKS] ?: true,
         )
     }
 
@@ -122,6 +131,12 @@ class AppSettings(context: Context) {
 
     suspend fun setEtpStrict(strict: Boolean) = store.edit { it[KEY_ETP_STRICT] = strict }
 
+    suspend fun setAccent(key: String) = store.edit { it[KEY_ACCENT] = key }
+
+    suspend fun setAppearance(mode: String) = store.edit { it[KEY_APPEARANCE] = mode }
+
+    suspend fun setOpenLinksInApps(enabled: Boolean) = store.edit { it[KEY_OPEN_LINKS] = enabled }
+
     suspend fun setCookieBanner(enabled: Boolean) =
         store.edit { it[KEY_COOKIE_BANNER] = enabled }
 
@@ -141,6 +156,9 @@ class AppSettings(context: Context) {
         private val KEY_SCHEMA = intPreferencesKey("schema_version")
         private val KEY_ETP_STRICT = booleanPreferencesKey("etp_strict")
         private val KEY_COOKIE_BANNER = booleanPreferencesKey("cookie_banner_handling")
+    private val KEY_ACCENT = stringPreferencesKey("accent")
+    private val KEY_APPEARANCE = stringPreferencesKey("appearance")
+    private val KEY_OPEN_LINKS = booleanPreferencesKey("open_links_in_apps")
         private const val ZOOM_PREFIX = "zoom|"
         private const val PERM_PREFIX = "perm|"
         private const val DESKTOP_PREFIX = "desktop|"

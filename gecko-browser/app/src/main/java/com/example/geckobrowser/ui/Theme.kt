@@ -8,6 +8,42 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
+data class AccentPreset(
+    val key: String,
+    val label: String,
+    /** Accent for dark surfaces. */
+    val dark: Color,
+    /** Accent for light surfaces. */
+    val light: Color,
+    /** Icon ink (favicon letters, empty-state glyphs). */
+    val inkDark: Color,
+    val inkLight: Color,
+    /** Glow used by the loading animation. */
+    val glowDark: Color,
+    val glowLight: Color,
+)
+
+val AccentPresets = listOf(
+    AccentPreset("firefox_purple", "Firefox purple",
+        Color(0xFF9059FF), Color(0xFF8951F6), Color(0xFFD9C8FF), Color(0xFF6B3FD9),
+        Color(0x8C9059FF), Color(0x668951F6)),
+    AccentPreset("ocean_blue", "Ocean blue",
+        Color(0xFF4F93A8), Color(0xFF2F5C69), Color(0xFF9FD0DF), Color(0xFF2F5C69),
+        Color(0x8078C8E1), Color(0x8C4F93A8)),
+    AccentPreset("sunset_orange", "Sunset orange",
+        Color(0xFFFF8A3D), Color(0xFFC25A1F), Color(0xFFFFC59A), Color(0xFFC25A1F),
+        Color(0x80FF8A3D), Color(0x66FF8A3D)),
+    AccentPreset("forest_green", "Forest green",
+        Color(0xFF3FBF7F), Color(0xFF1F7A46), Color(0xFFB9E8CC), Color(0xFF1F7A46),
+        Color(0x803FBF7F), Color(0x663FBF7F)),
+    AccentPreset("raspberry_berry", "Raspberry berry",
+        Color(0xFFFF5CA2), Color(0xFFB83B6B), Color(0xFFFFC2D9), Color(0xFFB83B6B),
+        Color(0x80FF5CA2), Color(0x66FF5CA2)),
+)
+
+private fun accentByKey(key: String): AccentPreset =
+    AccentPresets.firstOrNull { it.key == key } ?: AccentPresets.first()
+
 /** The mockup's design tokens, transcribed for native Compose. */
 data class ArcColors(
     val dark: Boolean,
@@ -120,6 +156,13 @@ fun rememberReduceMotion(): Boolean {
 }
 
 @Composable
-fun ArcTheme(dark: Boolean, content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalArc provides if (dark) DarkArc else LightArc, content = content)
+fun ArcTheme(dark: Boolean, accentKey: String = "firefox_purple", content: @Composable () -> Unit) {
+    val preset = accentByKey(accentKey)
+    val base = if (dark) DarkArc else LightArc
+    val colors = base.copy(
+        accent = if (dark) preset.dark else preset.light,
+        iconInk = if (dark) preset.inkDark else preset.inkLight,
+        glow = if (dark) preset.glowDark else preset.glowLight,
+    )
+    CompositionLocalProvider(LocalArc provides colors, content = content)
 }

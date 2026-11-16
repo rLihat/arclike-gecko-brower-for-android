@@ -23,6 +23,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -121,7 +122,9 @@ private val morphEasing = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)
 
 @Composable
 fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
-    ArcTheme(vm.darkMode) {
+    ArcTheme(vm.darkMode, vm.accentKey) {
+        val systemDark = isSystemInDarkTheme()
+        LaunchedEffect(systemDark) { vm.updateSystemDark(systemDark) }
         val c = LocalArc.current
         val overlay = vm.overlay
         val tab = vm.activeTab

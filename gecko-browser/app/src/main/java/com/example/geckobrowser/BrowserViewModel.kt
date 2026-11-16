@@ -222,7 +222,25 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private var aboutReturn = Overlay.Settings
     private var popupReturn = Overlay.None
 
-    var darkMode by mutableStateOf(prefs.getBoolean("dark", false))
+    var appearanceMode by mutableStateOf(
+        prefs.getString("appearance_mode", null)
+            ?: if (prefs.getBoolean("dark", false)) "dark" else "system"
+    )
+        private set
+
+    var systemDark by mutableStateOf(false)
+        private set
+
+    val darkMode: Boolean get() = appearanceMode == "dark" ||
+        (appearanceMode == "system" && systemDark)
+
+    fun updateSystemDark(dark: Boolean) { systemDark = dark }
+
+    var accentKey by mutableStateOf("firefox_purple")
+        private set
+
+    var openLinksInApps by mutableStateOf(true)
+        private set
         private set
 
     var suggestionsEnabled by mutableStateOf(true)
@@ -470,11 +488,6 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
         applySnapshot(snapshot)
         if (snapshot.schema < SETTINGS_SCHEMA) {
-            // One-time migration from the SharedPreferences-only build.
-            if (prefs.contains("dark")) {
-                darkMode = prefs.getBoolean("dark", false)
-                withContext(Dispatchers.IO) { settingsStore.setDark(darkMode) }
-            }
             withContext(Dispatchers.IO) { settingsStore.setSchema(SETTINGS_SCHEMA) }
         }
         DownloadCenter.restore(application)
@@ -495,7 +508,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun applySnapshot(snapshot: SettingsSnapshot) {
-        darkMode = snapshot.dark
+        appearanceMode = snapshot.appearance
+        openLinksInApps = snapshot.openLinksInApps
+        accentKey = snapshot.accent
         suggestionsEnabled = snapshot.suggestions
         // DataStore is the source of truth; a store written before engines were
         // saved there falls back to the prefs value and migrates it once.
@@ -2194,6 +2209,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     /* ---------------------------------------------------------- external links */
 
     private fun askExternalLink(tabId: Long, url: String) {
+        if (!openLinksInApps) return
         val existing = browserPrompt
         if (existing is BrowserPromptState.ExternalLink && existing.url == url) return
         if (existing != null) clearShownPrompt()
@@ -3409,10 +3425,21 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun toggleDarkMode() {
-        darkMode = !darkMode
-        prefs.edit().putBoolean("dark", darkMode).apply()
-        scope.launch { withContext(Dispatchers.IO) { settingsStore.setDark(darkMode) } }
+    fun setOpenLinksInApps(enabled: Boolean) {
+        openLinksInApps = enabled
+        prefs.edit().putBoolean("open_links_in_apps", enabled).apply()
+        scope.launch { withContext(Dispatchers.IO) { settingsStore.setOpenLinksInApps(enabled) } }
+    }
+
+    fun setAppearanceMode(mode: String) {
+        appearanceMode = mode
+        prefs.edit().putString("appearance_mode", mode).apply()
+        scope.launch { withContext(Dispatchers.IO) { settingsStore.setAppearance(mode) } }
+    }
+
+    fun setAccent(key: String) {
+        accentKey = key
+        scope.launch { withContext(Dispatchers.IO) { settingsStore.setAccent(key) } }
     }
 
     fun toggleSearchSuggestions() {

@@ -161,9 +161,9 @@ fun SettingsScreen(
 ) {
     val c = LocalArc.current
     val query = vm.settingsSearch
-    var openLinksInApps by remember { mutableStateOf(true) }
     var httpsOnly by remember { mutableStateOf(true) }
     var enginePicker by remember { mutableStateOf(false) }
+    var accentPicker by remember { mutableStateOf(false) }
     val defaultBrowserLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { vm.refreshDefaultBrowser() }
@@ -211,19 +211,30 @@ fun SettingsScreen(
                     }
                 }
 
-                val appearance = listOf("Dark mode", "Text size", "Search suggestions")
+                val appearance = listOf("Appearance", "Accent colour", "Text size", "Search suggestions")
                     .filter { matches(query, it) }
                 if (appearance.isNotEmpty()) {
-                    SectionLabel("Appearance")
+                    SectionLabel("Look and feel")
                     SettingsGroup {
-                        if ("Dark mode" in appearance) {
-                            SettingsRow(
-                                label = "Dark mode",
-                                icon = { Glyph(Ico.moon, c.text, size = 20.dp, strokeWidth = 1.9f) },
-                                trailing = { ArcSwitch(vm.darkMode) { vm.toggleDarkMode() } },
-                                onClick = { vm.toggleDarkMode() },
-                            )
-                        }
+                        if ("Appearance" in appearance) SettingsRow(
+                            "Appearance",
+                            icon = { Glyph(Ico.moon, c.text, size = 20.dp, strokeWidth = 1.9f) },
+                            value = vm.appearanceMode.replaceFirstChar { it.uppercase() },
+                            onClick = {
+                                val next = when (vm.appearanceMode) {
+                                    "system" -> "light"
+                                    "light" -> "dark"
+                                    else -> "system"
+                                }
+                                vm.setAppearanceMode(next)
+                            },
+                        )
+                        if ("Accent colour" in appearance) SettingsRow(
+                            "Accent colour",
+                            icon = { Glyph(Ico.grid, c.text, size = 19.dp, strokeWidth = 1.7f) },
+                            value = AccentPresets.firstOrNull { it.key == vm.accentKey }?.label ?: "Firefox purple",
+                            onClick = { accentPicker = true },
+                        )
                         if ("Text size" in appearance) {
                             SettingsRow(
                                 label = "Text size",
@@ -329,9 +340,9 @@ fun SettingsScreen(
                         )
                         if ("Open links in apps" in general) SettingsRow(
                             "Open links in apps",
-                            icon = { Glyph(Ico.link, c.text, size = 20.dp, strokeWidth = 1.9f) },
-                            trailing = { ArcSwitch(openLinksInApps) { openLinksInApps = it } },
-                            onClick = { openLinksInApps = !openLinksInApps },
+                            icon = { Glyph(Ico.open, c.text, size = 19.dp, strokeWidth = 1.9f) },
+                            trailing = { ArcSwitch(vm.openLinksInApps) { vm.setOpenLinksInApps(it) } },
+                            onClick = { vm.setOpenLinksInApps(!vm.openLinksInApps) },
                         )
                         if ("Downloads" in general) SettingsRow(
                             "Downloads",
@@ -407,6 +418,47 @@ fun SettingsScreen(
             }
         }
 
+        if (accentPicker) {
+            AlertDialog(
+                onDismissRequest = { accentPicker = false },
+                title = { Text("Accent colour") },
+                text = {
+                    Column {
+                        AccentPresets.forEach { preset ->
+                            val selected = preset.key == vm.accentKey
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(13.dp))
+                                    .clickable {
+                                        vm.setAccent(preset.key)
+                                        accentPicker = false
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(
+                                    Modifier
+                                        .size(22.dp)
+                                        .clip(CircleShape)
+                                        .background(preset.dark),
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    preset.label,
+                                    color = c.text,
+                                    fontSize = 14.sp,
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                if (selected) Text("✓", color = c.accent, fontSize = 13.sp)
+                            }
+                        }
+                    }
+                },
+                confirmButton = { TextButton(onClick = { accentPicker = false }) { Text("Done") } },
+            )
+        }
         SettingsSearchPill(
             value = query,
             onChange = vm::onSettingsSearchChange,
@@ -540,16 +592,6 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                         value = vm.blockedCount.toString(),
                     )
                 }
-            }
-
-            SectionLabel("Appearance")
-            SettingsGroup {
-                SettingsRow(
-                    "Dark mode",
-                    icon = { Glyph(Ico.moon, c.text, size = 20.dp, strokeWidth = 1.9f) },
-                    trailing = { ArcSwitch(vm.darkMode) { vm.toggleDarkMode() } },
-                    onClick = { vm.toggleDarkMode() },
-                )
             }
 
             SectionLabel("Permissions")
