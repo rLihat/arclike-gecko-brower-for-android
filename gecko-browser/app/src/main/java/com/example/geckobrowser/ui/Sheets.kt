@@ -508,7 +508,6 @@ fun MenuSheet(vm: BrowserViewModel) {
     Column(
         Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             // Leave room under the rows for the capsule seated in the sheet base.
             .padding(start = 16.dp, end = 16.dp, bottom = 92.dp),
     ) {

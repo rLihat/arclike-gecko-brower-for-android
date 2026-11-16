@@ -129,10 +129,20 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
         // Pinch-in hides the chrome; it only applies on a live page at 100%
         // zoom with nothing layered over it. Leaving that state brings it back.
         var immersive by remember { mutableStateOf(false) }
+        var immBanner by remember { mutableStateOf(false) }
         val canImmersive = overlay == Overlay.None && tab != null && !tab.isHome &&
             vm.zoom == 100 && vm.pendingDownload == null
         LaunchedEffect(canImmersive) {
             if (!canImmersive) immersive = false
+        }
+        LaunchedEffect(immersive) {
+            if (immersive) {
+                immBanner = true
+                delay(2200)
+                immBanner = false
+            } else {
+                immBanner = false
+            }
         }
 
         LaunchedEffect(vm.addonPickerRequest.value) {
@@ -266,6 +276,35 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                         transformOrigin = TransformOrigin(0.5f, 1f)
                     },
                 )
+            }
+
+            if (immBanner) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 18.dp)
+                        .fillMaxWidth(0.7f)
+                        .height(58.dp)
+                        .shadow(20.dp, RoundedCornerShape(29.dp))
+                        .clip(RoundedCornerShape(29.dp))
+                        .background(c.navSoft)
+                        .border(1.dp, c.stroke, RoundedCornerShape(29.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            Modifier.size(26.dp).clip(RoundedCornerShape(9.dp)).background(c.chip),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Glyph(Ico.tabs, c.accent, size = 15.dp, strokeWidth = 2f)
+                        }
+                        Spacer(Modifier.width(11.dp))
+                        Column {
+                            Text("Immersive mode", color = c.text, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text("Pinch in again to bring the pill back", color = c.muted, fontSize = 11.5.sp)
+                        }
+                    }
+                }
             }
 
             if (!vm.fullscreen) ChromeOverlay(vm, immersive)
@@ -528,7 +567,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         val popupPill = vm.popupBlocked != null && overlay == Overlay.None &&
             !vm.findOpen
         val pillVisible = (overlay == Overlay.None || overlay == Overlay.Menu ||
-            overlay == Overlay.Search) && vm.navNotice == null && !immersive &&
+            overlay == Overlay.Search || overlay == Overlay.Tabs) && vm.navNotice == null && !immersive &&
             vm.pendingDownload == null && !popupPill && !vm.findOpen &&
             !(overlay == Overlay.None && vm.toastMessage != null)
         if (pillVisible) {
@@ -576,7 +615,6 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
 
         // Live page requests borrow the pill footprint; a permission question is
         // deliberately its own card so the site and permission stay readable.
-        LoadingDotsHost(vm, immersive)
         PermissionPromptHost(vm)
         BrowserPromptHost(vm)
 
@@ -2066,7 +2104,7 @@ private fun BoxScope.NavPill(
     val capsuleBg by animateColorAsState(
         when {
             searchMode -> Color.Transparent
-            menuMode -> c.chip
+            menuMode -> Color.Transparent
             else -> c.navSoft
         },
         tween(if (reduceMotion) 0 else 420, easing = morphEasing),
@@ -2141,9 +2179,6 @@ private fun BoxScope.NavPill(
                             onClick = { vm.toggleMenu() },
                             onSwipeUp = { vm.openMenu() },
                             onSwipeDown = { vm.closeOverlay() },
-                            onSwipeLeft = { vm.navGesture(forward = false) },
-                            onSwipeRight = { vm.navGesture(forward = true) },
-                            strictHorizontal = true,
                         ) {
                             Glyph(Ico.chevronUp, c.text, size = 24.dp,
                                 strokeWidth = 2.2f, modifier = Modifier.rotate(chevronRotation))
@@ -2158,9 +2193,6 @@ private fun BoxScope.NavPill(
                         PillButton(
                             onClick = { vm.toggleTabs() },
                             onSwipeUp = { vm.openTabs() },
-                            onSwipeLeft = { vm.navGesture(forward = false) },
-                            onSwipeRight = { vm.navGesture(forward = true) },
-                            strictHorizontal = true,
                         ) {
                             val t = tab
                             if (t == null || t.isHome || t.url.isBlank()) {
@@ -2180,15 +2212,27 @@ private fun BoxScope.NavPill(
                             onSwipeLeft = { vm.switchTab(1) },
                             onSwipeRight = { vm.switchTab(-1) },
                         ) {
-                            Glyph(Ico.plus, c.text, size = 24.dp, strokeWidth = 2.2f)
+                            if (vm.pipLoading) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                                    repeat(3) { index ->
+                                        val phase = ((System.currentTimeMillis() / 300f + index * 0.33f) % 1f)
+                                        val bump = (1f - abs(phase - 0.5f) * 2f).coerceIn(0f, 1f)
+                                        Box(
+                                            Modifier
+                                                .size(5.dp)
+                                                .clip(CircleShape)
+                                                .background(c.accent.copy(alpha = 0.3f + 0.7f * bump))
+                                        )
+                                    }
+                                }
+                            } else {
+                                Glyph(Ico.plus, c.text, size = 24.dp, strokeWidth = 2.2f)
+                            }
                         }
                         PillButton(
                             onClick = { vm.toggleMenu() },
                             onSwipeUp = { vm.openMenu() },
                             onSwipeDown = { vm.closeOverlay() },
-                            onSwipeLeft = { vm.navGesture(forward = false) },
-                            onSwipeRight = { vm.navGesture(forward = true) },
-                            strictHorizontal = true,
                         ) {
                             Glyph(Ico.chevronUp, c.text, size = 24.dp, strokeWidth = 2.2f)
                         }

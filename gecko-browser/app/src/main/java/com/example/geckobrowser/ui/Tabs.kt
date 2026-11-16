@@ -108,7 +108,7 @@ fun TabSwitcher(vm: BrowserViewModel, modifier: Modifier = Modifier) {
                     tab = tab,
                     active = tab.id == vm.activeId,
                     width = cardWidth,
-                    onSelect = { vm.selectTab(tab.id) },
+                    onSelect = { if (tab.id == vm.activeId) vm.closeOverlay() else vm.selectTab(tab.id) },
                     onClose = { vm.closeTab(tab.id) },
                 )
             }
