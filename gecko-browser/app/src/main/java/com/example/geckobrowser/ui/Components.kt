@@ -245,11 +245,11 @@ private val IcoTrash: List<Path> = listOf(
 )
 private val IcoLock: List<Path> = listOf(
     p {
-        addRoundRect(Rect(5f, 10f, 19f, 20f), floatArrayOf(3f, 3f, 3f, 3f, 3f, 3f, 3f, 3f), Path.Direction.CW)
-        moveTo(8.5f, 10f); lineTo(8.5f, 6.5f)
+        addRect(Rect(5f, 10.5f, 19f, 20f))
+        moveTo(8.5f, 10.5f); lineTo(8.5f, 6.5f)
         addArc(Rect(8.5f, 2.5f, 15.5f, 11f), 180f, 180f)
-        moveTo(15.5f, 6.5f); lineTo(15.5f, 10f)
-        addOval(Rect(10f, 13.5f, 14f, 17.5f))
+        moveTo(15.5f, 6.5f); lineTo(15.5f, 10.5f)
+        addOval(Rect(10.5f, 13.5f, 13.5f, 16.5f))
     }
 )
 private val IcoPerson: List<Path> = listOf(
