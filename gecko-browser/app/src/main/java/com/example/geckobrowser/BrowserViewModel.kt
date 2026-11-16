@@ -100,7 +100,7 @@ data class ContextMenuState(
 
 enum class Overlay {
     None, Search, Menu, Tabs, Settings, SiteSettings, Account, Downloads, Extensions, ExtensionPopup,
-    History, Translate, Passwords, About,
+    History, Translate, Passwords, About, ExtensionMenu,
 }
 
 /** What a tab's translation looks like right now; kept per tab. */
@@ -201,6 +201,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private val permissionTargets = HashMap<Long, PermissionTarget>()
     private val extensionObjects = HashMap<String, WebExtension>()
     private var extensionPopupSession: GeckoSession? = null
+    /** Toolbar actions reported by installed add-ons, keyed by extension id. */
+    private val extensionActions = HashMap<String, WebExtension.Action>()
 
     /* ------------------------------------------------------------- public state */
 
@@ -216,6 +218,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private var accountReturn = Overlay.Menu
     private var downloadsReturn = Overlay.Menu
     private var extensionsReturn = Overlay.Menu
+    private var extensionReturn = Overlay.Menu
     private var historyReturn = Overlay.Menu
     private var translateReturn = Overlay.Menu
     private var passwordReturn = Overlay.Menu
@@ -2593,15 +2596,37 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private val extensionActionDelegate = object : WebExtension.ActionDelegate {
+        override fun onBrowserAction(
+            extension: WebExtension,
+            session: GeckoSession,
+            action: WebExtension.Action,
+        ) {
+            extensionActions[extension.id] = action
+        }
+
+        override fun onPageAction(
+            extension: WebExtension,
+            session: GeckoSession,
+            action: WebExtension.Action,
+        ) {
+            extensionActions[extension.id] = action
+        }
+
         override fun onOpenPopup(
             extension: WebExtension,
             action: WebExtension.Action,
-        ): GeckoResult<GeckoSession> = openExtensionPopup(extension, action)
+        ): GeckoResult<GeckoSession> {
+            extensionActions[extension.id] = action
+            return openExtensionPopup(extension, action)
+        }
 
         override fun onTogglePopup(
             extension: WebExtension,
             action: WebExtension.Action,
-        ): GeckoResult<GeckoSession> = openExtensionPopup(extension, action)
+        ): GeckoResult<GeckoSession> {
+            extensionActions[extension.id] = action
+            return openExtensionPopup(extension, action)
+        }
     }
 
     private fun openExtensionPopup(
@@ -2655,6 +2680,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                             updateDate = meta?.updateDate.orEmpty(),
                             amoListingUrl = meta?.amoListingUrl.orEmpty(),
                             homepageUrl = meta?.homepageUrl.orEmpty(),
+                            optionsPageUrl = meta?.optionsPageUrl.orEmpty(),
+                            openOptionsPageInTab = meta?.openOptionsPageInTab != false,
                         )
                     }
                     extensions = mapped
@@ -2767,6 +2794,58 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         submit(url)
+    }
+
+    /** Opens the mini menu of enabled extensions from the main menu. */
+    fun openExtensionMenu() {
+        extensionReturn = when (overlay) {
+            Overlay.Menu, Overlay.Settings -> overlay
+            else -> Overlay.Menu
+        }
+        clearActiveLoading()
+        cancelDownloadPrompt()
+        dismissContextMenu()
+        overlay = Overlay.ExtensionMenu
+        compactPill = false
+        refreshExtensions()
+    }
+
+    fun closeExtensionMenu() {
+        if (overlay != Overlay.ExtensionMenu) return
+        overlay = extensionReturn
+        extensionReturn = Overlay.Menu
+        compactPill = false
+    }
+
+    /** Simulates a toolbar-button click: add-ons with a popup open it, others react. */
+    fun clickExtension(item: ExtensionItem) {
+        val action = extensionActions[item.id]
+        if (action == null) {
+            openExtensionOptions(item)
+            return
+        }
+        runCatching { action.click() }.onFailure {
+            openExtensionOptions(item)
+        }
+    }
+
+    /** Opens the add-on's own options page inside a new tab, if it has one. */
+    fun openExtensionOptions(item: ExtensionItem) {
+        val url = item.optionsPageUrl.ifBlank { item.amoListingUrl }
+        if (url.isBlank()) {
+            showToast("This add-on has no options page")
+            return
+        }
+        val id = addTab(url = url, title = hostOf(url))
+        closeOverlay()
+        expandPill()
+    }
+
+    /** Opens the Mozilla add-ons store in a new tab. */
+    fun visitExtensionStore() {
+        val id = addTab(url = "https://addons.mozilla.org/firefox/extensions/", title = "Add-ons store")
+        closeOverlay()
+        expandPill()
     }
 
     fun openExtensions() {
@@ -3400,6 +3479,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             }
             Overlay.ExtensionPopup -> {
                 closeExtensionPopup()
+                true
+            }
+            Overlay.ExtensionMenu -> {
+                closeExtensionMenu()
                 true
             }
             Overlay.Downloads -> {

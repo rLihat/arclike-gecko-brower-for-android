@@ -78,6 +78,8 @@ data class ExtensionItem(
     val updateDate: String = "",
     val amoListingUrl: String = "",
     val homepageUrl: String = "",
+    val optionsPageUrl: String = "",
+    val openOptionsPageInTab: Boolean = true,
 )
 
 /**

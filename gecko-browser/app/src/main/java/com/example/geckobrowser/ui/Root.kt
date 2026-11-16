@@ -430,7 +430,7 @@ private fun WebHost(
 private val sheetOverlays = setOf(
     Overlay.Search, Overlay.Menu, Overlay.Settings, Overlay.SiteSettings, Overlay.Account,
     Overlay.Downloads, Overlay.Extensions, Overlay.ExtensionPopup, Overlay.History,
-    Overlay.Translate, Overlay.Passwords, Overlay.About,
+    Overlay.Translate, Overlay.Passwords, Overlay.About, Overlay.ExtensionMenu,
 )
 
 @Composable
@@ -483,6 +483,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             Overlay.Passwords -> ({ PasswordsScreen(vm) { vm.closePasswords() } })
             Overlay.About -> ({ AboutScreen(vm) { vm.closeAbout() } })
             Overlay.ExtensionPopup -> ({ ExtensionPopupSheet(vm) })
+            Overlay.ExtensionMenu -> ({ ExtensionMenuSheet(vm) })
             else -> ({})
         }
 
@@ -560,7 +561,8 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                     .background(
                         when {
                             closing -> Color.Transparent
-                            lastSheet == Overlay.Search || lastSheet == Overlay.Menu -> c.sheetSoft
+                            lastSheet == Overlay.Search || lastSheet == Overlay.Menu ||
+                            lastSheet == Overlay.ExtensionMenu -> c.sheetSoft
                             lastSheet == Overlay.Downloads || lastSheet == Overlay.History ||
                                 lastSheet == Overlay.Translate || lastSheet == Overlay.Passwords ||
                                 lastSheet == Overlay.About -> c.settingsBg

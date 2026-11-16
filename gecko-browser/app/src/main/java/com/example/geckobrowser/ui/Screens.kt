@@ -948,25 +948,49 @@ fun ExtensionsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                         Text("Check for updates", color = c.text, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                vm.extensions.forEach { ExtensionRow(vm, it) }
+                val enabledList = vm.extensions.filter { it.enabled }
+                val disabledList = vm.extensions.filter { !it.enabled }
+                if (enabledList.isNotEmpty()) {
+                    SectionLabel("Enabled (${enabledList.size})")
+                    enabledList.forEach { ExtensionRow(vm, it) }
+                }
+                if (disabledList.isNotEmpty()) {
+                    SectionLabel("Disabled (${disabledList.size})")
+                    disabledList.forEach { ExtensionRow(vm, it) }
+                }
             }
             Spacer(Modifier.height(16.dp))
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(46.dp)
-                    .clip(CircleShape)
-                    .background(c.accent)
-                    .clickable { vm.openAddonPicker() },
-                contentAlignment = Alignment.Center,
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Text(
-                    "Install add-on",
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(46.dp)
+                        .clip(CircleShape)
+                        .background(c.chip)
+                        .clickable { vm.visitExtensionStore() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("Visit Store", color = c.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(46.dp)
+                        .clip(CircleShape)
+                        .background(c.accent)
+                        .clickable { vm.openAddonPicker() },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        "Install from local",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
             }
             Spacer(Modifier.height(10.dp))
             Text(
@@ -1143,6 +1167,18 @@ private fun ExtensionRow(vm: BrowserViewModel, item: ExtensionItem) {
                     .clickable { vm.updateExtension(item) }
                     .padding(horizontal = 6.dp, vertical = 4.dp),
             )
+            if (item.optionsPageUrl.isNotBlank()) {
+                Text(
+                    "Options",
+                    color = c.accent,
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable { vm.openExtensionOptions(item) }
+                        .padding(horizontal = 6.dp, vertical = 4.dp),
+                )
+            }
             Text(
                 "Permissions",
                 color = c.accent,
