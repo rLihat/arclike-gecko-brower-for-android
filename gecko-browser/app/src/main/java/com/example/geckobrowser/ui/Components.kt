@@ -91,6 +91,9 @@ private val IcoChevronLeft: List<Path> = listOf(
 private val IcoChevronRight: List<Path> = listOf(
     p { moveTo(9f, 5f); lineTo(16f, 12f); lineTo(9f, 19f) }
 )
+private val IcoChevronDown: List<Path> = listOf(
+    p { moveTo(6f, 10f); lineTo(12f, 16f); lineTo(18f, 10f) }
+)
 private val IcoClose: List<Path> = listOf(
     p {
         moveTo(6f, 6f); lineTo(18f, 18f)
