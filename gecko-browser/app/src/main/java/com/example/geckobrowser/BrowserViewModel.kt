@@ -245,6 +245,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var openLinksInApps by mutableStateOf(true)
         private set
 
+    private var engineOrderState by mutableStateOf<List<String>>(emptyList())
+
+    private var disabledEnginesState by mutableStateOf<Set<String>>(emptySet())
+
+    private var engineOrderInitialized = false
+
     var suggestionsEnabled by mutableStateOf(true)
         private set
 
@@ -459,10 +465,92 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
 
     val engines: List<SearchEngine>
-        get() = BUILTIN_ENGINES + customEngines
+        get() = computeOrderedEngines().filter { it.id !in disabledEnginesState }
+
+    fun allEngines(): List<SearchEngine> = computeOrderedEngines()
+
+    fun isEngineEnabled(id: String): Boolean = id !in disabledEnginesState
+
+    private fun computeOrderedEngines(): List<SearchEngine> {
+        if (!engineOrderInitialized) {
+            loadEngineConfig()
+            engineOrderInitialized = true
+        }
+        val all = BUILTIN_ENGINES + customEngines
+        val byId = all.associateBy { it.id }
+        val ordered = LinkedHashSet<String>()
+        engineOrderState.forEach { id -> if (byId.containsKey(id)) ordered.add(id) }
+        all.forEach { e -> ordered.add(e.id) }
+        return ordered.mapNotNull { byId[it] }
+    }
+
+    fun setEngineEnabled(id: String, enabled: Boolean) {
+        val current = disabledEnginesState
+        val currentlyEnabled = id !in current
+        if (enabled == currentlyEnabled) return
+        val next = current.toMutableSet()
+        if (enabled) next.remove(id) else next.add(id)
+        disabledEnginesState = next
+        if (!enabled && searchEngineId == id) {
+            val first = computeOrderedEngines().firstOrNull { it.id !in next }
+            if (first != null) selectEngine(first.id)
+        }
+        persistEngineConfig()
+        engineVersion++
+    }
+
+    fun moveEngine(id: String, up: Boolean) {
+        val order = computeOrderedEngines().map { it.id }.toMutableList()
+        val index = order.indexOf(id)
+        if (index < 0) return
+        val target = if (up) index - 1 else index + 1
+        if (target !in order.indices) return
+        order.removeAt(index).let { order.add(target, it) }
+        engineOrderState = order
+        persistEngineConfig()
+        engineVersion++
+    }
+
+    fun removeEngine(id: String) {
+        if (apiIsBuiltin(id)) return
+        customEngines = customEngines.filterNot { it.id == id }
+        engineOrderState = engineOrderState.filterNot { it == id }
+        disabledEnginesState = disabledEnginesState - id
+        persistCustomEngines()
+        persistEngineConfig()
+        if (searchEngineId == id) {
+            val first = computeOrderedEngines().firstOrNull()
+            if (first != null) selectEngine(first.id)
+        }
+        engineVersion++
+    }
+
+    fun toggleEngine(id: String) = setEngineEnabled(id, !isEngineEnabled(id))
+
+    private fun apiIsBuiltin(id: String): Boolean = BUILTIN_ENGINES.any { it.id == id }
+
+    private fun persistEngineConfig() {
+        prefs.edit()
+            .putString("engine_order", engineOrderState.joinToString(","))
+            .putString("disabled_engines", disabledEnginesState.joinToString(","))
+            .apply()
+    }
+
+    private fun loadEngineConfig() {
+        val rawOrder = prefs.getString("engine_order", null).orEmpty()
+        engineOrderState = rawOrder.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        val rawDisabled = prefs.getString("disabled_engines", null).orEmpty()
+        disabledEnginesState = rawDisabled.split(',').map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+    }
+
+    /** Bumped on every engine-config change so the management UI recomposes. */
+    var engineVersion by mutableIntStateOf(0)
+        private set
 
     val currentEngine: SearchEngine
-        get() = engines.firstOrNull { it.id == searchEngineId } ?: BUILTIN_ENGINES.first()
+        get() = engines.firstOrNull { it.id == searchEngineId }
+            ?: computeOrderedEngines().firstOrNull()
+            ?: BUILTIN_ENGINES.first()
 
     var editingOverlayHeight by mutableStateOf(false)
 
@@ -3674,7 +3762,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     /* ------------------------------------------------------------ search engines */
 
     fun selectEngine(id: String) {
-        if (id == searchEngineId || engines.none { it.id == id }) return
+        if (id == searchEngineId || computeOrderedEngines().none { it.id == id }) return
         searchEngineId = id
         prefs.edit().putString("search_engine", id).apply()
         scope.launch { withContext(Dispatchers.IO) { settingsStore.setEngine(id) } }

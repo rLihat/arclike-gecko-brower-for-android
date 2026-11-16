@@ -314,7 +314,7 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                             Modifier.size(26.dp).clip(RoundedCornerShape(9.dp)).background(c.chip),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Glyph(Ico.tabs, c.accent, size = 15.dp, strokeWidth = 2f)
+                            Glyph(Ico.expand, c.accent, size = 15.dp, strokeWidth = 2f)
                         }
                         Spacer(Modifier.width(11.dp))
                         Column {

@@ -163,6 +163,10 @@ fun SettingsScreen(
     val query = vm.settingsSearch
     var httpsOnly by remember { mutableStateOf(true) }
     var enginePicker by remember { mutableStateOf(false) }
+    var engineAdding by remember { mutableStateOf(false) }
+    var engineAddName by remember { mutableStateOf("") }
+    var engineAddUrl by remember { mutableStateOf("") }
+    var engineAddError by remember { mutableStateOf<String?>(null) }
     var accentPicker by remember { mutableStateOf(false) }
     val defaultBrowserLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -218,7 +222,7 @@ fun SettingsScreen(
                     SettingsGroup {
                         if ("Appearance" in appearance) SettingsRow(
                             "Appearance",
-                            icon = { Glyph(Ico.moon, c.text, size = 20.dp, strokeWidth = 1.9f) },
+                            icon = { Glyph(Ico.contrast, c.text, size = 20.dp, strokeWidth = 1.9f) },
                             value = vm.appearanceMode.replaceFirstChar { it.uppercase() },
                             onClick = {
                                 val next = when (vm.appearanceMode) {
@@ -233,8 +237,61 @@ fun SettingsScreen(
                             "Accent colour",
                             icon = { Glyph(Ico.grid, c.text, size = 19.dp, strokeWidth = 1.7f) },
                             value = AccentPresets.firstOrNull { it.key == vm.accentKey }?.label ?: "Firefox purple",
-                            onClick = { accentPicker = true },
+                            onClick = { accentPicker = !accentPicker },
+                            trailing = {
+                                Glyph(
+                                    Ico.chevronRight,
+                                    c.muted,
+                                    size = 15.dp,
+                                    strokeWidth = 2f,
+                                    modifier = Modifier.rotate(if (accentPicker) 90f else 0f),
+                                )
+                            },
                         )
+                        if (accentPicker) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 12.dp)
+                                    .height(1.dp)
+                                    .background(c.hairline),
+                            )
+                            Column {
+                                AccentPresets.forEach { preset ->
+                                    val selected = preset.key == vm.accentKey
+                                    Row(
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(11.dp))
+                                            .background(if (selected) c.chip else Color.Transparent)
+                                            .clickable {
+                                                vm.setAccent(preset.key)
+                                                accentPicker = false
+                                            }
+                                            .padding(horizontal = 12.dp, vertical = 9.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Box(
+                                            Modifier
+                                                .size(20.dp)
+                                                .clip(CircleShape)
+                                                .background(preset.dark),
+                                        )
+                                        Spacer(Modifier.width(11.dp))
+                                        Text(
+                                            preset.label,
+                                            color = c.text,
+                                            fontSize = 13.5.sp,
+                                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        Text(if (selected) "✓" else "", color = c.accent, fontSize = 13.sp)
+                                    }
+                                }
+                            }
+                        }
                         if ("Text size" in appearance) {
                             SettingsRow(
                                 label = "Text size",
@@ -256,7 +313,7 @@ fun SettingsScreen(
                     }
                 }
 
-                val general = listOf("Search engine", "History", "Language", "Open links in apps", "Downloads", "Default browser")
+                val general = listOf("Search engine", "History", "Language", "Open links in apps", "Downloads", "Default browser", "Extensions")
                     .filter { matches(query, it) }
                 if (general.isNotEmpty()) {
                     SectionLabel("General")
@@ -286,16 +343,15 @@ fun SettingsScreen(
                                         .background(c.hairline),
                                 )
                                 Column {
-                                    vm.engines.forEach { e ->
-                                        val selected = e.id == vm.currentEngine.id
+                                    val all = vm.allEngines()
+                                    all.forEach { e ->
+                                        val enabled = vm.isEngineEnabled(e.id)
+                                        val selected = enabled && e.id == vm.currentEngine.id
                                         Row(
                                             Modifier
                                                 .fillMaxWidth()
                                                 .clip(RoundedCornerShape(11.dp))
-                                                .clickable {
-                                                    vm.selectEngine(e.id)
-                                                    enginePicker = false
-                                                }
+                                                .background(if (selected) c.chip else Color.Transparent)
                                                 .padding(horizontal = 12.dp, vertical = 9.dp),
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
@@ -303,7 +359,7 @@ fun SettingsScreen(
                                             Spacer(Modifier.width(11.dp))
                                             Text(
                                                 e.name,
-                                                color = c.text,
+                                                color = if (enabled) c.text else c.muted,
                                                 fontSize = 13.5.sp,
                                                 fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                                                 maxLines = 1,
@@ -321,7 +377,77 @@ fun SettingsScreen(
                                                 )
                                                 Spacer(Modifier.width(8.dp))
                                             }
-                                            Text(if (selected) "✓" else "", color = c.accent, fontSize = 13.sp)
+                                            IconBtn(Ico.chevronUp) { vm.moveEngine(e.id, up = true) }
+                                            IconBtn(Ico.chevronDown) { vm.moveEngine(e.id, up = false) }
+                                            ArcSwitch(enabled) { vm.setEngineEnabled(e.id, it) }
+                                            if (e.custom) {
+                                                Spacer(Modifier.width(6.dp))
+                                                IconBtn(Ico.trash) { vm.removeEngine(e.id) }
+                                            }
+                                        }
+                                    }
+                                    Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
+                                    if (!engineAdding) {
+                                        Row(
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(11.dp))
+                                                .clickable {
+                                                    engineAdding = true
+                                                    engineAddError = null
+                                                }
+                                                .padding(horizontal = 10.dp, vertical = 9.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Text("＋", color = c.accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                            Spacer(Modifier.width(8.dp))
+                                            Text("Add search engine", color = c.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                                        }
+                                    } else {
+                                        Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                                            EngineField(engineAddName, { engineAddName = it; engineAddError = null }, "Name")
+                                            EngineField(engineAddUrl, { engineAddUrl = it; engineAddError = null },
+                                                "https://example.com/search?q=%s")
+                                            engineAddError?.let {
+                                                Spacer(Modifier.height(6.dp))
+                                                Text(it, color = Color(0xFFC0392B), fontSize = 11.sp)
+                                            }
+                                            Row(
+                                                Modifier.fillMaxWidth().padding(top = 8.dp),
+                                                horizontalArrangement = Arrangement.End,
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                Text(
+                                                    "Cancel",
+                                                    color = c.text,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(9.dp))
+                                                        .background(c.chip)
+                                                        .clickable { engineAdding = false; engineAddError = null }
+                                                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                                                )
+                                                Spacer(Modifier.width(8.dp))
+                                                Text(
+                                                    "Add",
+                                                    color = Color.White,
+                                                    fontSize = 12.sp,
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(9.dp))
+                                                        .background(c.accent)
+                                                        .clickable {
+                                                            if (vm.addCustomEngine(engineAddName, engineAddUrl)) {
+                                                                engineAddName = ""; engineAddUrl = ""; engineAddError = null
+                                                                engineAdding = false
+                                                            } else {
+                                                                engineAddError = "Enter a name and a URL containing %s."
+                                                            }
+                                                        }
+                                                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -358,6 +484,12 @@ fun SettingsScreen(
                                 if (intent != null) defaultBrowserLauncher.launch(intent)
                                 else vm.openDefaultBrowserSettings()
                             },
+                        )
+                        if ("Extensions" in general) SettingsRow(
+                            "Extensions",
+                            icon = { Glyph(Ico.puzzle, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                            value = "${vm.extensions.size} installed",
+                            onClick = { vm.openExtensions() },
                         )
                     }
                 }
@@ -418,47 +550,6 @@ fun SettingsScreen(
             }
         }
 
-        if (accentPicker) {
-            AlertDialog(
-                onDismissRequest = { accentPicker = false },
-                title = { Text("Accent colour") },
-                text = {
-                    Column {
-                        AccentPresets.forEach { preset ->
-                            val selected = preset.key == vm.accentKey
-                            Row(
-                                Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(13.dp))
-                                    .clickable {
-                                        vm.setAccent(preset.key)
-                                        accentPicker = false
-                                    }
-                                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Box(
-                                    Modifier
-                                        .size(22.dp)
-                                        .clip(CircleShape)
-                                        .background(preset.dark),
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Text(
-                                    preset.label,
-                                    color = c.text,
-                                    fontSize = 14.sp,
-                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                                    modifier = Modifier.weight(1f),
-                                )
-                                if (selected) Text("✓", color = c.accent, fontSize = 13.sp)
-                            }
-                        }
-                    }
-                },
-                confirmButton = { TextButton(onClick = { accentPicker = false }) { Text("Done") } },
-            )
-        }
         SettingsSearchPill(
             value = query,
             onChange = vm::onSettingsSearchChange,
@@ -1305,6 +1396,47 @@ fun AccountScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth(),
             )
+        }
+    }
+}
+
+@Composable
+private fun IconBtn(icon: List<androidx.compose.ui.graphics.Path>, onClick: () -> Unit) {
+    val c = LocalArc.current
+    Box(
+        Modifier
+            .size(30.dp)
+            .clip(RoundedCornerShape(9.dp))
+            .clickable { onClick() },
+        contentAlignment = Alignment.Center,
+    ) {
+        Glyph(icon, c.muted, size = 17.dp, strokeWidth = 1.9f)
+    }
+}
+
+@Composable
+private fun EngineField(value: String, onValueChange: (String) -> Unit, placeholder: String) {
+    val c = LocalArc.current
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(c.chip)
+            .border(1.dp, c.stroke, RoundedCornerShape(10.dp))
+            .padding(horizontal = 11.dp, vertical = 10.dp),
+    ) {
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            textStyle = androidx.compose.ui.text.TextStyle(color = c.text, fontSize = 12.5.sp),
+            cursorBrush = androidx.compose.ui.graphics.SolidColor(c.accent),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (value.isEmpty()) {
+            Text(placeholder, color = c.muted, fontSize = 12.5.sp, maxLines = 1,
+                overflow = TextOverflow.Ellipsis)
         }
     }
 }

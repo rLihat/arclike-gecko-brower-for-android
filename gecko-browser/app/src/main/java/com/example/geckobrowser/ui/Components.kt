@@ -195,6 +195,15 @@ private val IcoPuzzle: List<Path> = listOf(
         close()
     }
 )
+private val IcoContrast: List<Path> = listOf(
+    p {
+        addOval(Rect(4.5f, 4.5f, 19.5f, 19.5f))
+        moveTo(12f, 4.5f); lineTo(12f, 19.5f)
+        moveTo(12f, 7.5f); lineTo(16.5f, 7.5f)
+        moveTo(12f, 12f); lineTo(16.5f, 12f)
+        moveTo(12f, 16.5f); lineTo(16.5f, 16.5f)
+    }
+)
 private val IcoMoon: List<Path> = listOf(
     p {
         moveTo(19.5f, 14.2f)
@@ -342,6 +351,7 @@ object Ico {
     val share = IcoShare
     val translate = IcoTranslate
     val find = IcoFind
+    val contrast = IcoContrast
     val puzzle = IcoPuzzle
     val moon = IcoMoon
     val textSize = IcoTextSize
