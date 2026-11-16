@@ -162,7 +162,6 @@ fun SettingsScreen(
     val c = LocalArc.current
     val query = vm.settingsSearch
     var openLinksInApps by remember { mutableStateOf(true) }
-    var closeOnExit by remember { mutableStateOf(false) }
     var httpsOnly by remember { mutableStateOf(true) }
     var enginePicker by remember { mutableStateOf(false) }
     val defaultBrowserLauncher = rememberLauncherForActivityResult(
@@ -352,34 +351,9 @@ fun SettingsScreen(
                     }
                 }
 
-                val tabsGroup = listOf("Tab view", "New tabs", "Close tabs on exit").filter { matches(query, it) }
-                if (tabsGroup.isNotEmpty()) {
-                    SectionLabel("Tabs")
-                    SettingsGroup {
-                        if ("Tab view" in tabsGroup) SettingsRow(
-                            "Tab view",
-                            icon = { Glyph(Ico.grid, c.text, size = 19.dp, strokeWidth = 1.7f) },
-                            value = "Carousel",
-                            onClick = { vm.showToast("Tab view: carousel") },
-                        )
-                        if ("New tabs" in tabsGroup) SettingsRow(
-                            "New tabs",
-                            icon = { Glyph(Ico.tabs, c.text, size = 20.dp, strokeWidth = 1.7f) },
-                            value = "Homepage",
-                            onClick = { vm.showToast("New tabs open the homepage") },
-                        )
-                        if ("Close tabs on exit" in tabsGroup) SettingsRow(
-                            "Close tabs on exit",
-                            icon = { Glyph(Ico.close, c.text, size = 19.dp, strokeWidth = 2f) },
-                            trailing = { ArcSwitch(closeOnExit) { closeOnExit = it } },
-                            onClick = { closeOnExit = !closeOnExit },
-                        )
-                    }
-                }
-
                 val privacy = listOf(
                     "Tracking protection", "Cookie banners", "HTTPS-Only Mode", "Site permissions",
-                    "Autofill and passwords", "Clear browsing data"
+                    "Clear browsing data"
                 ).filter { matches(query, it) }
                 if (privacy.isNotEmpty()) {
                     SectionLabel("Privacy & security")
@@ -416,12 +390,6 @@ fun SettingsScreen(
                             icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.7f) },
                             onClick = { vm.openSiteSettings() },
                         )
-                        if ("Autofill and passwords" in privacy) SettingsRow(
-                            "Autofill and passwords",
-                            icon = { Glyph(Ico.person, c.text, size = 20.dp, strokeWidth = 1.8f) },
-                            value = "${vm.passwords().size} saved",
-                            onClick = { vm.openPasswords() },
-                        )
                         if ("Clear browsing data" in privacy) SettingsRow(
                             "Clear browsing data",
                             icon = { Glyph(Ico.trash, c.text, size = 19.dp, strokeWidth = 1.8f) },
@@ -430,12 +398,11 @@ fun SettingsScreen(
                     }
                 }
 
-                Text(
-                    "Firefox for Android · GeckoView 138",
-                    color = c.muted,
-                    fontSize = 11.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(top = 22.dp),
+                SettingsRow(
+                    "About horiZen",
+                    icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.7f) },
+                    value = "horiZen for Android",
+                    onClick = { vm.openAbout() },
                 )
             }
         }

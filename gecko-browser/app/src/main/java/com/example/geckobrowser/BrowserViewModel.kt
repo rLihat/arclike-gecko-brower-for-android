@@ -100,7 +100,7 @@ data class ContextMenuState(
 
 enum class Overlay {
     None, Search, Menu, Tabs, Settings, SiteSettings, Account, Downloads, Extensions, ExtensionPopup,
-    History, Translate, Passwords,
+    History, Translate, Passwords, About,
 }
 
 /** What a tab's translation looks like right now; kept per tab. */
@@ -219,6 +219,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private var historyReturn = Overlay.Menu
     private var translateReturn = Overlay.Menu
     private var passwordReturn = Overlay.Menu
+    private var aboutReturn = Overlay.Settings
     private var popupReturn = Overlay.None
 
     var darkMode by mutableStateOf(prefs.getBoolean("dark", false))
@@ -1959,6 +1960,26 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshDefaultBrowser() { defaultBrowserVersion++ }
 
+    fun openAbout() {
+        val current = overlay
+        aboutReturn = when (current) {
+            Overlay.Settings, Overlay.Menu, Overlay.SiteSettings, Overlay.Account -> current
+            else -> Overlay.Settings
+        }
+        clearActiveLoading()
+        cancelDownloadPrompt()
+        dismissContextMenu()
+        overlay = Overlay.About
+        compactPill = false
+    }
+
+    fun closeAbout() {
+        if (overlay != Overlay.About) return
+        overlay = aboutReturn
+        aboutReturn = Overlay.Settings
+        compactPill = false
+    }
+
     fun answerButton(id: Long, confirm: Boolean) {
         val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.ButtonPrompt
         val response = prompt?.let {
@@ -3375,6 +3396,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             }
             Overlay.Passwords -> {
                 closePasswords()
+                true
+            }
+            Overlay.About -> {
+                closeAbout()
                 true
             }
             else -> {

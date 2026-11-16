@@ -427,7 +427,7 @@ private fun WebHost(
 private val sheetOverlays = setOf(
     Overlay.Search, Overlay.Menu, Overlay.Settings, Overlay.SiteSettings, Overlay.Account,
     Overlay.Downloads, Overlay.Extensions, Overlay.ExtensionPopup, Overlay.History,
-    Overlay.Translate, Overlay.Passwords,
+    Overlay.Translate, Overlay.Passwords, Overlay.About,
 )
 
 @Composable
@@ -445,7 +445,8 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         val fullHeight = overlay == Overlay.Settings || overlay == Overlay.SiteSettings ||
             overlay == Overlay.Account || overlay == Overlay.Downloads ||
             overlay == Overlay.Extensions || overlay == Overlay.History ||
-            overlay == Overlay.Translate || overlay == Overlay.Passwords
+            overlay == Overlay.Translate || overlay == Overlay.Passwords ||
+            overlay == Overlay.About
 
         var lastSheet by remember { mutableStateOf(Overlay.Menu) }
         if (open) lastSheet = overlay
@@ -477,6 +478,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             Overlay.History -> ({ HistoryScreen(vm) { vm.closeHistory() } })
             Overlay.Translate -> ({ TranslateScreen(vm) { vm.closeTranslate() } })
             Overlay.Passwords -> ({ PasswordsScreen(vm) { vm.closePasswords() } })
+            Overlay.About -> ({ AboutScreen(vm) { vm.closeAbout() } })
             Overlay.ExtensionPopup -> ({ ExtensionPopupSheet(vm) })
             else -> ({})
         }
@@ -557,7 +559,8 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                             closing -> Color.Transparent
                             lastSheet == Overlay.Search || lastSheet == Overlay.Menu -> c.sheetSoft
                             lastSheet == Overlay.Downloads || lastSheet == Overlay.History ||
-                                lastSheet == Overlay.Translate || lastSheet == Overlay.Passwords -> c.settingsBg
+                                lastSheet == Overlay.Translate || lastSheet == Overlay.Passwords ||
+                                lastSheet == Overlay.About -> c.settingsBg
                             else -> c.surface
                         }
                     ),
