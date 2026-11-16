@@ -1815,6 +1815,16 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var passwordSearch by mutableStateOf("")
         private set
 
+    /** When set, the next submit() creates a new tab instead of reusing the active one. */
+    var newTabPending by mutableStateOf(false)
+        private set
+
+    /** Immersive mode: hide the chrome so the page owns the screen. */
+    var immersiveMode by mutableStateOf(false)
+        private set
+
+    fun toggleImmersive() { immersiveMode = !immersiveMode }
+
     private fun appContext(): Context = getApplication<Application>().applicationContext
 
     fun passwords(): List<SavedLogin> = PasswordStore.all(appContext())
@@ -2262,12 +2272,18 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         cancelDownloadPrompt()
         dismissContextMenu()
         val url = toUrl(text)
-        val tab = activeTab ?: run {
+        val createNew = newTabPending
+        newTabPending = false
+        if (createNew || activeTab == null) {
             val id = addTab(url = url)
             closeOverlay()
             expandPill()
+            syncZoomForActive()
+            suggestions = emptyList()
+            historySuggestions = emptyList()
             return
         }
+        val tab = activeTab ?: return
         noLoadUi.remove(tab.id)
         resetOfflineRetries(tab.id)
         historySeed(tab.id, url)
@@ -2489,7 +2505,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         val cm = getApplication<Application>()
             .getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         cm.setPrimaryClip(ClipData.newPlainText("url", url))
-        showToast("Link copied")
+        showToast("Copied")
     }
 
     fun shareCurrentUrl() {
@@ -3018,6 +3034,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun newTab() {
         // No home tab: creating a tab happens only when a search is submitted.
+        openNewTabSearch()
+    }
+
+    fun openNewTabSearch() {
+        newTabPending = true
         openSearch()
     }
 
@@ -3076,6 +3097,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             // No home tab: closing the last tab returns to the empty logo page.
             tabs = emptyList()
             activeId = 0
+            closeOverlay()
         } else {
             tabs = remaining
             if (activeId == id) {

@@ -526,7 +526,7 @@ fun MenuSheet(vm: BrowserViewModel) {
                 .fillMaxWidth()
                 .height(42.dp)
                 .clip(RoundedCornerShape(18.dp))
-                .background(if (c.dark) c.surfaceStrong else Color.White)
+                .background(c.sheetSoft)
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -558,7 +558,7 @@ fun MenuSheet(vm: BrowserViewModel) {
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(18.dp))
-                .background(c.chip)
+                .background(c.navSoft)
                 .padding(6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
@@ -585,7 +585,7 @@ fun MenuSheet(vm: BrowserViewModel) {
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(18.dp))
-                .background(if (c.dark) c.surfaceStrong else Color.White),
+                .background(c.sheetSoft),
         ) {
             Row(
                 Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 14.dp),
@@ -619,36 +619,19 @@ fun MenuSheet(vm: BrowserViewModel) {
                 Modifier
                     .fillMaxWidth()
                     .height(44.dp)
-                    .clickable { vm.toggleDesktopSite() }
+                    .clickable { vm.toggleImmersive() }
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (vm.desktopSite) Glyph(Ico.grid, c.muted, size = 19.dp, strokeWidth = 1.8f)
-                else Glyph(Ico.tabs, c.muted, size = 19.dp, strokeWidth = 1.8f)
+                Glyph(Ico.tabs, c.muted, size = 19.dp, strokeWidth = 1.8f)
                 Spacer(Modifier.width(11.dp))
                 Text(
-                    if (vm.desktopSite) "Desktop site" else "Mobile site",
+                    "Immersive view",
                     color = c.text,
                     fontSize = 14.sp,
                     modifier = Modifier.weight(1f),
                 )
-                ArcSwitch(vm.desktopSite) { vm.toggleDesktopSite() }
-            }
-
-            Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
-
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .height(44.dp)
-                    .clickable { vm.openHistory() }
-                    .padding(horizontal = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Glyph(Ico.clock, c.muted, size = 19.dp, strokeWidth = 1.8f)
-                Spacer(Modifier.width(11.dp))
-                Text("History", color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
-                Glyph(Ico.chevronRight, c.muted, size = 16.dp, strokeWidth = 1.9f)
+                ArcSwitch(vm.immersiveMode) { vm.toggleImmersive() }
             }
 
             Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))

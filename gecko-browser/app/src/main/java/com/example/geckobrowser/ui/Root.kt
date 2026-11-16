@@ -129,12 +129,12 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
 
         // Pinch-in hides the chrome; it only applies on a live page at 100%
         // zoom with nothing layered over it. Leaving that state brings it back.
-        var immersive by remember { mutableStateOf(false) }
+        val immersive = vm.immersiveMode
         var immBanner by remember { mutableStateOf(false) }
         val canImmersive = overlay == Overlay.None && tab != null && !tab.isHome &&
             vm.zoom == 100 && vm.pendingDownload == null
         LaunchedEffect(canImmersive) {
-            if (!canImmersive) immersive = false
+            if (!canImmersive && vm.immersiveMode) vm.toggleImmersive()
         }
         LaunchedEffect(immersive) {
             if (immersive) {
@@ -219,7 +219,7 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                     background = c.siteBg,
                     zoom = vm.zoom / 100f,
                     pinchEnabled = canImmersive,
-                    onPinchIn = { immersive = !immersive },
+                    onPinchIn = { vm.toggleImmersive() },
                     onTap = { x, y -> vm.recordPageTap(x, y) },
                     onViewReady = { vm.onGeckoViewReady(it) },
                 )
@@ -238,7 +238,7 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                             }
                     ) {
                         HomeScreen(
-                            onSearch = { vm.openSearch() },
+                            onSearch = { vm.openNewTabSearch() },
                             onOpen = { url -> vm.submit(url) },
                         )
                     }
@@ -2181,6 +2181,9 @@ private fun BoxScope.NavPill(
                             onClick = { vm.toggleMenu() },
                             onSwipeUp = { vm.openMenu() },
                             onSwipeDown = { vm.closeOverlay() },
+                            onSwipeLeft = { vm.navGesture(forward = false) },
+                            onSwipeRight = { vm.navGesture(forward = true) },
+                            strictHorizontal = true,
                         ) {
                             Glyph(Ico.chevronUp, c.text, size = 24.dp,
                                 strokeWidth = 2.2f, modifier = Modifier.rotate(chevronRotation))
@@ -2215,7 +2218,7 @@ private fun BoxScope.NavPill(
                         PillButton(
                             onClick = { vm.openSearch() },
                             onSwipeUp = {
-                                if (vm.overlay == Overlay.Tabs || vm.tabs.isEmpty()) vm.openSearch()
+                                if (vm.overlay == Overlay.Tabs || vm.tabs.isEmpty()) vm.openNewTabSearch()
                                 else vm.openMenu()
                             },
                             onSwipeDown = { vm.closeOverlay() },
@@ -2243,6 +2246,9 @@ private fun BoxScope.NavPill(
                             onClick = { vm.toggleMenu() },
                             onSwipeUp = { vm.openMenu() },
                             onSwipeDown = { vm.closeOverlay() },
+                            onSwipeLeft = { vm.navGesture(forward = false) },
+                            onSwipeRight = { vm.navGesture(forward = true) },
+                            strictHorizontal = true,
                         ) {
                             Glyph(Ico.chevronUp, c.text, size = 24.dp, strokeWidth = 2.2f)
                         }

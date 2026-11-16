@@ -111,11 +111,11 @@ private val IcoRefresh: List<Path> = listOf(
 )
 private val IcoCopy: List<Path> = listOf(
     p {
-        moveTo(10.5f, 13.5f)
-        arcTo(Rect(8f, 11f, 20f, 23f), 180f, -90f, false)
-        lineTo(16f, 4f)
-        arcTo(Rect(4f, 2f, 12f, 10f), 270f, -90f, false)
-        lineTo(13f, 3.5f)
+        moveTo(9f, 9f); lineTo(9f, 20f); lineTo(20f, 20f); lineTo(20f, 9f); close()
+    },
+    p {
+        moveTo(5f, 5f); lineTo(5f, 16f); lineTo(9f, 16f)
+        moveTo(5f, 5f); lineTo(16f, 5f); lineTo(16f, 9f)
     }
 )
 private val IcoGlobe: List<Path> = listOf(
@@ -167,10 +167,10 @@ private val IcoTranslate: List<Path> = listOf(
 )
 private val IcoFind: List<Path> = listOf(
     p {
-        moveTo(11f, 5f)
-        arcTo(Rect(5f, 5f, 17f, 17f), 180f, -360f, false)
-        moveTo(20f, 20f); lineTo(15.6f, 15.6f)
-    }
+        moveTo(10.5f, 10.5f)
+        arcTo(Rect(4.5f, 4.5f, 16.5f, 16.5f), 0f, 360f, false)
+    },
+    p { moveTo(15.2f, 15.2f); lineTo(20f, 20f) }
 )
 private val IcoPuzzle: List<Path> = listOf(
     p {
@@ -221,11 +221,9 @@ private val IcoDownload: List<Path> = listOf(
     }
 )
 private val IcoClock: List<Path> = listOf(
-    p {
-        moveTo(12f, 4f)
-        arcTo(Rect(4f, 4f, 20f, 20f), 180f, -360f, false)
-        moveTo(12f, 8f); lineTo(12f, 12.4f); lineTo(15.4f, 14.4f)
-    }
+    p { moveTo(12f, 3.5f); arcTo(Rect(3.5f, 3.5f, 20.5f, 20.5f), 0f, 360f, false) },
+    p { moveTo(12f, 12f); lineTo(12f, 7.5f) },
+    p { moveTo(12f, 12f); lineTo(15.5f, 14f) }
 )
 private val IcoGrid: List<Path> = listOf(
     p {
