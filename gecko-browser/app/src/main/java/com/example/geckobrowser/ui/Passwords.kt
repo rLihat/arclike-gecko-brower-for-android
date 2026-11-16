@@ -39,6 +39,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.geckobrowser.BrowserViewModel
+import com.example.geckobrowser.PasswordStore
 import com.example.geckobrowser.SavedLogin
 
 private val pwRed = Color(0xFFE0453C)

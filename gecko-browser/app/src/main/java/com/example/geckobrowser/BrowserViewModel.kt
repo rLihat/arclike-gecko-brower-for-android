@@ -669,8 +669,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             override fun onLocationChange(
                 session: GeckoSession,
                 url: String?,
-                perms: List<GeckoSession.PermissionDelegate.ContentPermission>?,
-                hasUserGesture: Boolean?,
+                perms: List<GeckoSession.PermissionDelegate.ContentPermission>,
+                hasUserGesture: Boolean,
             ) {
                 val target = url ?: return
                 if (isBlankUrl(target)) return
