@@ -65,6 +65,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
@@ -477,6 +478,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                 Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.26f * scrim))
+                    .blur(20.dp)
                     .clickable { vm.closeOverlay() }
             )
         }
