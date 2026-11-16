@@ -1902,6 +1902,52 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         runCatching { appContext().startActivity(intent) }
     }
 
+    /* ------------------------------------------------------------- default browser */
+
+    var defaultBrowserVersion by mutableIntStateOf(0)
+        private set
+
+    fun isDefaultBrowser(): Boolean {
+        return try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                val rm = appContext().getSystemService(android.app.role.RoleManager::class.java)
+                rm?.isRoleHeld(android.app.role.RoleManager.ROLE_BROWSER) == true
+            } else {
+                val pm = appContext().packageManager
+                val intent = android.content.Intent(
+                    android.content.Intent.ACTION_VIEW,
+                    android.net.Uri.parse("http://example.com"),
+                )
+                val info = pm.resolveActivity(intent, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY)
+                info?.activityInfo?.packageName == appContext().packageName
+            }
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
+    fun defaultBrowserIntent(): android.content.Intent? {
+        return try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                val rm = appContext().getSystemService(android.app.role.RoleManager::class.java)
+                rm?.createRequestRoleIntent(android.app.role.RoleManager.ROLE_BROWSER)
+            } else {
+                android.content.Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+            }
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
+    fun openDefaultBrowserSettings() {
+        val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS).apply {
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        runCatching { appContext().startActivity(intent) }
+    }
+
+    fun refreshDefaultBrowser() { defaultBrowserVersion++ }
+
     fun answerButton(id: Long, confirm: Boolean) {
         val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.ButtonPrompt
         val response = prompt?.let {

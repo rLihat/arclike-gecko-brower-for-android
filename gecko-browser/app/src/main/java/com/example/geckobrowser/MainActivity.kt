@@ -123,6 +123,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         hideSystemBars()
+        vm.refreshDefaultBrowser()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {

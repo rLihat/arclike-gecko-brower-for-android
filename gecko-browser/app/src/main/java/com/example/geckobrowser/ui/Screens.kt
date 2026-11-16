@@ -42,6 +42,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.geckobrowser.BrowserViewModel
@@ -190,6 +192,9 @@ fun SettingsScreen(
     var closeOnExit by remember { mutableStateOf(false) }
     var httpsOnly by remember { mutableStateOf(true) }
     var enginePicker by remember { mutableStateOf(false) }
+    val defaultBrowserLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { vm.refreshDefaultBrowser() }
 
     Box(
         Modifier
@@ -268,7 +273,7 @@ fun SettingsScreen(
                     }
                 }
 
-                val general = listOf("Search engine", "History", "Language", "Open links in apps", "Downloads")
+                val general = listOf("Search engine", "History", "Language", "Open links in apps", "Downloads", "Default browser")
                     .filter { matches(query, it) }
                 if (general.isNotEmpty()) {
                     SectionLabel("General")
@@ -360,6 +365,16 @@ fun SettingsScreen(
                             "Downloads",
                             icon = { Glyph(Ico.download, c.text, size = 20.dp, strokeWidth = 1.9f) },
                             onClick = { vm.openDownloads() },
+                        )
+                        if ("Default browser" in general) SettingsRow(
+                            "Default browser",
+                            icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.7f) },
+                            value = if (vm.isDefaultBrowser()) "horiZen" else "Not set",
+                            onClick = {
+                                val intent = vm.defaultBrowserIntent()
+                                if (intent != null) defaultBrowserLauncher.launch(intent)
+                                else vm.openDefaultBrowserSettings()
+                            },
                         )
                     }
                 }

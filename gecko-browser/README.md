@@ -167,6 +167,14 @@ nothing leaves the phone.
   atomically; a corrupt or unreadable file degrades to an empty vault rather than
   crashing.
 
+## Default browser
+
+The **Default browser** row in Settings shows whether horiZen is the device's default
+browser and offers to request it (Android 10+ uses `RoleManager`; older releases open
+the system default-apps settings). The manifest already advertises the standard
+`VIEW`/`WEB_SEARCH`/`SEND` intent filters, so horiZen appears in the chooser without
+extra work.
+
 ## Build
 
 Requirements: JDK 17 and the Android SDK (platform 35, build-tools 35.0.0).
