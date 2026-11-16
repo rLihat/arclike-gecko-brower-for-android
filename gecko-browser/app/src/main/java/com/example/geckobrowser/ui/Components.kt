@@ -59,7 +59,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.geckobrowser.downExt
 import com.example.geckobrowser.downKindLabel
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
@@ -688,6 +691,14 @@ fun SiteFavicon(host: String, letter: String, size: Dp = 22.dp) {
             contentScale = ContentScale.Fit,
             modifier = Modifier.fillMaxSize(),
         )
+    }
+}
+
+/** Preloads favicons for the given hosts so the UI never has to wait on the network. */
+fun prewarmFaviconCache(hosts: List<String>) {
+    val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    hosts.forEach { host ->
+        scope.launch { FaviconCache.load(host) }
     }
 }
 

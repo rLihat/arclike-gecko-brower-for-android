@@ -486,6 +486,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         return ordered.mapNotNull { byId[it] }
     }
 
+    private fun startEngineIconPrefetch() {
+        com.example.geckobrowser.ui.prewarmFaviconCache(
+            BUILTIN_ENGINES.map { it.host }
+        )
+    }
+
     fun setEngineEnabled(id: String, enabled: Boolean) {
         val current = disabledEnginesState
         val currentlyEnabled = id !in current
@@ -586,6 +592,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         nextDownloadId = (DownloadCenter.current().maxOfOrNull { it.id } ?: 0L) + 1
         withContext(Dispatchers.IO) {
             historyStore.load()
+        startEngineIconPrefetch()
             historyStore.prune(System.currentTimeMillis())
         }
         historyVersionState++
@@ -2364,7 +2371,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
      */
     private fun appNameForLink(url: String): String? {
         val pm = application.packageManager
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addCategory(Intent.CATEGORY_BROWSABLE)
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            .addCategory(Intent.CATEGORY_BROWSABLE)
+            .addCategory(Intent.CATEGORY_DEFAULT)
         val handlers = try {
             pm.queryIntentActivities(
                 intent,
