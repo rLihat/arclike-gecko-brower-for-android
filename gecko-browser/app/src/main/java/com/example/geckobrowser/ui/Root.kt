@@ -2258,7 +2258,7 @@ private fun BoxScope.NavPill(
                             onSwipeUp = { if (!tabsOrEmpty) vm.openTabs() },
                         ) {
                             if (tabsOrEmpty) {
-                                Glyph(Ico.clock, c.iconInk, size = 21.dp, strokeWidth = 2.1f)
+                                Glyph(Ico.clock, c.text, size = 21.dp, strokeWidth = 2.1f)
                             } else {
                                 val t = tab
                                 if (t == null || t.isHome || t.url.isBlank()) {
