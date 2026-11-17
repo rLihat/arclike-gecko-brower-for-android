@@ -328,6 +328,7 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
             }
 
             if (!vm.fullscreen) {
+                ChromeOverlay(vm, immersive)
                 Box(
                     Modifier
                         .align(Alignment.TopCenter)
@@ -335,7 +336,6 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                 ) {
                     UpdateBanner(vm)
                 }
-                ChromeOverlay(vm, immersive)
             }
         }
     }
@@ -441,7 +441,7 @@ private fun WebHost(
 private val sheetOverlays = setOf(
     Overlay.Search, Overlay.Menu, Overlay.Settings, Overlay.SiteSettings, Overlay.Account,
     Overlay.Downloads, Overlay.Extensions, Overlay.ExtensionPopup, Overlay.History,
-    Overlay.Translate, Overlay.Passwords, Overlay.About, Overlay.ExtensionMenu,
+    Overlay.Translate, Overlay.Passwords, Overlay.About, Overlay.ExtensionMenu, Overlay.ReleaseNotes,
 )
 
 @Composable
@@ -460,7 +460,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             overlay == Overlay.Account || overlay == Overlay.Downloads ||
             overlay == Overlay.Extensions || overlay == Overlay.History ||
             overlay == Overlay.Translate || overlay == Overlay.Passwords ||
-            overlay == Overlay.About
+            overlay == Overlay.About || overlay == Overlay.ReleaseNotes
 
         var lastSheet by remember { mutableStateOf(Overlay.Menu) }
         if (open) lastSheet = overlay
@@ -493,6 +493,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             Overlay.Translate -> ({ TranslateScreen(vm) { vm.closeTranslate() } })
             Overlay.Passwords -> ({ PasswordsScreen(vm) { vm.closePasswords() } })
             Overlay.About -> ({ AboutScreen(vm) { vm.closeAbout() } })
+            Overlay.ReleaseNotes -> ({ ReleaseNotesScreen(vm) { vm.closeReleaseNotes() } })
             Overlay.ExtensionPopup -> ({ ExtensionPopupSheet(vm) })
             Overlay.ExtensionMenu -> ({ ExtensionMenuSheet(vm) })
             else -> ({})
@@ -576,7 +577,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                             lastSheet == Overlay.ExtensionMenu -> c.sheetSoft
                             lastSheet == Overlay.Downloads || lastSheet == Overlay.History ||
                                 lastSheet == Overlay.Translate || lastSheet == Overlay.Passwords ||
-                                lastSheet == Overlay.About -> c.settingsBg
+                                lastSheet == Overlay.About || lastSheet == Overlay.ReleaseNotes -> c.settingsBg
                             else -> c.surface
                         }
                     ),

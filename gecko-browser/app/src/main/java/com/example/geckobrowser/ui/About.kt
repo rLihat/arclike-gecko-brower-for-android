@@ -79,6 +79,12 @@ fun AboutScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     onClick = null,
                 )
                 SettingsRow(
+                    "What's new",
+                    icon = { Glyph(Ico.refresh, c.text, size = 19.dp, strokeWidth = 1.7f) },
+                    value = "Release notes",
+                    onClick = { vm.openReleaseNotes() },
+                )
+                SettingsRow(
                     "GeckoView",
                     icon = { Glyph(Ico.globe, c.text, size = 19.dp, strokeWidth = 1.7f) },
                     value = "138",

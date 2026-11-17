@@ -101,7 +101,7 @@ data class ContextMenuState(
 
 enum class Overlay {
     None, Search, Menu, Tabs, Settings, SiteSettings, Account, Downloads, Extensions, ExtensionPopup,
-    History, Translate, Passwords, About, ExtensionMenu,
+    History, Translate, Passwords, About, ExtensionMenu, ReleaseNotes,
 }
 
 /** What a tab's translation looks like right now; kept per tab. */
@@ -224,6 +224,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private var translateReturn = Overlay.Menu
     private var passwordReturn = Overlay.Menu
     private var aboutReturn = Overlay.Settings
+    private var releaseNotesReturn = Overlay.Settings
     private var popupReturn = Overlay.None
 
     var appearanceMode by mutableStateOf(
@@ -2139,6 +2140,26 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         compactPill = false
     }
 
+    fun openReleaseNotes() {
+        val current = overlay
+        releaseNotesReturn = when (current) {
+            Overlay.Settings, Overlay.Menu, Overlay.About -> current
+            else -> Overlay.Settings
+        }
+        clearActiveLoading()
+        cancelDownloadPrompt()
+        dismissContextMenu()
+        overlay = Overlay.ReleaseNotes
+        compactPill = false
+    }
+
+    fun closeReleaseNotes() {
+        if (overlay != Overlay.ReleaseNotes) return
+        overlay = releaseNotesReturn
+        releaseNotesReturn = Overlay.Settings
+        compactPill = false
+    }
+
     fun answerButton(id: Long, confirm: Boolean) {
         val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.ButtonPrompt
         val response = prompt?.let {
@@ -3715,6 +3736,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             }
             Overlay.About -> {
                 closeAbout()
+                true
+            }
+            Overlay.ReleaseNotes -> {
+                closeReleaseNotes()
                 true
             }
             else -> {

@@ -40,10 +40,16 @@ jobs:
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
 
+      - name: Stage release assets
+        run: |
+          mkdir -p dist
+          cp gecko-browser/app/build/outputs/apk/debug/*.apk dist/
+          cp RELEASE_NOTES.md dist/RELEASE_NOTES.md
+
       - uses: actions/upload-artifact@v4
         with:
           name: horiZen-debug-apk
-          path: gecko-browser/app/build/outputs/apk/debug/*.apk
+          path: dist/*
           retention-days: 14
 
   release:
@@ -65,8 +71,6 @@ jobs:
         with:
           tag_name: ${{ needs.build.outputs.tag }}
           name: ${{ needs.build.outputs.display }}
-          body: |
-            ${{ needs.build.outputs.display }}
-            GITHUB_SHA: ${{ github.sha }}
-          files: dist/*.apk
+          body_path: RELEASE_NOTES.md
+          files: dist/*
           make_latest: true
