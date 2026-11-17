@@ -325,7 +325,7 @@ fun SearchSheet(vm: BrowserViewModel) {
                             .clickable {
                                 engineMenu = false
                                 vm.closeOverlay()
-                                vm.setSettingsRoute("search")
+                                vm.updateSettingsRoute("search")
                                 vm.openSettings()
                             }
                             .padding(horizontal = 10.dp, vertical = 9.dp),

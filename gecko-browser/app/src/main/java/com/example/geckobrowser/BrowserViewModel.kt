@@ -262,7 +262,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     /** Switch settings to a sub-page (or "hub" to return to the category menu). */
-    fun setSettingsRoute(route: String) { settingsRoute = route }
+    fun updateSettingsRoute(route: String) { settingsRoute = route }
 
     var updateIgnored by mutableStateOf(false)
 
@@ -3738,7 +3738,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             }
             Overlay.Settings, Overlay.SiteSettings -> {
                 if (overlay == Overlay.Settings && settingsRoute != "hub") {
-                    setSettingsRoute("hub")
+                    updateSettingsRoute("hub")
                     true
                 } else {
                     overlay = Overlay.Menu
@@ -3824,7 +3824,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Set the channel for OTA updates: "beta" or "stable". */
-    fun setUpdateChannel(channel: String) {
+    fun updateUpdateChannel(channel: String) {
         if (channel != "beta" && channel != "stable") return
         updateChannel = channel
         prefs.edit().putString("update_channel", channel).apply()

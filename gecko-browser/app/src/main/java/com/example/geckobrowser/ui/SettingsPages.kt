@@ -44,7 +44,7 @@ fun SettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
     val route = vm.settingsRoute
     // Back inside a sub-page returns to the category hub; from the hub itself, leave Settings.
     BackHandler {
-        if (route != "hub") vm.setSettingsRoute("hub")
+        if (route != "hub") vm.updateSettingsRoute("hub")
         else onBack()
     }
 
@@ -53,10 +53,10 @@ fun SettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
             "look" -> LookAndFeelPage(vm)
             "search" -> SearchPreferencesPage(vm)
             "privacy" -> PrivacyAndSecurityPage(vm)
-            "about" -> AboutPage(vm, onBack = { vm.setSettingsRoute("hub") })
-            "authorNotes" -> AuthorNotesScreen(vm) { vm.setSettingsRoute("about") }
-            "releaseNotes" -> ReleaseNotesScreen(vm) { vm.setSettingsRoute("about") }
-            "siteSettings" -> SiteSettingsScreen(vm) { vm.setSettingsRoute("hub") }
+            "about" -> AboutPage(vm, onBack = { vm.updateSettingsRoute("hub") })
+            "authorNotes" -> AuthorNotesScreen(vm) { vm.updateSettingsRoute("about") }
+            "releaseNotes" -> ReleaseNotesScreen(vm) { vm.updateSettingsRoute("about") }
+            "siteSettings" -> SiteSettingsScreen(vm) { vm.updateSettingsRoute("hub") }
             "extensions" -> {
                 // Extensions is its own overlay, not a settings sub-route.
                 vm.openExtensions()
@@ -113,13 +113,13 @@ private fun SettingsHub(vm: BrowserViewModel, onBack: () -> Unit) {
                 title = "Look and feel",
                 description = "Make it feel like yours",
                 icon = { Glyph(Ico.contrast, c.text, size = 26.dp, strokeWidth = 1.8f) },
-                onClick = { vm.setSettingsRoute("look") },
+                onClick = { vm.updateSettingsRoute("look") },
             )
             CategoryTile(
                 title = "Search and preferences",
                 description = "Default search provider and suggestions",
                 icon = { Glyph(Ico.find, c.text, size = 24.dp, strokeWidth = 1.8f) },
-                onClick = { vm.setSettingsRoute("search") },
+                onClick = { vm.updateSettingsRoute("search") },
             )
             CategoryTile(
                 title = "Extensions",
@@ -131,13 +131,13 @@ private fun SettingsHub(vm: BrowserViewModel, onBack: () -> Unit) {
                 title = "Privacy and security",
                 description = "Fine-tune how your data is handled",
                 icon = { Glyph(Ico.lock, c.text, size = 24.dp, strokeWidth = 1.8f) },
-                onClick = { vm.setSettingsRoute("privacy") },
+                onClick = { vm.updateSettingsRoute("privacy") },
             )
             CategoryTile(
                 title = "About",
                 description = "App info, updates and acknowledgements",
                 icon = { Glyph(Ico.globe, c.text, size = 24.dp, strokeWidth = 1.6f) },
-                onClick = { vm.setSettingsRoute("about") },
+                onClick = { vm.updateSettingsRoute("about") },
             )
         }
     }
@@ -197,7 +197,7 @@ private fun PageHeader(title: String, onBack: () -> Unit, icon: @Composable (() 
 private fun LookAndFeelPage(vm: BrowserViewModel) {
     val c = LocalArc.current
     var accentPicker by remember { mutableStateOf(false) }
-    PageHeader("Look and feel", { vm.setSettingsRoute("hub") }) {
+    PageHeader("Look and feel", { vm.updateSettingsRoute("hub") }) {
         Glyph(Ico.contrast, c.text, size = 19.dp, strokeWidth = 1.9f)
     }
     Column(
@@ -295,7 +295,7 @@ private fun SearchPreferencesPage(vm: BrowserViewModel) {
     var engineAddUrl by remember { mutableStateOf("") }
     var engineAddError by remember { mutableStateOf<String?>(null) }
 
-    PageHeader("Search and preferences", { vm.setSettingsRoute("hub") }) {
+    PageHeader("Search and preferences", { vm.updateSettingsRoute("hub") }) {
         Glyph(Ico.find, c.text, size = 19.dp, strokeWidth = 1.8f)
     }
     Column(
@@ -493,7 +493,7 @@ private fun EngineList(
 @Composable
 private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
     val c = LocalArc.current
-    PageHeader("Privacy and security", { vm.setSettingsRoute("hub") }) {
+    PageHeader("Privacy and security", { vm.updateSettingsRoute("hub") }) {
         Glyph(Ico.lock, c.text, size = 19.dp, strokeWidth = 1.8f)
     }
     Column(
@@ -534,7 +534,7 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
             SettingsRow(
                 "Site permissions",
                 icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.7f) },
-                onClick = { vm.setSettingsRoute("siteSettings") },
+                onClick = { vm.updateSettingsRoute("siteSettings") },
             )
         }
 
@@ -599,7 +599,7 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
                 value = vm.updateChannel.replaceFirstChar { it.uppercase() },
                 onClick = {
                     val next = if (vm.updateChannel == "beta") "stable" else "beta"
-                    vm.setUpdateChannel(next)
+                    vm.updateUpdateChannel(next)
                 },
             )
             SettingsRow(
@@ -627,13 +627,13 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
                 "What's new",
                 icon = { Glyph(Ico.refresh, c.text, size = 19.dp, strokeWidth = 1.7f) },
                 value = "Release notes",
-                onClick = { vm.setSettingsRoute("releaseNotes") },
+                onClick = { vm.updateSettingsRoute("releaseNotes") },
             )
             SettingsRow(
                 "Author notes",
                 icon = { Glyph(Ico.person, c.text, size = 19.dp, strokeWidth = 1.8f) },
                 value = "Notes from the author",
-                onClick = { vm.setSettingsRoute("authorNotes") },
+                onClick = { vm.updateSettingsRoute("authorNotes") },
             )
         }
 
