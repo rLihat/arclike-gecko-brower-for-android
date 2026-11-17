@@ -17,21 +17,22 @@ android {
     }
 
     signingConfigs {
-        release {
-            // CI injects these via env vars from GitHub secrets (see .github/workflows/build-apk.yml).
-            def ksFile = System.getenv("HORIZEN_KEYSTORE_FILE")
-            if (ksFile) {
-                storeFile file(ksFile)
-                storePassword System.getenv("HORIZEN_KEYSTORE_PASSWORD")
-                keyAlias System.getenv("HORIZEN_KEYSTORE_ALIAS") ?: "horizen"
-                keyPassword System.getenv("HORIZEN_KEYSTORE_PASSWORD")
-            }
+        // One key, committed to the repo: debug-ish dev signature used for every
+        // CI build so phones can install updates over the previous build.
+        dev {
+            storeFile file('../../signing/horizen-debug.keystore')
+            storePassword 'horizen'
+            keyAlias 'horizen'
+            keyPassword 'horizen'
         }
     }
 
     buildTypes {
+        debug {
+            signingConfig signingConfigs.dev
+        }
         release {
-            signingConfig signingConfigs.release
+            signingConfig signingConfigs.dev
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }

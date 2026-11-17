@@ -1,4 +1,4 @@
-name: Build release APK
+name: Build debug APK
 
 on:
   workflow_dispatch:
@@ -25,21 +25,11 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Decode release keystore
-        run: |
-          echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/horizen-release.jks"
-        env:
-          KEYSTORE_B64: ${{ secrets.KEYSTORE_B64 }}
-
-      - name: Build signed release APK
-        run: chmod +x gradlew && ./gradlew assembleRelease --no-daemon
-        env:
-          HORIZEN_KEYSTORE_FILE: ${{ runner.temp }}/horizen-release.jks
-          HORIZEN_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          HORIZEN_KEYSTORE_ALIAS: ${{ secrets.KEYSTORE_ALIAS }}
+      - name: Build debug APK
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
 
       - uses: actions/upload-artifact@v4
         with:
-          name: horiZen-release-apk
-          path: gecko-browser/app/build/outputs/apk/release/*.apk
-          retention-days: 30
+          name: horiZen-debug-apk
+          path: gecko-browser/app/build/outputs/apk/debug/*.apk
+          retention-days: 14
