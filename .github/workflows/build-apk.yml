@@ -43,8 +43,8 @@ jobs:
       - name: Stage release assets
         run: |
           mkdir -p dist
-          cp gecko-browser/app/build/outputs/apk/debug/*.apk dist/
-          cp RELEASE_NOTES.md dist/RELEASE_NOTES.md
+          cp app/build/outputs/apk/debug/*.apk dist/
+          cp ../RELEASE_NOTES.md dist/RELEASE_NOTES.md
 
       - uses: actions/upload-artifact@v4
         with:
@@ -71,6 +71,6 @@ jobs:
         with:
           tag_name: ${{ needs.build.outputs.tag }}
           name: ${{ needs.build.outputs.display }}
-          body_path: RELEASE_NOTES.md
+          body_path: dist/RELEASE_NOTES.md
           files: dist/*
           make_latest: true
