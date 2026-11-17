@@ -36,7 +36,9 @@ Native Kotlin reimplementation of the mockup chrome with real GeckoView content:
 - No status bar / no address bar; web content runs behind the floating pill.
 - Pill condenses to a domain chip on real page scroll down and restores its icons on scroll up.
 - Search + menu sheets morph out of the pill; settings, site settings and account are
-  full-height pages. Dark mode is a persisted chrome theme.
+  full-height pages. Settings opens on a hub (account card, five category tiles) with a
+  floating search pill that filters every setting live. Dark mode is a persisted chrome
+  theme.
 - Tabs are a horizontal recents carousel with captured page thumbnails; each `GeckoSession`
   keeps its own history and both tabs and settings survive a cold start.
 - Downloads run in a foreground service with pause/resume, are persisted across restarts and

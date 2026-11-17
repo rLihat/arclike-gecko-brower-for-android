@@ -42,12 +42,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -153,39 +150,6 @@ private fun RecentCard(title: String, host: String, onClick: () -> Unit) {
 
 /* -------------------------------------------------------------- settings */
 
-private fun matches(query: String, label: String) =
-    query.isBlank() || label.contains(query, ignoreCase = true)
-
-@Composable
-private fun SettingsSearchPill(value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
-    val c = LocalArc.current
-    Row(
-        modifier
-            .fillMaxWidth(0.7f)
-            .height(58.dp)
-            .shadow(14.dp, RoundedCornerShape(29.dp))
-            .clip(RoundedCornerShape(29.dp))
-            .background(c.navSurface)
-            .padding(horizontal = 20.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Glyph(Ico.find, c.muted, size = 18.dp, strokeWidth = 2f)
-        Spacer(Modifier.width(10.dp))
-        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-            if (value.isEmpty()) {
-                Text("Search settings", color = c.muted, fontSize = 14.sp)
-            }
-            BasicTextField(
-                value = value,
-                onValueChange = onChange,
-                singleLine = true,
-                textStyle = TextStyle(color = c.text, fontSize = 14.sp),
-                cursorBrush = SolidColor(c.accent),
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
-    }
-}
 
 @Composable
 fun SettingsHeader(

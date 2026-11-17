@@ -23,7 +23,8 @@ native Kotlin + Jetpack Compose; only the page content is Gecko. The UI follows
 | `ui/Theme.kt` | Light/dark design tokens transcribed from the mockup. |
 | `ui/Root.kt` | Persistent `GeckoView` host, home overlay, morphing sheet, nav pill, prompt hosts, blocked-popup pill, find bar, selection bar, translate and passwords pages, loading glow, download chip with swipe-to-cancel, extension popup sheet, back/forward notice, toasts. |
 | `ui/Sheets.kt` | DuckDuckGo search sheet with live suggestions, and the menu (address bar with tap-to-edit URL, actions including find and translate, zoom, desktop site, site settings, extensions). |
-| `ui/Screens.kt` | Home, Firefox-style settings, site settings (dark mode, tri-state permissions, per-site tracking protection and blocked count), downloads manager, extensions, Mozilla account. |
+| `ui/Screens.kt` | Home, site settings (dark mode, tri-state permissions, per-site tracking protection and blocked count), downloads manager, extensions, Mozilla account. |
+| `ui/SettingsPages.kt` | Settings hub: account card, five category tiles, a bottom search pill with live filtering, and the Look and feel / Search and preferences / Privacy and security / About pages written against the same shared rows. |
 | `ui/Passwords.kt` | Password vault: saved logins, search, add/edit, delete, generator, autofill status. |
 | `ui/Tabs.kt` | Horizontal recents carousel with captured page thumbnails and a new-tab card. |
 | `ui/Components.kt` | Stroke icons, switches, settings rows, favicon tiles, glow. |
@@ -175,11 +176,29 @@ AMO page when the add-on carries one) and **Remove** (with confirmation). **Chec
 updates** runs `WebExtensionController.update()` on every installed add-on. Only signed
 XPIs install; unsigned files are rejected by GeckoView.
 
+## Settings
+
+Settings opens on a hub: the Mozilla account card, five category tiles
+(**Look and feel**, **Search and preferences**, **Extensions**,
+**Privacy and security**, **About**) and a floating search pill docked at the bottom.
+Typing in the pill filters every setting live; tapping a result jumps to the matching
+category page (extensions and site permissions open their own overlays). The system
+back gesture returns from a page to the hub, then out of settings.
+
+- **Look and feel** - appearance, accent colour, text size, language.
+- **Search and preferences** - default search provider with inline reorder/remove/add,
+  suggestions toggle, open links in apps, and **Default browser** (see below).
+- **Extensions** - opens the extensions overlay.
+- **Privacy and security** - tracking protection, cookie banners, HTTPS-Only, history
+  (with clear-by-range), clear browsing data, site permissions.
+- **About** - app/engine versions, update channel and check, what's new, author notes.
+
 ## Default browser
 
-The **Default browser** row in Settings shows whether horiZen is the device's default
-browser and offers to request it (Android 10+ uses `RoleManager`; older releases open
-the system default-apps settings). The manifest already advertises the standard
+The **Default browser** row lives in **Settings -> Search and preferences -> Preferences**.
+It shows whether horiZen is the device's default browser and offers to request it
+(Android 10+ uses `RoleManager`; older releases open the system default-apps settings).
+The manifest already advertises the standard
 `VIEW`/`WEB_SEARCH`/`SEND` intent filters, so horiZen appears in the chooser without
 extra work.
 

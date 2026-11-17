@@ -238,6 +238,24 @@ private val IcoClock: List<Path> = listOf(
     p { moveTo(12f, 12f); lineTo(12f, 7.5f) },
     p { moveTo(12f, 12f); lineTo(15.5f, 14f) }
 )
+private val IcoCheck: List<Path> = listOf(
+    p {
+        moveTo(4.5f, 12.8f); lineTo(9.8f, 18.1f); lineTo(19.5f, 6.2f)
+    }
+)
+private val IcoGear: List<Path> = listOf(
+    p { addOval(Rect(8.4f, 8.4f, 15.6f, 15.6f)) },
+    p {
+        moveTo(12f, 2.8f); lineTo(12f, 6.1f)
+        moveTo(12f, 17.9f); lineTo(12f, 21.2f)
+        moveTo(2.8f, 12f); lineTo(6.1f, 12f)
+        moveTo(17.9f, 12f); lineTo(21.2f, 12f)
+        moveTo(5.5f, 5.5f); lineTo(7.8f, 7.8f)
+        moveTo(16.2f, 16.2f); lineTo(18.5f, 18.5f)
+        moveTo(18.5f, 5.5f); lineTo(16.2f, 7.8f)
+        moveTo(7.8f, 16.2f); lineTo(5.5f, 18.5f)
+    }
+)
 private val IcoGrid: List<Path> = listOf(
     p {
         moveTo(5.5f, 4f); lineTo(10.5f, 4f); lineTo(10.5f, 11f); lineTo(5.5f, 11f); close()
@@ -365,6 +383,8 @@ object Ico {
     val download = IcoDownload
     val clock = IcoClock
     val grid = IcoGrid
+    val gear = IcoGear
+    val check = IcoCheck
     val link = IcoLink
     val trash = IcoTrash
     val lock = IcoLock

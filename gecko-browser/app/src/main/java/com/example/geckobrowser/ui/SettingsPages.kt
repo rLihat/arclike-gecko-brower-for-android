@@ -1,6 +1,8 @@
 package com.example.geckobrowser.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,6 +21,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -32,7 +37,6 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,75 +73,210 @@ fun SettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
 
 /* ------------------------------------------------------------------ hub --- */
 
+private data class SettingsEntry(val label: String, val description: String, val route: String, val icon: String)
+
+private val settingsEntries = listOf(
+    SettingsEntry("Appearance", "Light or dark, scheduled by the system", "look", "contrast"),
+    SettingsEntry("Accent color", "Personalize the browser accent", "look", "grid"),
+    SettingsEntry("Text size", "Adjust page and UI text scale", "look", "textSize"),
+    SettingsEntry("Language", "App and content language", "look", "globe"),
+    SettingsEntry("Search provider", "Default engine for typed queries", "search", "find"),
+    SettingsEntry("Search suggestions", "Live suggestions as you type", "search", "find"),
+    SettingsEntry("Open links in apps", "Hand app links off to installed apps", "search", "open"),
+    SettingsEntry("Default browser", "Set horiZen as the default browser", "search", "globe"),
+    SettingsEntry("Tracking protection", "Block cross-site trackers", "privacy", "lock"),
+    SettingsEntry("Cookie banners", "Auto-answer cookie consent banners", "privacy", "close"),
+    SettingsEntry("HTTPS-Only Mode", "Require secure connections", "privacy", "lock"),
+    SettingsEntry("History", "Visit history and clearing options", "privacy", "clock"),
+    SettingsEntry("Clear browsing data", "Delete history, cookies and cache", "privacy", "trash"),
+    SettingsEntry("Site permissions", "Per-site camera/mic/notification choices", "siteSettings", "globe"),
+    SettingsEntry("Extensions", "Install and manage add-ons", "extensions", "puzzle"),
+    SettingsEntry("Update channel", "Choose between Beta and Stable builds", "about", "refresh"),
+    SettingsEntry("Check for updates on launch", "Auto-check on cold start", "about", "download"),
+    SettingsEntry("Check for updates", "Manual update check", "about", "refresh"),
+    SettingsEntry("What's new", "Release notes for the current build", "releaseNotes", "copy"),
+    SettingsEntry("Author notes", "Notes from the author", "authorNotes", "person"),
+)
+
 @Composable
 private fun SettingsHub(vm: BrowserViewModel, onBack: () -> Unit) {
     val c = LocalArc.current
-    SettingsHeader(title = "Settings", leading = {
-        Box(Modifier.size(34.dp).clip(CircleShape).clickable { onBack() },
-            contentAlignment = Alignment.Center) {
-            Glyph(Ico.chevronLeft, c.text, size = 20.dp, strokeWidth = 2.2f)
-        }
-    }, icon = {
-        Text("âš™", color = c.text, fontSize = 18.sp)
-    })
-
-    Column(
-        Modifier
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-            .padding(bottom = 40.dp),
-    ) {
-        Spacer(Modifier.height(10.dp))
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
-                .background(c.surface)
-                .clickable { vm.openAccount() }
-                .padding(14.dp),
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                PillAvatar("M", 40.dp)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Mozilla account", color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                    Text("Sync tabs, history & passwords", color = c.muted, fontSize = 12.sp)
-                }
-                Glyph(Ico.chevronRight, c.muted, size = 16.dp, strokeWidth = 1.9f)
+    val query = vm.settingsSearch
+    Column(Modifier.fillMaxSize().background(c.settingsBg)) {
+        SettingsHeader(title = "Settings", leading = {
+            Box(Modifier.size(34.dp).clip(CircleShape).clickable { onBack() },
+                contentAlignment = Alignment.Center) {
+                Glyph(Ico.chevronLeft, c.text, size = 20.dp, strokeWidth = 2.2f)
             }
-        }
+        }, icon = {
+            Glyph(Ico.gear, c.text, size = 19.dp, strokeWidth = 1.8f)
+        })
 
-        SectionLabel("Categories")
-        Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(12.dp)) {
+        Box(Modifier.weight(1f).fillMaxWidth()) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 96.dp),
+            ) {
+                Spacer(Modifier.height(10.dp))
+                if (query.isBlank()) {
+                    accountCard(vm, c)
+                    SectionLabel("Categories")
+                    CategoryGrid(vm, c)
+                } else {
+                    SearchResults(vm, c, query)
+                }
+            }
+
+            SearchPill(query, vm::onSettingsSearchChange, Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp))
+        }
+    }
+}
+
+@Composable
+private fun accountCard(vm: BrowserViewModel, c: ArcColors) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(c.surface)
+            .clickable { vm.openAccount() }
+            .padding(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PillAvatar("M", 40.dp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Mozilla account", color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text("Sync tabs, history & passwords", color = c.muted, fontSize = 12.sp)
+            }
+            Glyph(Ico.chevronRight, c.muted, size = 16.dp, strokeWidth = 1.9f)
+        }
+    }
+}
+
+@Composable
+private fun CategoryGrid(vm: BrowserViewModel, c: ArcColors) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        CategoryTile(
+            title = "Look and feel",
+            description = "Make it feel like yours",
+            icon = { Glyph(Ico.contrast, c.text, size = 26.dp, strokeWidth = 1.8f) },
+            onClick = { vm.updateSettingsRoute("look") },
+        )
+        CategoryTile(
+            title = "Search and preferences",
+            description = "Default search provider and suggestions",
+            icon = { Glyph(Ico.find, c.text, size = 24.dp, strokeWidth = 1.8f) },
+            onClick = { vm.updateSettingsRoute("search") },
+        )
+        CategoryTile(
+            title = "Extensions",
+            description = "Discover, install and manage extensions",
+            icon = { Glyph(Ico.puzzle, c.text, size = 24.dp, strokeWidth = 1.8f) },
+            onClick = { vm.openExtensions() },
+        )
+        CategoryTile(
+            title = "Privacy and security",
+            description = "Fine-tune how your data is handled",
+            icon = { Glyph(Ico.lock, c.text, size = 24.dp, strokeWidth = 1.8f) },
+            onClick = { vm.updateSettingsRoute("privacy") },
+        )
+        CategoryTile(
+            title = "About",
+            description = "App info, updates and acknowledgements",
+            icon = { Glyph(Ico.globe, c.text, size = 24.dp, strokeWidth = 1.6f) },
+            onClick = { vm.updateSettingsRoute("about") },
+        )
+    }
+}
+
+@Composable
+private fun SearchResults(vm: BrowserViewModel, c: ArcColors, query: String) {
+    Text(
+        "Matches for \"$query\"",
+        color = c.muted,
+        fontSize = 11.sp,
+        letterSpacing = 0.8.sp,
+        modifier = Modifier.padding(start = 4.dp, top = 4.dp, bottom = 8.dp),
+    )
+    val filtered = settingsEntries.filter { matches(query, it.label) }
+    if (filtered.isEmpty()) {
+        Text(
+            "No matches",
+            color = c.muted,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(start = 4.dp, top = 20.dp),
+        )
+        return
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        filtered.forEach { entry ->
+            val ico = when (entry.icon) {
+                "contrast" -> Ico.contrast
+                "grid" -> Ico.grid
+                "textSize" -> Ico.textSize
+                "globe" -> Ico.globe
+                "find" -> Ico.find
+                "open" -> Ico.open
+                "lock" -> Ico.lock
+                "close" -> Ico.close
+                "clock" -> Ico.clock
+                "trash" -> Ico.trash
+                "puzzle" -> Ico.puzzle
+                "refresh" -> Ico.refresh
+                "download" -> Ico.download
+                "copy" -> Ico.copy
+                "person" -> Ico.person
+                else -> Ico.grid
+            }
             CategoryTile(
-                title = "Look and feel",
-                description = "Make it feel like yours",
-                icon = { Glyph(Ico.contrast, c.text, size = 26.dp, strokeWidth = 1.8f) },
-                onClick = { vm.updateSettingsRoute("look") },
+                title = entry.label,
+                description = entry.description,
+                icon = { Glyph(ico, c.text, size = 22.dp, strokeWidth = 1.8f) },
+                onClick = {
+                    when (entry.route) {
+                        "siteSettings" -> vm.openSiteSettings()
+                        "extensions" -> vm.openExtensions()
+                        else -> vm.updateSettingsRoute(entry.route)
+                    }
+                },
             )
-            CategoryTile(
-                title = "Search and preferences",
-                description = "Default search provider and suggestions",
-                icon = { Glyph(Ico.find, c.text, size = 24.dp, strokeWidth = 1.8f) },
-                onClick = { vm.updateSettingsRoute("search") },
-            )
-            CategoryTile(
-                title = "Extensions",
-                description = "Discover, install and manage extensions",
-                icon = { Glyph(Ico.puzzle, c.text, size = 24.dp, strokeWidth = 1.8f) },
-                onClick = { vm.openExtensions() },
-            )
-            CategoryTile(
-                title = "Privacy and security",
-                description = "Fine-tune how your data is handled",
-                icon = { Glyph(Ico.lock, c.text, size = 24.dp, strokeWidth = 1.8f) },
-                onClick = { vm.updateSettingsRoute("privacy") },
-            )
-            CategoryTile(
-                title = "About",
-                description = "App info, updates and acknowledgements",
-                icon = { Glyph(Ico.globe, c.text, size = 24.dp, strokeWidth = 1.6f) },
-                onClick = { vm.updateSettingsRoute("about") },
+        }
+    }
+}
+
+private fun matches(query: String, label: String) =
+    query.isBlank() || label.contains(query, ignoreCase = true)
+
+@Composable
+private fun SearchPill(value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    val c = LocalArc.current
+    Row(
+        modifier
+            .fillMaxWidth(0.7f)
+            .height(58.dp)
+            .shadow(14.dp, RoundedCornerShape(29.dp))
+            .clip(RoundedCornerShape(29.dp))
+            .background(c.navSurface)
+            .padding(horizontal = 20.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Glyph(Ico.find, c.muted, size = 18.dp, strokeWidth = 2f)
+        Spacer(Modifier.width(10.dp))
+        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+            if (value.isEmpty()) {
+                Text("Search settings", color = c.muted, fontSize = 14.sp)
+            }
+            BasicTextField(
+                value = value,
+                onValueChange = onChange,
+                singleLine = true,
+                textStyle = TextStyle(color = c.text, fontSize = 14.sp),
+                cursorBrush = SolidColor(c.accent),
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
@@ -265,7 +404,9 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),
                             )
-                            Text(if (selected) "âœ“" else "", color = c.accent, fontSize = 13.sp)
+                            if (selected) {
+                                Glyph(Ico.check, c.accent, size = 15.dp, strokeWidth = 2.2f)
+                            }
                         }
                     }
                 }
@@ -294,6 +435,11 @@ private fun SearchPreferencesPage(vm: BrowserViewModel) {
     var engineAddName by remember { mutableStateOf("") }
     var engineAddUrl by remember { mutableStateOf("") }
     var engineAddError by remember { mutableStateOf<String?>(null) }
+
+    val defaultBrowserLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { vm.refreshDefaultBrowser() }
+    val defaultBrowserVersion = vm.defaultBrowserVersion
 
     PageHeader("Search and preferences", { vm.updateSettingsRoute("hub") }) {
         Glyph(Ico.find, c.text, size = 19.dp, strokeWidth = 1.8f)
@@ -370,6 +516,16 @@ private fun SearchPreferencesPage(vm: BrowserViewModel) {
                     vm.updateOpenLinksMode(next)
                 },
             )
+            SettingsRow(
+                "Default browser",
+                icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.7f) },
+                value = if (defaultBrowserVersion >= 0 && vm.isDefaultBrowser()) "horiZen" else "Not set",
+                onClick = {
+                    val intent = vm.defaultBrowserIntent()
+                    if (intent != null) defaultBrowserLauncher.launch(intent)
+                    else vm.openDefaultBrowserSettings()
+                },
+            )
         }
     }
 }
@@ -442,7 +598,7 @@ private fun EngineList(
                     .padding(horizontal = 10.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("ï¼‹", color = c.accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text("+", color = c.accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.width(8.dp))
                 Text("Add search engine", color = c.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
@@ -612,8 +768,8 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
                 "Check for updates",
                 icon = { Glyph(Ico.refresh, c.text, size = 20.dp, strokeWidth = 1.8f) },
                 value = when {
-                    vm.updateProgress >= 0f -> "Downloadingâ€¦"
-                    vm.updateChecking -> "Checkingâ€¦"
+                    vm.updateProgress >= 0f -> "Downloading..."
+                    vm.updateChecking -> "Checking..."
                     vm.updateInfo != null -> "New: ${vm.updateInfo!!.displayName}"
                     else -> "Check now"
                 },
@@ -639,7 +795,7 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
 
         Spacer(Modifier.height(24.dp))
         Text(
-            "horiZen is a fast, private browser built on GeckoView â€” Mozilla's open-source browser engine â€” with an Arc-inspired chrome. Add-ons install as AMO-compatible signed XPIs.",
+            "horiZen is a fast, private browser built on GeckoView - Mozilla's open-source browser engine - with an Arc-inspired chrome. Add-ons install as AMO-compatible signed XPIs.",
             color = c.muted,
             fontSize = 11.5.sp,
             lineHeight = 17.sp,
@@ -647,14 +803,13 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            "Â© horiZen. GeckoView and Firefox are trademarks of Mozilla Foundation.",
+            "Copyright horiZen. GeckoView and Firefox are trademarks of Mozilla Foundation.",
             color = c.muted,
             fontSize = 10.sp,
             modifier = Modifier.padding(horizontal = 2.dp),
         )
     }
 }
-
 @Composable
 private fun IconBtn(icon: List<androidx.compose.ui.graphics.Path>, onClick: () -> Unit) {
     val c = LocalArc.current
