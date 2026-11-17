@@ -108,6 +108,21 @@ With the system animator scale at 0 the mark is drawn at rest and the hand-over 
   sheet sits 92dp up. Finished downloads don't pop anything — the live chip says it.
 - Reduced motion (system animator scale 0) collapses these transitions to their end state.
 
+## Pinned tabs
+
+Pinned tabs surface under the search field in **Search**, in a single horizontally
+swipeable row (paged three at a time, scrollable for more). The row sits inside its own
+soft-tiles background, and each pin shows the site's favicon in a thumb; the active
+page's thumb gets an accent outline. Pin order is recency (newest pinned first).
+
+- **Menu**: the actions row now shows **Pin**/**Unpin** (accent-filled when the current
+  site is pinned); the Extensions action moved to the bottom-left corner, icon-only,
+  mirroring the downloads chip in the opposite corner.
+- **Tap** a pin: switches to a tab already on that origin, otherwise opens it in a new tab.
+- **Long-press** a pin and tap the cross to unpin it (unpin mode clears itself on the next tap).
+- Pins persist via `filesDir/pins.json` (`BrowserFiles#savePins` / `#loadPins`); no settings.
+  Pinned sites survive restarts.
+
 ## Find in page
 
 - The menu's **Find** opens a bar in the pill's footprint, lifted above the keyboard, with

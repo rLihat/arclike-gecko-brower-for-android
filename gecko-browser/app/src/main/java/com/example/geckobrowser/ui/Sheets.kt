@@ -13,6 +13,9 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -243,6 +246,16 @@ fun SearchSheet(vm: BrowserViewModel) {
         }
 
         AnimatedVisibility(
+            visible = vm.pins.isNotEmpty(),
+            enter = fadeIn(tween(150)) +
+                expandVertically(animationSpec = tween(240), expandFrom = Alignment.Top),
+            exit = fadeOut(tween(110)) +
+                shrinkVertically(animationSpec = tween(150), shrinkTowards = Alignment.Top),
+        ) {
+            PinnedRow(vm)
+        }
+
+        AnimatedVisibility(
             visible = engineMenu,
             enter = fadeIn(tween(150)) +
                 scaleIn(
@@ -397,6 +410,90 @@ fun SearchSheet(vm: BrowserViewModel) {
 }
 
 @Composable
+private fun PinnedRow(vm: BrowserViewModel) {
+    val c = LocalArc.current
+    val pins = vm.pins
+    var unpinMode by remember { mutableStateOf<String?>(null) }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(c.surface)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            items(pins.size, key = { i -> pins[i].origin }) { i ->
+                val pin = pins[i]
+                val origin = pin.origin
+                val host = origin.substringAfter("://")
+                val active = vm.activeOrigin == origin
+                val showUnpin = unpinMode == origin
+                Column(
+                    Modifier
+                        .width(76.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .combinedClickable(
+                            onClick = {
+                                if (unpinMode != null) {
+                                    if (unpinMode == origin) vm.unpin(origin)
+                                    unpinMode = null
+                                    return@combinedClickable
+                                }
+                                vm.openPin(pin)
+                            },
+                            onLongClick = { unpinMode = origin },
+                        )
+                        .padding(vertical = 4.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Box(
+                        Modifier
+                            .size(46.dp)
+                            .clip(CircleShape)
+                            .then(
+                                if (active) {
+                                    Modifier.border(2.dp, c.accent, CircleShape)
+                                } else {
+                                    Modifier.background(c.hairline, CircleShape)
+                                },
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        SiteFavicon(host, pin.title.ifBlank { host }, 46.dp)
+                        if (showUnpin) {
+                            Box(
+                                Modifier
+                                    .size(17.dp)
+                                    .clip(RoundedCornerShape(9.dp))
+                                    .background(Color(0xFFE23D3D))
+                                    .align(Alignment.TopEnd),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Glyph(Ico.close, Color(0xFFFFFFFF), size = 11.dp, strokeWidth = 2.4f)
+                            }
+                        }
+                    }
+                    Text(
+                        pin.title.ifBlank { host },
+                        color = c.text,
+                        fontSize = 10.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun EngineField(value: String, onValueChange: (String) -> Unit, placeholder: String) {
     val c = LocalArc.current
     Box(
@@ -508,10 +605,15 @@ fun MenuSheet(vm: BrowserViewModel) {
             MenuAction("Translate", Ico.translate) { vm.openTranslate() }
             MenuAction("Find", Ico.find) { vm.openFind() }
             MenuAction("Share", Ico.share) { vm.shareCurrentUrl() }
-            MenuAction(
-                "Extensions",
-                Ico.puzzle,
-            ) { vm.openExtensionMenu() }
+            val activeOrigin = vm.activeOrigin
+            if (activeOrigin.isNotEmpty()) {
+                val pinned = vm.isActiveTabSitePinned
+                MenuAction(
+                    if (pinned) "Unpin" else "Pin",
+                    Ico.pin,
+                    accent = pinned,
+                ) { vm.togglePinForActiveSite() }
+            }
         }
 
         Text(
@@ -602,6 +704,7 @@ private fun RowScope.MenuAction(
     label: String,
     paths: List<androidx.compose.ui.graphics.Path>,
     badge: String? = null,
+    accent: Boolean = false,
     onClick: () -> Unit,
 ) {
     val c = LocalArc.current
@@ -614,7 +717,7 @@ private fun RowScope.MenuAction(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(contentAlignment = Alignment.TopEnd) {
-            Glyph(paths, c.text, size = 20.dp, strokeWidth = 1.8f)
+            Glyph(paths, if (accent) c.accent else c.text, size = 20.dp, strokeWidth = 1.8f)
             if (badge != null) {
                 Box(
                     Modifier

@@ -216,6 +216,83 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var overlay by mutableStateOf(Overlay.None)
         private set
 
+    /* ------------------------------------------------------------ pins */
+
+    var pins by mutableStateOf<List<PinRecord>>(emptyList())
+        private set
+
+    /** Normalises a URL to `scheme://host`; "" when it isn't a navigable page. */
+    fun originOf(url: String): String {
+        val t = url.trim()
+        if (t.isBlank()) return ""
+        return runCatching {
+            val uri = android.net.Uri.parse(t)
+            val scheme = uri.scheme?.lowercase(Locale.US) ?: return ""
+            val host = uri.host?.lowercase(Locale.US) ?: return ""
+            if (scheme != "http" && scheme != "https") return ""
+            if (host.isBlank()) return ""
+            "$scheme://$host"
+        }.getOrDefault("")
+    }
+
+    val activeOrigin: String get() = originOf(activeTab?.url.orEmpty())
+
+    val isActiveTabSitePinned: Boolean
+        get() = activeOrigin.isNotEmpty() && pins.any { it.origin == activeOrigin }
+
+    fun togglePinForActiveSite(): Boolean {
+        val url = activeTab?.url.orEmpty()
+        val origin = originOf(url)
+        if (origin.isBlank()) return false
+        val existing = pins.firstOrNull { it.origin == origin }
+        pins = if (existing != null) {
+            pins - existing
+        } else {
+            val title = activeTab?.title?.ifBlank { origin } ?: origin
+            listOf(PinRecord(origin, url, title)) + pins
+        }
+        persistPins()
+        return pins.any { it.origin == origin }
+    }
+
+    fun unpin(origin: String) {
+        if (pins.none { it.origin == origin }) return
+        pins = pins.filterNot { it.origin == origin }
+        persistPins()
+    }
+
+    /** Switches to the pinned tab if one is already open on that origin; otherwise opens a new tab. */
+    fun openPin(pin: PinRecord) {
+        val origin = pin.origin
+        val currentId = activeId
+        // Prefer the already-active tab if it's the pinned site; otherwise pick the most relevant match.
+        val target = tabs.firstOrNull { it.id == currentId && originOf(it.url) == origin }
+            ?: tabs.firstOrNull { it.id != currentId && originOf(it.url) == origin }
+        if (target != null) {
+            selectTab(target.id)
+            return
+        }
+        val id = addTab(url = pin.url, title = pin.title)
+        closeOverlay()
+        expandPill()
+        syncZoomForActive()
+    }
+
+    private fun restorePins() {
+        val loaded = BrowserFiles.loadPins(application)
+        if (loaded.isNotEmpty()) pins = loaded
+    }
+
+    private fun persistPins() {
+        val snapshot = pins
+        scope.launch(Dispatchers.IO) {
+            BrowserFiles.savePins(application, snapshot)
+        }
+    }
+
+    /* ------------------------------------------------------------ end pins */
+
+
     private var accountReturn = Overlay.Menu
     private var downloadsReturn = Overlay.Menu
     private var extensionsReturn = Overlay.Menu
@@ -648,6 +725,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         historyVersionState++
         configureExtensions()
         restoreTabs()
+        restorePins()
         refreshExtensions()
         if (checkOnLaunch) checkForUpdates()
         bootstrappedState = true

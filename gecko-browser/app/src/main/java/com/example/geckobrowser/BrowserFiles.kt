@@ -14,6 +14,13 @@ data class TabRecord(
     val secure: Boolean = false,
 )
 
+/** One pinned site as it survives a restart. */
+data class PinRecord(
+    val origin: String,
+    val url: String,
+    val title: String,
+)
+
 data class TabListRecord(val activeId: Long, val tabs: List<TabRecord>)
 
 /**
@@ -34,6 +41,8 @@ object BrowserFiles {
 
     private fun tabsFile(context: Context): File = File(browserDir(context), "tabs.json")
 
+    fun pinsFile(context: Context): File = File(browserDir(context), "pins.json")
+
     fun saveTabList(context: Context, tabs: List<TabRecord>, activeId: Long) {
         val root = JSONObject().apply {
             put("version", LIST_VERSION)
@@ -51,6 +60,35 @@ object BrowserFiles {
             })
         }
         writeText(tabsFile(context), root.toString())
+    }
+
+    fun savePins(context: Context, pins: List<PinRecord>) {
+        val arr = JSONArray()
+        pins.forEach { p ->
+            arr.put(JSONObject().apply {
+                put("origin", p.origin)
+                put("url", p.url)
+                put("title", p.title)
+            })
+        }
+        writeText(pinsFile(context), arr.toString())
+    }
+
+    fun loadPins(context: Context): List<PinRecord> {
+        val raw = readText(pinsFile(context)) ?: return emptyList()
+        return try {
+            val arr = JSONArray(raw)
+            buildList {
+                for (i in 0 until arr.length()) {
+                    val o = arr.optJSONObject(i) ?: continue
+                    val origin = o.optString("origin")
+                    if (origin.isBlank()) continue
+                    add(PinRecord(origin, o.optString("url"), o.optString("title").ifBlank { origin }))
+                }
+            }
+        } catch (_: Throwable) {
+            emptyList()
+        }
     }
 
     fun loadTabList(context: Context): TabListRecord? {

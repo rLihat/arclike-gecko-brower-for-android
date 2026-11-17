@@ -653,6 +653,15 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                 .align(Alignment.BottomEnd)
                 .padding(end = 6.dp, bottom = 24.dp),
         )
+        // Extensions mirror the downloads chip, opposite edge: icon-only, menu only.
+        val extensionsChipVisible = overlay == Overlay.Menu
+        ExtensionChip(
+            visible = extensionsChipVisible,
+            onClick = { vm.openExtensionMenu() },
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 6.dp, bottom = 24.dp),
+        )
         DownloadCancelPreview(
             progress = cancelProgress,
             done = cancelDone,
@@ -869,6 +878,36 @@ private fun DownloadChip(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ExtensionChip(
+    visible: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val c = LocalArc.current
+    AnimatedVisibility(
+        visible = visible,
+        enter = fadeIn(tween(180)) + scaleIn(tween(300, easing = morphEasing), initialScale = 0.78f),
+        exit = fadeOut(tween(140)) + scaleOut(tween(150), targetScale = 0.78f),
+        modifier = modifier,
+    ) {
+        Box(
+            Modifier
+                .size(46.dp)
+                .clip(CircleShape)
+                .clickable { onClick() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Glyph(
+                Ico.puzzle,
+                c.text,
+                size = 24.dp,
+                strokeWidth = 1.9f,
+            )
         }
     }
 }

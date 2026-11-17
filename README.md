@@ -13,8 +13,13 @@ green builds auto-publish on `beta-build-N` tags; stable builds publish on `stab
 releases are manual promotions of the exact release-candidate APK (`stable-build-N`),
 with auto-generated release notes that fail closed instead of guessing.
 
-Extensions install as AMO-compatible signed XPIs — the app uses Mozilla's add-on
+Extensions install as AMO-compatible signed XPIs - the app uses Mozilla's add-on
 system rather than shipping its own store.
+
+- Pinned tabs appear in the search sheet under the field as a swipeable,
+  three-per-page row of favicon tiles; accent-outlined when you're on that site.
+  Pin or unpin from the menu (extensions moved to the bottom-left corner,
+  icon-only, mirroring the downloads chip). Pins persist across restarts.
 
 ## Contents
 
