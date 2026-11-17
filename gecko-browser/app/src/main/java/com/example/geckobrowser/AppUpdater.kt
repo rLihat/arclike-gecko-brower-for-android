@@ -32,7 +32,6 @@ object AppUpdater {
 
     private const val OWNER = "rLihat"
     private const val REPO = "arclike-gecko-brower-for-android"
-    private const val ROLLING_TAG = "ota-beta"
     private const val API_BASE = "https://api.github.com"
 
     /** Callback for download progress as a fraction in [0f, 1f]. */
@@ -40,14 +39,14 @@ object AppUpdater {
         fun emit(fraction: Float)
     }
 
-    /** Returns the rolling release if it is newer than the installed build, otherwise null. */
+    /** Returns the latest release if it's newer than the installed build, otherwise null. */
     suspend fun check(context: Context): UpdateInfo? = withContext(Dispatchers.IO) {
         val current = installedVersionCode(context)
         try {
-            val json = httpGet("$API_BASE/repos/$OWNER/$REPO/releases/tags/$ROLLING_TAG")
+            val json = httpGet("$API_BASE/repos/$OWNER/$REPO/releases/latest")
             val root = JSONObject(json)
             val name = root.optString("name").ifBlank { root.optString("tag_name") }
-            val remote = parseRunNumber(name) ?: return@withContext null
+            val remote = parseRunNumber(name) ?: parseRunNumber(root.optString("tag_name")) ?: return@withContext null
             if (remote + 1 <= current) return@withContext null
             val assets = root.optJSONArray("assets") ?: return@withContext null
             var apkUrl: String? = null
