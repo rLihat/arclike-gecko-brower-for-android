@@ -142,7 +142,7 @@ jobs:
       - name: Download release candidate
         uses: actions/download-artifact@v4
         with:
-          name: horiZen-rc-${{ steps.tag.outputs.run }}
+          name: horiZen-rc-${{ needs.build.outputs.run }}
           path: dist
 
       - name: Generate release notes (auto)
