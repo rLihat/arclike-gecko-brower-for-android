@@ -227,7 +227,7 @@ Push to `main` (or `workflow_dispatch`) runs `.github/workflows/ci.yml` in three
 2. **build** — `compileDebugKotlin` first (compiler log tee'd to `compile.log`, always uploaded
    as `ci-error-log-<run>`), then `testDebugUnitTest`, then `assembleDebug`. Ships a
    `horiZen-rc-<run>` artifact (APK + `build-manifest.json` with sha256/run/commit).
-3. **beta-release** (push only) — tags `beta-build-<run>`, GitHub **pre-release**, never
+3. **beta-release** (push only) - tags `beta-build-<run>`, regular release, never
    `make_latest`, notes auto-generated from commits since the last `beta-build-*` tag.
 
 Stable is **never automatic**. Promote with `.github/workflows/release.yml` ("Promote to

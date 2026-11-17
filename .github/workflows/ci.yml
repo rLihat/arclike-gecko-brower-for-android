@@ -156,5 +156,4 @@ jobs:
           name: ${{ needs.build.outputs.display }}
           body_path: dist/RELEASE_NOTES_BETA.md
           files: dist/*
-          prerelease: true
           make_latest: false

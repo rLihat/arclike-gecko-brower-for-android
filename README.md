@@ -9,7 +9,7 @@ follows the Arc-inspired mockup.
 
 Static checks gate every build: precompile lint (same-module symbol-graph analysis,
 mojibake scan, XML/resource resolution) runs before compile + unit tests + assemble;
-green builds auto-publish as GitHub **pre-releases** on `beta-build-N` tags. Stable
+green builds auto-publish on `beta-build-N` tags; stable builds publish on `stable-build-N` tags.
 releases are manual promotions of the exact release-candidate APK (`stable-build-N`),
 with auto-generated release notes that fail closed instead of guessing.
 

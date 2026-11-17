@@ -72,13 +72,14 @@ object AppUpdater {
         try {
             val json = httpGet("$API_BASE/repos/$OWNER/$REPO/releases?per_page=20")
             val releases = org.json.JSONArray(json)
-            var chosen: org.json.JSONObject? = null
+            val prefixMatches = mutableListOf<org.json.JSONObject>()
             for (i in 0 until releases.length()) {
                 val r = releases.getJSONObject(i)
-                val tag = r.optString("tag_name")
-                if (tag.startsWith(prefix)) { chosen = r; break }
+                if (r.optString("tag_name").startsWith(prefix)) prefixMatches += r
             }
-            val root = chosen ?: return@withContext null
+            val root = prefixMatches.maxWithOrNull(
+                compareBy { parseRunNumber(it.optString("name")) ?: parseRunNumber(it.optString("tag_name")) ?: -1 }
+            ) ?: return@withContext null
             val name = root.optString("name").ifBlank { root.optString("tag_name") }
             val remote = parseRunNumber(name) ?: parseRunNumber(root.optString("tag_name")) ?: return@withContext null
             if (remote + 1 <= current) return@withContext null
