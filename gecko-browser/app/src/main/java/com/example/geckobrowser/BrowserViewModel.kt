@@ -2726,16 +2726,25 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 val result = GeckoResult<WebExtension.PermissionPromptResponse>()
                 extensionInstallResults[id] = result
                 clearShownPrompt()
-                val icon = runCatching {
-                    extension.metaData?.icon?.getBitmap(96)?.poll(200)
-                }.getOrNull()
                 browserPrompt = BrowserPromptState.ExtensionInstall(
                     id = id,
                     name = extension.metaData?.name ?: "Add-on",
                     permissions = permissions?.toList().orEmpty(),
                     origins = origins?.toList().orEmpty(),
-                    icon = icon,
+                    icon = null,
                 )
+                // Load the icon asynchronously so the prompt never blocks Gecko's thread.
+                runCatching { extension.metaData?.icon?.getBitmap(64) }
+                    .getOrNull()?.accept(
+                        { bitmap ->
+                            val current = browserPrompt as? BrowserPromptState.ExtensionInstall
+                                ?: return@accept
+                            if (current.id == id) {
+                                browserPrompt = current.copy(icon = bitmap)
+                            }
+                        },
+                        { /* icon stays a puzzle glyph */ },
+                    )
                 compactPill = false
                 return result
             }
