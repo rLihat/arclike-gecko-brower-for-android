@@ -257,9 +257,19 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var updateProgress by mutableFloatStateOf(-1f)
         private set
 
+    /** Current settings sub-page route — hub by default. */
+    var settingsRoute by mutableStateOf("hub")
+        private set
+
+    /** Switch settings to a sub-page (or "hub" to return to the category menu). */
+    fun setSettingsRoute(route: String) { settingsRoute = route }
+
     var updateIgnored by mutableStateOf(false)
 
     /** Pinnable from Settings: check for updates on cold start; default on. */
+    var updateChannel by mutableStateOf(prefs.getString("update_channel", "beta") ?: "beta")
+        private set
+
     var checkOnLaunch by mutableStateOf(prefs.getBoolean("check_on_launch", true))
         private set
 
@@ -571,10 +581,29 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var engineVersion by mutableIntStateOf(0)
         private set
 
+    /** The persisted default search engine. Retained for storage persistence and settings. */
+    val defaultSearchEngineId: String get() = searchEngineId
+
+    /** Temporary engine id chosen for the current search; cleared on submit. */
+    var temporaryEngineId by mutableStateOf<String?>(null)
+        private set
+
+    fun setTemporaryEngine(id: String) {
+        temporaryEngineId = id
+        suggestions = emptyList()
+        requestSuggestions(searchText)
+    }
+
+    fun clearTemporaryEngine() { temporaryEngineId = null }
+
     val currentEngine: SearchEngine
-        get() = engines.firstOrNull { it.id == searchEngineId }
-            ?: computeOrderedEngines().firstOrNull()
-            ?: BUILTIN_ENGINES.first()
+        get() {
+            val temp = temporaryEngineId?.let { id -> computeOrderedEngines().firstOrNull { it.id == id } }
+            return temp
+                ?: computeOrderedEngines().firstOrNull { it.id == searchEngineId }
+                ?: computeOrderedEngines().firstOrNull()
+                ?: BUILTIN_ENGINES.first()
+        }
 
     var editingOverlayHeight by mutableStateOf(false)
 
@@ -2505,6 +2534,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         cancelDownloadPrompt()
         dismissContextMenu()
         val url = toUrl(text)
+        clearTemporaryEngine()
         // Every search completes into a new tab; there is no home tab to reuse.
         val id = addTab(url = url)
         closeOverlay()
@@ -3707,8 +3737,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 true
             }
             Overlay.Settings, Overlay.SiteSettings -> {
-                overlay = Overlay.Menu
-                true
+                if (overlay == Overlay.Settings && vm.settingsRoute != "hub") {
+                    vm.setSettingsRoute("hub")
+                    true
+                } else {
+                    overlay = Overlay.Menu
+                    true
+                }
             }
             Overlay.Extensions -> {
                 overlay = extensionsReturn
@@ -3786,6 +3821,16 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 showToast("Update available")
             }
         }
+    }
+
+    /** Set the channel for OTA updates: "beta" or "stable". */
+    fun setUpdateChannel(channel: String) {
+        if (channel != "beta" && channel != "stable") return
+        updateChannel = channel
+        prefs.edit().putString("update_channel", channel).apply()
+        updateInfo = null
+        updateIgnored = false
+        toastMessage = "Update channel: ${channel.replaceFirstChar { it.uppercase() }}"
     }
 
     fun updateCheckOnLaunch(enabled: Boolean) {
@@ -4164,16 +4209,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 "google", "Google", "https://www.google.com/search?q=%s", "google.com", 0xFF4285F4,
                 suggestTemplate = "https://www.google.com/complete/search?client=firefox&q=%s",
             ),
-            SearchEngine(
-                "bing", "Bing", "https://www.bing.com/search?q=%s", "bing.com", 0xFF008373,
-                suggestTemplate = "https://api.bing.com/osjson.aspx?query=%s",
-            ),
+            // Reddit's public search page accepts the query under ?q=%s.
+            SearchEngine("reddit", "Reddit", "https://www.reddit.com/search/?q=%s", "reddit.com", 0xFFFF4500),
             SearchEngine(
                 "brave", "Brave", "https://search.brave.com/search?q=%s", "search.brave.com", 0xFFFB542B,
                 suggestTemplate = "https://search.brave.com/api/suggest?q=%s",
             ),
-            // No suggestion endpoint (a request just returns 404 HTML).
-            SearchEngine("ecosia", "Ecosia", "https://www.ecosia.org/search?q=%s", "ecosia.org", 0xFF008009),
             // Startpage publishes no autocomplete API we can rely on.
             SearchEngine("startpage", "Startpage", "https://www.startpage.com/sp/search?query=%s", "startpage.com", 0xFF6573FF),
         )

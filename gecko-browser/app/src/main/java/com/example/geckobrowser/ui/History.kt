@@ -154,6 +154,14 @@ fun HistoryScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     vm.clearHistory(startOfDay(System.currentTimeMillis()))
                     clearing = false
                 }
+                ClearOption("Last 7 days") {
+                    vm.clearHistory(startOfDay(System.currentTimeMillis()) - 6 * 86_400_000L)
+                    clearing = false
+                }
+                ClearOption("Last 30 days") {
+                    vm.clearHistory(startOfDay(System.currentTimeMillis()) - 29 * 86_400_000L)
+                    clearing = false
+                }
                 ClearOption("All history", destructive = true) {
                     vm.clearHistory(0L)
                     clearing = false
@@ -261,23 +269,31 @@ private fun EmptyHistory(filtered: Boolean) {
 private fun HistoryRow(vm: BrowserViewModel, visit: Visit, showTime: Boolean) {
     val c = LocalArc.current
     val density = LocalDensity.current
-    val scope = rememberCoroutineScope()
-    // Drag follows the finger; `dismiss` flies the row out once it is past the
-    // threshold, then the row is deleted from the store.
+    // Track drag width so the red delete area shows only how far the finger has actually moved.
     var drag by remember(visit.id) { mutableFloatStateOf(0f) }
     val dismiss = remember(visit.id) { Animatable(0f) }
-    val threshold = with(density) { 64.dp.toPx() }
+    val threshold = with(density) { 72.dp.toPx() }
+    val deleteAreaWidth = with(density) { 84.dp.toPx() }
 
-    Box(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+    Box(Modifier.fillMaxWidth().padding(vertical = 2.dp, horizontal = 4.dp)) {
         Box(
             Modifier
                 .matchParentSize()
                 .clip(RoundedCornerShape(14.dp))
-                .background(deleteRed)
-                .padding(end = 18.dp),
+                .background(deleteRed),
             contentAlignment = Alignment.CenterEnd,
         ) {
-            Glyph(Ico.trash, Color.White, size = 18.dp, strokeWidth = 1.9f)
+            val revealed = (-drag / deleteAreaWidth).coerceIn(0f, 1f)
+            Box(
+                Modifier
+                    .padding(end = 18.dp)
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.12f + 0.24f * revealed)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Glyph(Ico.trash, Color.White, size = 17.dp, strokeWidth = 1.9f)
+            }
         }
         Row(
             Modifier
@@ -289,7 +305,7 @@ private fun HistoryRow(vm: BrowserViewModel, visit: Visit, showTime: Boolean) {
                     detectHorizontalDragGestures(
                         onHorizontalDrag = { change, amount ->
                             change.consume()
-                            if (dismiss.value == 0f) drag = (drag + amount).coerceIn(-160f, 0f)
+                            if (dismiss.value == 0f) drag = (drag + amount).coerceIn(-deleteAreaWidth, 0f)
                         },
                         onDragEnd = {
                             if (drag <= -threshold) {
@@ -304,7 +320,7 @@ private fun HistoryRow(vm: BrowserViewModel, visit: Visit, showTime: Boolean) {
                         onDragCancel = { drag = 0f },
                     )
                 }
-                .clickable { vm.openHistoryUrl(visit.url) }
+                .clickable { if (drag > -4f) vm.openHistoryUrl(visit.url) }
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

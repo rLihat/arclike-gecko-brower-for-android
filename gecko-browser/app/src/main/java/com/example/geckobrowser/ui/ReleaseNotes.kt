@@ -72,7 +72,7 @@ fun ReleaseNotesScreen(vm: BrowserViewModel, onBack: () -> Unit) {
 }
 
 @Composable
-private fun ColumnScope.rawMarkdown(raw: String) {
+internal fun ColumnScope.rawMarkdown(raw: String) {
     val c = LocalArc.current
     raw.lineSequence().forEach { rawLine ->
         val line = rawLine.trim()
