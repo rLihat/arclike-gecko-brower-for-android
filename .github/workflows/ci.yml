@@ -82,6 +82,24 @@ jobs:
         env:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
 
+      - name: Upload unit test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results-${{ github.run_number }}
+          path: gecko-browser/app/build/test-results/testDebugUnitTest/*.xml
+          retention-days: 14
+
+      - name: Print failing test report
+        if: failure()
+        run: |
+          for f in gecko-browser/app/build/test-results/testDebugUnitTest/*.xml; do
+            if grep -q -E 'failures="[1-9]|errors="[1-9]' "$f"; then
+              echo "== $f"
+              grep -oE '<testcase[^>]*>|<failure[^>]*>' "$f" | head -40
+            fi
+          done
+
       - name: Assemble release candidate
         run: ./gradlew assembleDebug --no-daemon
         env:

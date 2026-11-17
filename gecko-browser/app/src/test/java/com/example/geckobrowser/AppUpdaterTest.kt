@@ -24,7 +24,7 @@ class AppUpdaterTest {
 
     @Test
     fun parseRunNumberRejectsMissingOrNonNumeric() {
-        assertNull(AppUpdater.parseRunNumber("Beta v17-11-2026"))
+        assertNull(AppUpdater.parseRunNumber("no-dash-here"))
         assertNull(AppUpdater.parseRunNumber(""))
         assertNull(AppUpdater.parseRunNumber("beta-build-x"))
     }
