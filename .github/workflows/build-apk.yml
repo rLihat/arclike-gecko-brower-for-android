@@ -71,6 +71,6 @@ jobs:
         with:
           tag_name: ${{ needs.build.outputs.tag }}
           name: ${{ needs.build.outputs.display }}
-          body_path: gecko-browser/dist/RELEASE_NOTES.md
-          files: gecko-browser/dist/*
+          body_path: dist/RELEASE_NOTES.md
+          files: dist/*
           make_latest: true
