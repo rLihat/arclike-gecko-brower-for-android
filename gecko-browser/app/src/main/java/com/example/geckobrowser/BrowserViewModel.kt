@@ -3830,20 +3830,24 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var updateChecking by mutableStateOf(false)
         private set
 
-    /** Fires a one-off check against GitHub; no-op while a check is already running. */
-    fun checkForUpdates() {
+    /**
+     * Fires a one-off check against GitHub; no-op while a check is already running.
+     * [manual] is true only for the explicit "Check for updates" button: result toasts
+     * (up to date / update available) fire only then, never from the launch path.
+     */
+    fun checkForUpdates(manual: Boolean = false) {
         if (updateInfo != null || updateProgress in 0f..1f || updateChecking) return
         updateChecking = true
         scope.launch {
             val info = try { AppUpdater.check(application) } catch (_: Throwable) { null }
             updateChecking = false
             if (info == null) {
-                showToast("horiZen is up to date")
+                if (manual) showToast("horiZen is up to date")
             } else if (updateIgnored) {
-                showToast("Update available")
+                if (manual) showToast("Update available")
             } else {
                 updateInfo = info
-                showToast("Update available")
+                if (manual) showToast("Update available")
             }
         }
     }

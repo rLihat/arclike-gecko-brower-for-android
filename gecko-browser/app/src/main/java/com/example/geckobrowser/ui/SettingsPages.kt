@@ -824,7 +824,7 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
                     vm.updateInfo != null -> "New: ${vm.updateInfo!!.displayName}"
                     else -> "Check now"
                 },
-                onClick = { vm.checkForUpdates() },
+                onClick = { vm.checkForUpdates(manual = true) },
             )
         }
 
