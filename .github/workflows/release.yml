@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       build_run:
-        description: 'CI run number to promote (blank = latest green CI build on main)'
+        description: 'Build number to promote (e.g. 63; blank = latest green CI build on main)'
         type: string
         required: false
         default: ''
@@ -44,27 +44,34 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BUILD_RUN: ${{ inputs.build_run }}
         run: |
+          # "build_run" is the commit-count build number used in the tags
+          # (beta-build-N / stable-build-N), which matches the artifact name suffix.
           if [ -n "$BUILD_RUN" ]; then
-            DBID=$(gh run list --workflow=CI --branch main --limit 30 --json number,databaseId \
-              --jq ".[] | select(.number == $BUILD_RUN) | .databaseId")
+            DBID=$(gh api "repos/${{ github.repository }}/actions/artifacts?per_page=100&name=horiZen-rc-$BUILD_RUN" \
+              --jq '.artifacts | last | .workflow_run.id // empty')
             if [ -z "$DBID" ]; then
-              echo "no CI run #$BUILD_RUN found on main" >&2
+              echo "no release candidate artifact 'horiZen-rc-$BUILD_RUN' found" >&2
               exit 1
             fi
-            RUN="$BUILD_RUN"
+            RC_COUNT="$BUILD_RUN"
           else
             ROW=$(gh run list --workflow=CI --branch main --status success --limit 1 \
-              --json databaseId,number --jq '.[0] | "\(.databaseId) \(.number)"')
+              --json databaseId,headSha --jq '.[0] | "\(.databaseId) \(.headSha)"')
             if [ -z "$ROW" ]; then
               echo "no successful CI run found on main" >&2
               exit 1
             fi
             DBID=${ROW%% *}
-            RUN=${ROW##* }
+            HEAD_SHA=${ROW##* }
+            RC_COUNT=$(git rev-list --count "$HEAD_SHA")
           fi
-          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+          if [ -z "$DBID" ]; then
+            echo "no release candidate found for build ${RC_COUNT}" >&2
+            exit 1
+          fi
+          echo "run=$RC_COUNT" >> "$GITHUB_OUTPUT"
           echo "run_id=$DBID" >> "$GITHUB_OUTPUT"
-          gh run view "$DBID" --json headSha,createdAt --jq '"source build: run #\(.number) sha \(.headSha) created \(.createdAt)"' || true
+          gh run view "$DBID" --json headSha,createdAt --jq '"source build: sha \(.headSha) created \(.createdAt)"' || true
 
       - name: Download release candidate
         env:

@@ -31,14 +31,20 @@ jobs:
     outputs:
       display: ${{ steps.tag.outputs.display }}
       tag: ${{ steps.tag.outputs.tag }}
+      run: ${{ steps.tag.outputs.run }}
       commit: ${{ github.sha }}
     steps:
+      # Commit count is monotonic across workflow renames, unlike GITHUB_RUN_NUMBER,
+      # which restarts whenever a workflow file is created/renamed/replaced.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - id: tag
         run: |
           DATE=$(date +%d-%m-%Y)
-          RUN=${GITHUB_RUN_NUMBER}
+          RUN=$(git rev-list --count HEAD)
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
           echo "display=Beta v${DATE}-${RUN}" >> "$GITHUB_OUTPUT"
           echo "tag=beta-build-${RUN}" >> "$GITHUB_OUTPUT"
 
@@ -58,7 +64,7 @@ jobs:
           chmod +x gradlew
           ./gradlew compileDebugKotlin --no-daemon --console=plain 2>&1 | tee compile.log
         env:
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_RUN_NUMBER: ${{ steps.tag.outputs.run }}
 
       - name: Extract compiler errors
         if: always()
@@ -71,7 +77,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ci-error-log-${{ github.run_number }}
+          name: ci-error-log-${{ steps.tag.outputs.run }}
           path: |
             gecko-browser/ci-error-log.txt
             gecko-browser/compile.log
@@ -80,13 +86,13 @@ jobs:
       - name: Unit tests
         run: ./gradlew testDebugUnitTest --no-daemon
         env:
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_RUN_NUMBER: ${{ steps.tag.outputs.run }}
 
       - name: Upload unit test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: unit-test-results-${{ github.run_number }}
+          name: unit-test-results-${{ steps.tag.outputs.run }}
           path: gecko-browser/app/build/test-results/testDebugUnitTest/*.xml
           retention-days: 14
 
@@ -103,7 +109,7 @@ jobs:
       - name: Assemble release candidate
         run: ./gradlew assembleDebug --no-daemon
         env:
-          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+          GITHUB_RUN_NUMBER: ${{ steps.tag.outputs.run }}
 
       - name: Stage candidate
         run: |
@@ -118,7 +124,7 @@ jobs:
       - name: Upload release candidate
         uses: actions/upload-artifact@v4
         with:
-          name: horiZen-rc-${{ github.run_number }}
+          name: horiZen-rc-${{ steps.tag.outputs.run }}
           path: gecko-browser/dist/*
           retention-days: 30
 
@@ -136,7 +142,7 @@ jobs:
       - name: Download release candidate
         uses: actions/download-artifact@v4
         with:
-          name: horiZen-rc-${{ github.run_number }}
+          name: horiZen-rc-${{ steps.tag.outputs.run }}
           path: dist
 
       - name: Generate release notes (auto)
