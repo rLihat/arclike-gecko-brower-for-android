@@ -74,7 +74,7 @@ fun AboutScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 SettingsRow(
                     "Version",
                     icon = { Glyph(Ico.grid, c.text, size = 19.dp, strokeWidth = 1.7f) },
-                    value = "1.0",
+                    value = com.example.geckobrowser.BuildConfig.VERSION_NAME,
                     onClick = null,
                 )
                 SettingsRow(

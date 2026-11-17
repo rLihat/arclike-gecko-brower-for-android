@@ -12,8 +12,16 @@ jobs:
     defaults:
       run:
         working-directory: gecko-browser
+    outputs:
+      display: ${{ steps.tag.outputs.display }}
     steps:
       - uses: actions/checkout@v4
+
+      - id: tag
+        run: |
+          DATE=$(date +%d-%m-%Y)
+          RUN=${GITHUB_RUN_NUMBER}
+          echo "display=Beta v${DATE}-${RUN}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-java@v4
         with:
@@ -27,9 +35,37 @@ jobs:
 
       - name: Build debug APK
         run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
 
       - uses: actions/upload-artifact@v4
         with:
           name: horiZen-debug-apk
           path: gecko-browser/app/build/outputs/apk/debug/*.apk
           retention-days: 14
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download APK artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: horiZen-debug-apk
+          path: dist
+
+      - name: Publish rolling Beta release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ota-beta
+          name: ${{ needs.build.outputs.display }}
+          body: |
+            horiZen rolling beta — this release is replaced on every push to `main`.
+          files: dist/*.apk
+          prerelease: true
+          make_latest: false

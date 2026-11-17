@@ -507,6 +507,34 @@ fun SettingsScreen(
                     }
                 }
 
+                val updates = listOf("Check for updates on launch", "Check for updates")
+                    .filter { matches(query, it) }
+                if (updates.isNotEmpty()) {
+                    SectionLabel("Updates")
+                    SettingsGroup {
+                        if ("Check for updates on launch" in updates) SettingsRow(
+                            "Check for updates on launch",
+                            icon = { Glyph(Ico.download, c.text, size = 19.dp, strokeWidth = 1.9f) },
+                            trailing = { ArcSwitch(vm.checkOnLaunch) { vm.setCheckOnLaunch(it) } },
+                            onClick = { vm.setCheckOnLaunch(!vm.checkOnLaunch) },
+                        )
+                        if ("Check for updates" in updates) {
+                            val info = vm.updateInfo
+                            val status = when {
+                                vm.updateProgress >= 0f -> "Downloading…"
+                                info != null -> "New: ${info.displayName}"
+                                else -> "Check now"
+                            }
+                            SettingsRow(
+                                "Check for updates",
+                                icon = { Glyph(Ico.refresh, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                                value = status,
+                                onClick = { vm.checkForUpdates() },
+                            )
+                        }
+                    }
+                }
+
                 val privacy = listOf(
                     "Tracking protection", "Cookie banners", "HTTPS-Only Mode", "Site permissions",
                     "Clear browsing data"

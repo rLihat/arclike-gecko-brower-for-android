@@ -11,4 +11,9 @@
     <files-path
         name="app_downloads"
         path="downloads/" />
+    <!-- OTA updates downloaded at runtime; needed to hand a FileProvider URI
+         to the system package installer. -->
+    <files-path
+        name="updates"
+        path="updates/" />
 </paths>

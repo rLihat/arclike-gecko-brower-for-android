@@ -327,7 +327,16 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                 }
             }
 
-            if (!vm.fullscreen) ChromeOverlay(vm, immersive)
+            if (!vm.fullscreen) {
+                Box(
+                    Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 18.dp),
+                ) {
+                    UpdateBanner(vm)
+                }
+                ChromeOverlay(vm, immersive)
+            }
         }
     }
 }

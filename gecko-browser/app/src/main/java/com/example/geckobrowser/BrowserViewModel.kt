@@ -247,6 +247,20 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     )
         private set
 
+    /** Non-null when a newer release is available; cleared on install/ignore. */
+    var updateInfo by mutableStateOf<UpdateInfo?>(null)
+        private set
+
+    /** -1 = not downloading; [0,1] = progress fraction. */
+    var updateProgress by mutableFloatStateOf(-1f)
+        private set
+
+    var updateIgnored by mutableStateOf(false)
+
+    /** Pinnable from Settings: check for updates on cold start; default on. */
+    var checkOnLaunch by mutableStateOf(prefs.getBoolean("check_on_launch", true))
+        private set
+
     private var engineOrderState by mutableStateOf<List<String>>(emptyList())
 
     private var disabledEnginesState by mutableStateOf<Set<String>>(emptySet())
@@ -599,6 +613,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         configureExtensions()
         restoreTabs()
         refreshExtensions()
+        if (checkOnLaunch) checkForUpdates()
         bootstrappedState = true
         pendingIntent?.let { pending ->
             pendingIntent = null
@@ -3723,6 +3738,46 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun setAccent(key: String) {
         accentKey = key
         scope.launch { withContext(Dispatchers.IO) { settingsStore.setAccent(key) } }
+    }
+
+    /** Fires a one-off check against GitHub; no-op if an update is already known. */
+    fun checkForUpdates() {
+        if (updateInfo != null || updateProgress in 0f..1f) return
+        scope.launch {
+            val info = AppUpdater.check(application) ?: return@launch
+            if (!updateIgnored) updateInfo = info
+        }
+    }
+
+    fun setCheckOnLaunch(enabled: Boolean) {
+        checkOnLaunch = enabled
+        prefs.edit().putBoolean("check_on_launch", enabled).apply()
+        if (enabled) checkForUpdates()
+    }
+
+    fun ignoreUpdate() {
+        updateIgnored = true
+        updateInfo = null
+    }
+
+    /** Downloads the pending update and launches the system installer. */
+    fun downloadAndInstallUpdate() {
+        val info = updateInfo ?: return
+        scope.launch {
+            updateProgress = 0f
+            val file = AppUpdater.download(application, info) { fraction ->
+                // State writes off the main thread; safe because Compose snapshot reads are thread-agnostic.
+                updateProgress = fraction
+            }
+            updateProgress = -1f
+            if (file != null) {
+                val intent = AppUpdater.installIntent(application, file)
+                runCatching { application.startActivity(intent) }
+                updateInfo = null
+            } else {
+                showToast("Update download failed")
+            }
+        }
     }
 
     fun toggleSearchSuggestions() {
