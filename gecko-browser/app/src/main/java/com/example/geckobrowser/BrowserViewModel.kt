@@ -3737,8 +3737,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 true
             }
             Overlay.Settings, Overlay.SiteSettings -> {
-                if (overlay == Overlay.Settings && vm.settingsRoute != "hub") {
-                    vm.setSettingsRoute("hub")
+                if (overlay == Overlay.Settings && settingsRoute != "hub") {
+                    setSettingsRoute("hub")
                     true
                 } else {
                     overlay = Overlay.Menu

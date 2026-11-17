@@ -269,6 +269,7 @@ private fun EmptyHistory(filtered: Boolean) {
 private fun HistoryRow(vm: BrowserViewModel, visit: Visit, showTime: Boolean) {
     val c = LocalArc.current
     val density = LocalDensity.current
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
     // Track drag width so the red delete area shows only how far the finger has actually moved.
     var drag by remember(visit.id) { mutableFloatStateOf(0f) }
     val dismiss = remember(visit.id) { Animatable(0f) }

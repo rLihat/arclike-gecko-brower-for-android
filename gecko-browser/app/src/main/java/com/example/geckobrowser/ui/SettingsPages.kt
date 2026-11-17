@@ -78,12 +78,11 @@ private fun SettingsHub(vm: BrowserViewModel, onBack: () -> Unit) {
             Glyph(Ico.chevronLeft, c.text, size = 20.dp, strokeWidth = 2.2f)
         }
     }, icon = {
-        Text("⚙", color = c.text, fontSize = 18.sp)
+        Text("âš™", color = c.text, fontSize = 18.sp)
     })
 
     Column(
         Modifier
-            .weight(1f)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
             .padding(bottom = 40.dp),
@@ -203,7 +202,6 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
     }
     Column(
         Modifier
-            .weight(1f)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
             .padding(bottom = 40.dp),
@@ -267,7 +265,7 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),
                             )
-                            Text(if (selected) "✓" else "", color = c.accent, fontSize = 13.sp)
+                            Text(if (selected) "âœ“" else "", color = c.accent, fontSize = 13.sp)
                         }
                     }
                 }
@@ -302,7 +300,6 @@ private fun SearchPreferencesPage(vm: BrowserViewModel) {
     }
     Column(
         Modifier
-            .weight(1f)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
             .padding(bottom = 40.dp),
@@ -445,7 +442,7 @@ private fun EngineList(
                     .padding(horizontal = 10.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("＋", color = c.accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                Text("ï¼‹", color = c.accent, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.width(8.dp))
                 Text("Add search engine", color = c.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
@@ -501,7 +498,6 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
     }
     Column(
         Modifier
-            .weight(1f)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp)
             .padding(bottom = 40.dp),
@@ -578,7 +574,6 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
     }
     Column(
         Modifier
-            .weight(1f)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 22.dp)
             .padding(bottom = 40.dp),
@@ -617,8 +612,8 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
                 "Check for updates",
                 icon = { Glyph(Ico.refresh, c.text, size = 20.dp, strokeWidth = 1.8f) },
                 value = when {
-                    vm.updateProgress >= 0f -> "Downloading…"
-                    vm.updateChecking -> "Checking…"
+                    vm.updateProgress >= 0f -> "Downloadingâ€¦"
+                    vm.updateChecking -> "Checkingâ€¦"
                     vm.updateInfo != null -> "New: ${vm.updateInfo!!.displayName}"
                     else -> "Check now"
                 },
@@ -644,7 +639,7 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
 
         Spacer(Modifier.height(24.dp))
         Text(
-            "horiZen is a fast, private browser built on GeckoView — Mozilla's open-source browser engine — with an Arc-inspired chrome. Add-ons install as AMO-compatible signed XPIs.",
+            "horiZen is a fast, private browser built on GeckoView â€” Mozilla's open-source browser engine â€” with an Arc-inspired chrome. Add-ons install as AMO-compatible signed XPIs.",
             color = c.muted,
             fontSize = 11.5.sp,
             lineHeight = 17.sp,
@@ -652,7 +647,7 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            "© horiZen. GeckoView and Firefox are trademarks of Mozilla Foundation.",
+            "Â© horiZen. GeckoView and Firefox are trademarks of Mozilla Foundation.",
             color = c.muted,
             fontSize = 10.sp,
             modifier = Modifier.padding(horizontal = 2.dp),
