@@ -3741,12 +3741,25 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         scope.launch { withContext(Dispatchers.IO) { settingsStore.setAccent(key) } }
     }
 
-    /** Fires a one-off check against GitHub; no-op if an update is already known. */
+    /** True while an update check is in flight; used to keep the UI honest. */
+    var updateChecking by mutableStateOf(false)
+        private set
+
+    /** Fires a one-off check against GitHub; no-op while a check is already running. */
     fun checkForUpdates() {
-        if (updateInfo != null || updateProgress in 0f..1f) return
+        if (updateInfo != null || updateProgress in 0f..1f || updateChecking) return
+        updateChecking = true
         scope.launch {
-            val info = AppUpdater.check(application) ?: return@launch
-            if (!updateIgnored) updateInfo = info
+            val info = try { AppUpdater.check(application) } catch (_: Throwable) { null }
+            updateChecking = false
+            if (info == null) {
+                showToast("horiZen is up to date")
+            } else if (updateIgnored) {
+                showToast("Update available")
+            } else {
+                updateInfo = info
+                showToast("Update available")
+            }
         }
     }
 

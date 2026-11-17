@@ -522,6 +522,7 @@ fun SettingsScreen(
                             val info = vm.updateInfo
                             val status = when {
                                 vm.updateProgress >= 0f -> "Downloading…"
+                                vm.updateChecking -> "Checking…"
                                 info != null -> "New: ${info.displayName}"
                                 else -> "Check now"
                             }
