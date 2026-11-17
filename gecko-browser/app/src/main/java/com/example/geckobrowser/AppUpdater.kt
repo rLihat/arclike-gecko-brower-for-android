@@ -39,12 +39,22 @@ object AppUpdater {
         fun emit(fraction: Float)
     }
 
-    /** Returns the latest release if it's newer than the installed build, otherwise null. */
+    /** Returns the latest release for the configured channel, otherwise null. */
     suspend fun check(context: Context): UpdateInfo? = withContext(Dispatchers.IO) {
         val current = installedVersionCode(context)
+        val channel = context.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
+            .getString("update_channel", "beta") ?: "beta"
+        val prefix = if (channel == "stable") "stable-build-" else "beta-build-"
         try {
-            val json = httpGet("$API_BASE/repos/$OWNER/$REPO/releases/latest")
-            val root = JSONObject(json)
+            val json = httpGet("$API_BASE/repos/$OWNER/$REPO/releases?per_page=20")
+            val releases = org.json.JSONArray(json)
+            var chosen: org.json.JSONObject? = null
+            for (i in 0 until releases.length()) {
+                val r = releases.getJSONObject(i)
+                val tag = r.optString("tag_name")
+                if (tag.startsWith(prefix)) { chosen = r; break }
+            }
+            val root = chosen ?: return@withContext null
             val name = root.optString("name").ifBlank { root.optString("tag_name") }
             val remote = parseRunNumber(name) ?: parseRunNumber(root.optString("tag_name")) ?: return@withContext null
             if (remote + 1 <= current) return@withContext null
