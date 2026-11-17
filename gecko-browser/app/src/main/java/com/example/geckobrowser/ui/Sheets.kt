@@ -409,6 +409,7 @@ fun SearchSheet(vm: BrowserViewModel) {
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun PinnedRow(vm: BrowserViewModel) {
     val c = LocalArc.current
