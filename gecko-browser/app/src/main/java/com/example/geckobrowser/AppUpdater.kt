@@ -19,6 +19,8 @@ data class UpdateInfo(
     val runNumber: Int,
     val apkUrl: String,
     val releaseUrl: String,
+    /** Expected APK size in bytes from the release asset; 0 when unknown. */
+    val apkSize: Long = 0L,
     val releaseNotes: String = "",
 )
 
@@ -85,10 +87,13 @@ object AppUpdater {
             if (remote + 1 <= current) return@withContext null
             val assets = root.optJSONArray("assets") ?: return@withContext null
             var apkUrl: String? = null
+            var apkSize = 0L
             for (i in 0 until assets.length()) {
                 val a = assets.getJSONObject(i)
                 if (a.optString("name").endsWith(".apk", ignoreCase = true)) {
-                    apkUrl = a.getString("browser_download_url"); break
+                    apkUrl = a.getString("browser_download_url")
+                    apkSize = a.optLong("size", 0L)
+                    break
                 }
             }
             if (apkUrl == null) return@withContext null
@@ -97,10 +102,23 @@ object AppUpdater {
                 runNumber = remote,
                 apkUrl = apkUrl,
                 releaseUrl = root.optString("html_url"),
+                apkSize = apkSize,
                 releaseNotes = root.optString("body"),
             )
         } catch (_: Throwable) {
             null
+        }
+    }
+
+    /** Structural + size check: truncated APKs (GitHub serves the asset over CDN) fail to parse. */
+    private fun isValidApk(file: File, expectedSize: Long): Boolean {
+        if (expectedSize > 0 && file.length() != expectedSize) return false
+        return try {
+            java.util.zip.ZipFile(file).use { zip ->
+                zip.getEntry("AndroidManifest.xml") != null && zip.size() > 0
+            }
+        } catch (_: Exception) {
+            false
         }
     }
 
@@ -113,8 +131,11 @@ object AppUpdater {
             purgeStaleUpdates(context, keep = out)
             try {
                 if (out.exists() && out.length() > 0) {
-                    progress?.emit(1f)
-                    return@withContext out
+                    if (isValidApk(out, info.apkSize)) {
+                        progress?.emit(1f)
+                        return@withContext out
+                    }
+                    out.delete()
                 }
                 val conn = URL(info.apkUrl).openConnection()
                 conn.setRequestProperty("User-Agent", "horiZen-Android")
@@ -134,6 +155,11 @@ object AppUpdater {
                             if (total > 0) progress?.emit((copied.toFloat() / total).coerceIn(0f, 1f))
                         }
                     }
+                }
+                if (!isValidApk(out, info.apkSize)) {
+                    android.util.Log.w("AppUpdater", "Downloaded file failed validation (size=${out.length()}, expected=${info.apkSize}); deleting")
+                    out.delete()
+                    return@withContext null
                 }
                 android.util.Log.d("AppUpdater", "Downloaded ${info.displayName} to ${out.absolutePath}")
                 out
