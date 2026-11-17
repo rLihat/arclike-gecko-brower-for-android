@@ -12,8 +12,17 @@ android {
         applicationId "com.example.geckobrowser"
         minSdk 24
         targetSdk 35
-        versionCode 1 + ((System.getenv("GITHUB_RUN_NUMBER") ?: '0') as Integer)
-        versionName System.getenv("GITHUB_RUN_NUMBER") ? "Beta v${new Date().format('dd-MM-yyyy')}-${System.getenv('GITHUB_RUN_NUMBER')}" : "1.0"
+        // Written by .github/workflows/ci.yml's tag step; falls back to the
+        // runner's built-in GITHUB_RUN_NUMBER (which mis-numbered builds as
+        // 6,7,8,... after renaming the workflow).
+        def versionRunFile = new File(rootProject.projectDir, '../version.properties')
+        def runNumber = (System.getenv("GITHUB_RUN_NUMBER") ?: '0') as Integer
+        if (versionRunFile.exists()) {
+            def m = versionRunFile.text =~ /run=(\d+)/
+            if (m.find()) runNumber = m.group(1) as Integer
+        }
+        versionCode 1 + runNumber
+        versionName "Beta v${new Date().format('dd-MM-yyyy')}-${runNumber}"
     }
 
     signingConfigs {

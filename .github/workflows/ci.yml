@@ -44,6 +44,10 @@ jobs:
         run: |
           DATE=$(date +%d-%m-%Y)
           RUN=$(git rev-list --count HEAD)
+          # Written to the repo root for build.gradle to pick up; this makes
+          # versionName/versionCode independent of GitHub's built-in
+          # GITHUB_RUN_NUMBER (which caused builds to be numbered 6,7,8,...).
+          printf 'run=%s\n' "$RUN" > ../version.properties
           echo "run=$RUN" >> "$GITHUB_OUTPUT"
           echo "display=Beta v${DATE}-${RUN}" >> "$GITHUB_OUTPUT"
           echo "tag=beta-build-${RUN}" >> "$GITHUB_OUTPUT"
