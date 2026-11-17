@@ -67,7 +67,7 @@ object AppUpdater {
 
     /** Returns the latest release for the configured channel, otherwise null. */
     suspend fun check(context: Context): UpdateInfo? = withContext(Dispatchers.IO) {
-        val current = installedVersionCode(context)
+        val current = installedRunNumber(context)
         val channel = context.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
             .getString("update_channel", "beta") ?: "beta"
         val prefix = channelPrefix(channel)
@@ -84,7 +84,9 @@ object AppUpdater {
             ) ?: return@withContext null
             val name = root.optString("name").ifBlank { root.optString("tag_name") }
             val remote = parseRunNumber(name) ?: parseRunNumber(root.optString("tag_name")) ?: return@withContext null
-            if (remote + 1 <= current) return@withContext null
+            // The installed build's versionName carries the same run number as the
+            // release's tag and name, so compare like-for-like.
+            if (remote <= current) return@withContext null
             val assets = root.optJSONArray("assets") ?: return@withContext null
             var apkUrl: String? = null
             var apkSize = 0L
@@ -193,6 +195,12 @@ object AppUpdater {
         conn.readTimeout = 10_000
         return conn.getInputStream().bufferedReader().use { it.readText() }
     }
+
+    /** The installed build's run number, parsed from its versionName (e.g. "Beta v17-11-2026-99"). */
+    private fun installedRunNumber(context: Context): Int = runCatching {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName
+            ?.let { parseRunNumber(it) }
+    }.getOrNull() ?: installedVersionCode(context)
 
     private fun installedVersionCode(context: Context): Int =
         if (android.os.Build.VERSION.SDK_INT >= 28) {
