@@ -515,8 +515,8 @@ fun SettingsScreen(
                         if ("Check for updates on launch" in updates) SettingsRow(
                             "Check for updates on launch",
                             icon = { Glyph(Ico.download, c.text, size = 19.dp, strokeWidth = 1.9f) },
-                            trailing = { ArcSwitch(vm.checkOnLaunch) { vm.setCheckOnLaunch(it) } },
-                            onClick = { vm.setCheckOnLaunch(!vm.checkOnLaunch) },
+                            trailing = { ArcSwitch(vm.checkOnLaunch) { vm.updateCheckOnLaunch(it) } },
+                            onClick = { vm.updateCheckOnLaunch(!vm.checkOnLaunch) },
                         )
                         if ("Check for updates" in updates) {
                             val info = vm.updateInfo

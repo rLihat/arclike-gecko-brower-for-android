@@ -3750,7 +3750,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setCheckOnLaunch(enabled: Boolean) {
+    fun updateCheckOnLaunch(enabled: Boolean) {
         checkOnLaunch = enabled
         prefs.edit().putBoolean("check_on_launch", enabled).apply()
         if (enabled) checkForUpdates()
