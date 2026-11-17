@@ -1,0 +1,105 @@
+name: Promote to stable
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: 'CI run number to promote (blank = latest green CI build on main)'
+        type: string
+        required: false
+        default: ''
+      notes:
+        description: 'Release notes override (multiline; used if auto-generation is unsure, or to override it entirely)'
+        type: string
+        required: false
+        default: ''
+      confirm:
+        description: 'I reviewed this build and approve publishing it as the stable release'
+        type: boolean
+        required: true
+        default: false
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Require explicit confirmation
+        run: |
+          if [ "${{ inputs.confirm }}" != "true" ]; then
+            echo "confirm must be true; refusing to publish a stable release without review."
+            exit 1
+          fi
+
+      - name: Resolve source build
+        id: src
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BUILD_RUN: ${{ inputs.build_run }}
+        run: |
+          if [ -n "$BUILD_RUN" ]; then
+            DBID=$(gh run list --workflow=CI --branch main --limit 30 --json number,databaseId \
+              --jq ".[] | select(.number == $BUILD_RUN) | .databaseId")
+            if [ -z "$DBID" ]; then
+              echo "no CI run #$BUILD_RUN found on main" >&2
+              exit 1
+            fi
+            RUN="$BUILD_RUN"
+          else
+            ROW=$(gh run list --workflow=CI --branch main --status success --limit 1 \
+              --json databaseId,number --jq '.[0] | "\(.databaseId) \(.number)"')
+            if [ -z "$ROW" ]; then
+              echo "no successful CI run found on main" >&2
+              exit 1
+            fi
+            DBID=${ROW%% *}
+            RUN=${ROW##* }
+          fi
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"
+          echo "run_id=$DBID" >> "$GITHUB_OUTPUT"
+          gh run view "$DBID" --json headSha,createdAt --jq '"source build: run #\(.number) sha \(.headSha) created \(.createdAt)"' || true
+
+      - name: Download release candidate
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh run download "${{ steps.src.outputs.run_id }}" --name "horiZen-rc-${{ steps.src.outputs.run }}" --dir dist
+
+      - name: Verify candidate manifest
+        id: verify
+        run: |
+          APK=$(ls dist/*.apk)
+          SHA=$(sha256sum "$APK" | awk '{print $1}')
+          echo "apk=$APK" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+          cat dist/build-manifest.json
+
+      - name: Generate release notes
+        env:
+          NOTES: ${{ inputs.notes }}
+        run: |
+          CHANNEL=stable
+          EXTRA=()
+          if [ -n "$NOTES" ]; then
+            printf '%s' "$NOTES" > "$RUNNER_TEMP/notes-override.md"
+            EXTRA+=(--notes-override "$RUNNER_TEMP/notes-override.md")
+          else
+            EXTRA+=(--require-confident)
+          fi
+          python3 tools/release_notes.py --channel "$CHANNEL" --out dist/RELEASE_NOTES_STABLE.md "${EXTRA[@]}"
+
+      - name: Publish stable release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: stable-build-${{ steps.src.outputs.run }}
+          name: Stable v${{ steps.src.outputs.run }}
+          body_path: dist/RELEASE_NOTES_STABLE.md
+          files: dist/*
+          prerelease: false
+          make_latest: true

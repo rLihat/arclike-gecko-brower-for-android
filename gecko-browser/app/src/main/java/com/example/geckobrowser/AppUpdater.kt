@@ -68,7 +68,7 @@ object AppUpdater {
         val current = installedVersionCode(context)
         val channel = context.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
             .getString("update_channel", "beta") ?: "beta"
-        val prefix = if (channel == "stable") "stable-build-" else "beta-build-"
+        val prefix = channelPrefix(channel)
         try {
             val json = httpGet("$API_BASE/repos/$OWNER/$REPO/releases?per_page=20")
             val releases = org.json.JSONArray(json)
@@ -179,7 +179,11 @@ object AppUpdater {
             } catch (_: PackageManager.NameNotFoundException) { 1 }
         }
 
+    /** The tag prefix that marks releases of each channel (`beta-build-` / `stable-build-`). */
+    internal fun channelPrefix(channel: String): String =
+        if (channel == "stable") "stable-build-" else "beta-build-"
+
     /** Parses the trailing run number from `Beta vDD-MM-YYYY-NNN`. */
-    private fun parseRunNumber(name: String): Int? =
+    internal fun parseRunNumber(name: String): Int? =
         Regex("-(\\d+)$").find(name)?.groupValues?.getOrNull(1)?.toIntOrNull()
 }

@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths: ['gecko-browser/**', 'tools/**', '.github/workflows/ci.yml']
+  workflow_dispatch:
+
+jobs:
+  precompile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Precompile checks
+        run: |
+          python3 tools/precompile_check.py --annotations --emit-report precompile-report.md
+      - name: Upload precompile report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: precompile-report
+          path: precompile-report.md
+          retention-days: 14
+
+  build:
+    needs: precompile
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gecko-browser
+    outputs:
+      display: ${{ steps.tag.outputs.display }}
+      tag: ${{ steps.tag.outputs.tag }}
+      commit: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: tag
+        run: |
+          DATE=$(date +%d-%m-%Y)
+          RUN=${GITHUB_RUN_NUMBER}
+          echo "display=Beta v${DATE}-${RUN}" >> "$GITHUB_OUTPUT"
+          echo "tag=beta-build-${RUN}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Accept Android SDK licenses
+        run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Compile (fail fast, always logged)
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew compileDebugKotlin --no-daemon --console=plain 2>&1 | tee compile.log
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+
+      - name: Extract compiler errors
+        if: always()
+        run: |
+          grep -E '^e: ' compile.log > ci-error-log.txt || true
+          echo "compiler errors (if any):"
+          cat ci-error-log.txt
+
+      - name: Upload error log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-error-log-${{ github.run_number }}
+          path: |
+            gecko-browser/ci-error-log.txt
+            gecko-browser/compile.log
+          retention-days: 14
+
+      - name: Unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+
+      - name: Assemble release candidate
+        run: ./gradlew assembleDebug --no-daemon
+        env:
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
+
+      - name: Stage candidate
+        run: |
+          mkdir -p dist
+          cp app/build/outputs/apk/debug/*.apk dist/
+          APK=$(ls dist/*.apk)
+          SHA=$(sha256sum "$APK" | awk '{print $1}')
+          printf '{"run": %s, "display": "%s", "tag": "%s", "sha256": "%s", "commit": "%s"}\n' \
+            "${GITHUB_RUN_NUMBER}" "${{ steps.tag.outputs.display }}" "${{ steps.tag.outputs.tag }}" "$SHA" "$GITHUB_SHA" > dist/build-manifest.json
+          cp ../RELEASE_NOTES.md dist/RELEASE_NOTES.md
+
+      - name: Upload release candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: horiZen-rc-${{ github.run_number }}
+          path: gecko-browser/dist/*
+          retention-days: 30
+
+  beta-release:
+    needs: build
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download release candidate
+        uses: actions/download-artifact@v4
+        with:
+          name: horiZen-rc-${{ github.run_number }}
+          path: dist
+
+      - name: Generate release notes (auto)
+        run: |
+          python3 tools/release_notes.py --channel beta --out dist/RELEASE_NOTES_BETA.md
+
+      - name: Publish beta release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build.outputs.tag }}
+          name: ${{ needs.build.outputs.display }}
+          body_path: dist/RELEASE_NOTES_BETA.md
+          files: dist/*
+          prerelease: true
+          make_latest: false

@@ -7,6 +7,12 @@ horiZen is the in-development name (the logo is a ring stack rising over a horiz
 the package and `applicationId` stay `com.example.geckobrowser`, and the chrome still
 follows the Arc-inspired mockup.
 
+Static checks gate every build: precompile lint (same-module symbol-graph analysis,
+mojibake scan, XML/resource resolution) runs before compile + unit tests + assemble;
+green builds auto-publish as GitHub **pre-releases** on `beta-build-N` tags. Stable
+releases are manual promotions of the exact release-candidate APK (`stable-build-N`),
+with auto-generated release notes that fail closed instead of guessing.
+
 Extensions install as AMO-compatible signed XPIs — the app uses Mozilla's add-on
 system rather than shipping its own store.
 

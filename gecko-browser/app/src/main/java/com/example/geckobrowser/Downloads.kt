@@ -644,10 +644,9 @@ class DownloadService : Service() {
  */
 internal fun sanitizeDownloadSubfolder(raw: String): String {
     if (raw.isBlank()) return ""
-    val cleaned = raw.replace('\\', '/').replace(Regex("[^A-Za-z0-9 _\\-\\.]"), "_")
-    val segments = cleaned
+    val segments = raw.replace('\\', '/')
         .split('/')
-        .map { it.trim().trim('.') }
+        .map { it.trim().replace(Regex("[^A-Za-z0-9 _\\-\\.]"), "_").trim('.', ' ') }
         .filter { it.isNotEmpty() && it != ".." }
         .toMutableList()
     // A typed "Download/..." shouldn't nest as Download/Download/...

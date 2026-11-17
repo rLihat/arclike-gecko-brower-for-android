@@ -215,6 +215,30 @@ with progress, hands it to the system package installer through `FileProvider` o
 start and on every fresh download. Installed builds ignore any banner that isn't newer than
 themselves.
 
+## CI and releases
+
+Push to `main` (or `workflow_dispatch`) runs `.github/workflows/ci.yml` in three gated jobs:
+
+1. **precompile** (`tools/precompile_check.py`, no SDK, no Gradle) — static checks tuned to the
+   failures this repo keeps hitting: a same-module symbol-graph lint (VM member usage, `Ico.*`
+   symbols against `Components.kt`, import resolution, Compose setter/`var`-clash detector),
+   brace/paren balance, mojibake scan, XML well-formedness, `res/` reference resolution and a
+   `BuildConfig` guard. Fails in under a minute and uploads `precompile-report.md`.
+2. **build** — `compileDebugKotlin` first (compiler log tee'd to `compile.log`, always uploaded
+   as `ci-error-log-<run>`), then `testDebugUnitTest`, then `assembleDebug`. Ships a
+   `horiZen-rc-<run>` artifact (APK + `build-manifest.json` with sha256/run/commit).
+3. **beta-release** (push only) — tags `beta-build-<run>`, GitHub **pre-release**, never
+   `make_latest`, notes auto-generated from commits since the last `beta-build-*` tag.
+
+Stable is **never automatic**. Promote with `.github/workflows/release.yml` ("Promote to
+stable"): pick the run number to promote (or leave blank for the newest green CI build), set
+`confirm: true` after reviewing, optionally paste a `notes` override. It re-signs nothing and
+reuses the exact RC APK; the new tag is `stable-build-<run>`, a full release marked
+`make_latest`. Release notes are **always generated** by `tools/release_notes.py` (grouped
+Features / Fixes / Performance / Other, compare link attached); on stable the generator fails
+closed if no user-facing change can be identified, and the release only goes out with notes
+you supply — guessing is treated as failure, not papered over.
+
 ## Build
 
 Requirements: JDK 17 and the Android SDK (platform 35, build-tools 35.0.0).
