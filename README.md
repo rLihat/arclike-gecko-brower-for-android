@@ -42,7 +42,9 @@ Native Kotlin reimplementation of the mockup chrome with real GeckoView content:
 - Tabs are a horizontal recents carousel with captured page thumbnails; each `GeckoSession`
   keeps its own history and both tabs and settings survive a cold start.
 - Downloads run in a foreground service with pause/resume, are persisted across restarts and
-  are published to the system Downloads collection.
+  are published to the system Downloads collection. Removing a row deletes the underlying
+  file; the folder lives under Download and is configurable in Settings (**Download folder**),
+  and the chip auto-hides three seconds after the last transfer finishes.
 - Site prompts and permission requests render as pill-sized popups, with per-site
   remember-me answers editable in Site settings.
 - Blocked popups get a pill with **Allow once**; long-press brings a context sheet and text
@@ -63,6 +65,9 @@ Native Kotlin reimplementation of the mockup chrome with real GeckoView content:
   swipe-to-delete and clear-by-range.
 - Signed XPI installation and a native add-on manager through `WebExtensionController`,
   including extension popups in a sheet.
+- An optional update channel (About page) checks GitHub Releases, shows a banner when a newer
+  beta or stable build exists, downloads the APK and hands it to the system installer; stale
+  update APKs are swept automatically.
 
 See [`gecko-browser/README.md`](gecko-browser/README.md) for build instructions and the
 extension-signing caveats.

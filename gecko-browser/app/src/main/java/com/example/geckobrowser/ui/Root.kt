@@ -621,14 +621,25 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         }
 
         // The live download chip sits in the free gutter beside the 70% pill.
-        // The expanded menu always offers it; on the page it only appears once
-        // something has been downloaded.
+        // The expanded menu always offers it; on the page it only appears while
+        // a transfer is moving, then lingers three seconds after the last one
+        // finishes before hiding itself.
+        val activeDownloadCount = vm.activeDownloads.size
+        var showDownloadsChip by remember { mutableStateOf(false) }
+        LaunchedEffect(activeDownloadCount) {
+            if (activeDownloadCount > 0) {
+                showDownloadsChip = true
+            } else if (showDownloadsChip) {
+                delay(3000)
+                showDownloadsChip = false
+            }
+        }
         val chipVisible = !immersive && vm.flight == null && !vm.findOpen &&
             vm.pendingDownload == null && !popupPill &&
             !(overlay == Overlay.None && vm.toastMessage != null) && (
             when (overlay) {
                 Overlay.Menu -> true
-                Overlay.None -> !vm.compactPill && vm.downloads.isNotEmpty()
+                Overlay.None -> !vm.compactPill && showDownloadsChip && vm.downloads.isNotEmpty()
                 else -> false
             }
             )

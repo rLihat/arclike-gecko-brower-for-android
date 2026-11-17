@@ -33,6 +33,8 @@ data class SettingsSnapshot(
     val appearance: String = "system",
     /** "off" | "on" | "ask". Defaults to on. */
     val openLinksMode: String = "on",
+    /** Subfolder inside the Downloads collection; "" = the Download root. */
+    val downloadSubfolder: String = "",
 )
 
 private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore(name = "arc_settings")
@@ -92,6 +94,7 @@ class AppSettings(context: Context) {
             accent = p[KEY_ACCENT] ?: "firefox_purple",
             appearance = p[KEY_APPEARANCE] ?: if (p[KEY_DARK] == true) "dark" else "system",
             openLinksMode = p[KEY_OPEN_LINKS_MODE] ?: "on",
+            downloadSubfolder = sanitizeDownloadSubfolder(p[KEY_DOWNLOAD_SUBFOLDER].orEmpty()),
         )
     }
 
@@ -136,6 +139,9 @@ class AppSettings(context: Context) {
     suspend fun setAppearance(mode: String) = store.edit { it[KEY_APPEARANCE] = mode }
 
     suspend fun setOpenLinksMode(mode: String) = store.edit { it[KEY_OPEN_LINKS_MODE] = mode }
+
+    suspend fun setDownloadSubfolder(value: String) =
+        store.edit { it[KEY_DOWNLOAD_SUBFOLDER] = sanitizeDownloadSubfolder(value) }
     suspend fun setCookieBanner(enabled: Boolean) =
         store.edit { it[KEY_COOKIE_BANNER] = enabled }
 
@@ -158,6 +164,7 @@ class AppSettings(context: Context) {
     private val KEY_ACCENT = stringPreferencesKey("accent")
     private val KEY_APPEARANCE = stringPreferencesKey("appearance")
     private val KEY_OPEN_LINKS_MODE = stringPreferencesKey("open_links_mode")
+    private val KEY_DOWNLOAD_SUBFOLDER = stringPreferencesKey("download_subfolder")
         private const val ZOOM_PREFIX = "zoom|"
         private const val PERM_PREFIX = "perm|"
         private const val DESKTOP_PREFIX = "desktop|"

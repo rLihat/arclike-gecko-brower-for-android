@@ -249,6 +249,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     )
         private set
 
+    /** Subfolder under the Downloads collection; "" = the Download root. */
+    var downloadSubfolder by mutableStateOf("")
+        private set
+
     /** Non-null when a newer release is available; cleared on install/ignore. */
     var updateInfo by mutableStateOf<UpdateInfo?>(null)
         private set
@@ -634,6 +638,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             withContext(Dispatchers.IO) { settingsStore.setSchema(SETTINGS_SCHEMA) }
         }
         DownloadCenter.restore(application)
+        AppUpdater.purgeStaleUpdates(application)
         nextDownloadId = (DownloadCenter.current().maxOfOrNull { it.id } ?: 0L) + 1
         withContext(Dispatchers.IO) {
             historyStore.load()
@@ -655,6 +660,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private fun applySnapshot(snapshot: SettingsSnapshot) {
         appearanceMode = snapshot.appearance
         openLinksMode = snapshot.openLinksMode
+        downloadSubfolder = snapshot.downloadSubfolder
         accentKey = snapshot.accent
         suggestionsEnabled = snapshot.suggestions
         // DataStore is the source of truth; a store written before engines were
@@ -936,6 +942,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 scrollAcc[id] = 0
                 blockedByTab[id] = 0
                 if (id == activeId) blockedCount = 0
+                // The page currently shown, before this load is recorded. A reload or
+                // retry of the same URL (ignoring the fragment) is not a new page and
+                // never dips the content; only a genuine navigation does.
+                val previousUrl = tabs.firstOrNull { it.id == id }?.url.orEmpty()
+                val isNewPage = previousUrl.substringBefore('#') != url.substringBefore('#')
                 // A new document has none of the old matches in it.
                 if (id == activeId && findOpen) closeFind()
                 resetTranslation(id)
@@ -948,7 +959,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 loadingJobs.remove(id)?.cancel()
                 updateTab(id) { it.copy(isLoading = true, progress = 0) }
                 if (id == activeId) {
-                    loadZoomStart++
+                    if (isNewPage) loadZoomStart++
                     compactPill = false
                 }
             }
@@ -3317,18 +3328,25 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun removeDownload(id: Long) {
+        val item = downloads.firstOrNull { it.id == id }
         DownloadService.cancel(application, id)
         DownloadService.forget(id)
         DownloadCenter.remove(id)
         DownloadCenter.persistAsync(application)
+        DownloadCenter.partFile(application, id).delete()
+        // The row is gone; the bytes must go with it.
+        deleteStoredDownload(application, item?.localUri)
     }
 
     fun clearDownloads() {
-        downloads.forEach {
+        val items = downloads
+        items.forEach {
             if (it.status == DownloadStatus.Downloading || it.status == DownloadStatus.Paused) {
                 DownloadService.cancel(application, it.id)
                 DownloadService.forget(it.id)
             }
+            DownloadCenter.partFile(application, it.id).delete()
+            deleteStoredDownload(application, it.localUri)
         }
         DownloadCenter.replaceAll(emptyList())
         DownloadCenter.persistAsync(application)
@@ -3782,6 +3800,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 true
             }
         }
+    }
+
+    /** Sets the Downloads subfolder; blank resets to the Download root. */
+    fun updateDownloadSubfolder(value: String) {
+        val clean = sanitizeDownloadSubfolder(value)
+        downloadSubfolder = clean
+        scope.launch { withContext(Dispatchers.IO) { settingsStore.setDownloadSubfolder(clean) } }
     }
 
     fun updateOpenLinksMode(mode: String) {

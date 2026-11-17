@@ -336,13 +336,14 @@ class DownloadService : Service() {
         written: Long,
     ) {
         val mime = request.mime.ifBlank { mimeForFile(request.name) }
+        val subfolder = runCatching { AppSettings(context).snapshot().downloadSubfolder }.getOrDefault("")
         val uri: Uri? = withContext(Dispatchers.IO) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val resolver = context.contentResolver
                 val values = ContentValues().apply {
                     put(MediaStore.Downloads.DISPLAY_NAME, request.name)
                     put(MediaStore.Downloads.MIME_TYPE, mime)
-                    put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                    put(MediaStore.Downloads.RELATIVE_PATH, downloadRelativePath(subfolder))
                     put(MediaStore.Downloads.IS_PENDING, 1)
                 }
                 val target = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
@@ -366,7 +367,7 @@ class DownloadService : Service() {
                     }
                 }
             } else {
-                val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                val dir = downloadLegacyDir(context, subfolder)
                     ?: DownloadCenter.partDir(context)
                 if (!dir.exists()) dir.mkdirs()
                 val target = uniqueFile(dir, request.name)
@@ -633,6 +634,73 @@ class DownloadService : Service() {
             handedOff.remove(id)?.closeQuietly()
             requests.remove(id)
         }
+    }
+}
+
+/**
+ * Reduces a user-typed "Download/..." path to a safe relative subfolder.
+ * Dot segments and illegal characters are dropped; the result never leaves
+ * the Downloads collection. "" means the root of Download.
+ */
+internal fun sanitizeDownloadSubfolder(raw: String): String {
+    if (raw.isBlank()) return ""
+    val cleaned = raw.replace('\\', '/').replace(Regex("[^A-Za-z0-9 _\\-\\.]"), "_")
+    val segments = cleaned
+        .split('/')
+        .map { it.trim().trim('.') }
+        .filter { it.isNotEmpty() && it != ".." }
+        .toMutableList()
+    // A typed "Download/..." shouldn't nest as Download/Download/...
+    if (segments.isNotEmpty() && segments.first().equals("download", ignoreCase = true)) {
+        segments.removeAt(0)
+    }
+    return segments.joinToString("/").take(64)
+}
+
+/** What MediaStore.Downloads.RELATIVE_PATH should look like (trailing slash). */
+internal fun downloadRelativePath(subfolder: String): String =
+    if (subfolder.isBlank()) {
+        Environment.DIRECTORY_DOWNLOADS + "/"
+    } else {
+        Environment.DIRECTORY_DOWNLOADS + "/" + subfolder + "/"
+    }
+
+/** Resolves the on-disk directory pre-29 downloads land in (honours the subfolder setting). */
+internal fun downloadLegacyDir(context: Context, subfolder: String): File? {
+    val base = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: return null
+    val dir = if (subfolder.isBlank()) base else File(base, subfolder)
+    if (!dir.exists() && !dir.mkdirs()) return base
+    return dir
+}
+
+/**
+ * Deletes the bytes behind a finished download. MediaStore rows go through the
+ * resolver; FileProvider URIs are mapped back to the app directories declared in
+ * res/xml/file_paths.xml; plain file URIs are deleted directly. Best effort.
+ */
+internal fun deleteStoredDownload(context: Context, localUri: String?) {
+    if (localUri.isNullOrBlank()) return
+    val uri = runCatching { Uri.parse(localUri) }.getOrNull() ?: return
+    try {
+        when (uri.scheme) {
+            "file" -> uri.path?.let { File(it).delete() }
+            "content" -> if (uri.authority == "${context.packageName}.fileprovider") {
+                val segments = uri.pathSegments.filter { it.isNotBlank() }
+                val base = when (segments.firstOrNull()) {
+                    // file_paths.xml declares these authorities.
+                    "downloads" -> context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)
+                    "internal_downloads" -> File(context.filesDir, "Downloads")
+                    "app_downloads" -> File(context.filesDir, "downloads")
+                    else -> null
+                }
+                val rest = segments.drop(1).joinToString("/")
+                if (base != null && rest.isNotBlank()) File(base, rest).delete()
+            } else {
+                context.contentResolver.delete(uri, null, null)
+            }
+        }
+    } catch (_: Throwable) {
+        // A file we can't reach is not worth crashing the list over.
     }
 }
 

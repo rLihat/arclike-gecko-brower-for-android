@@ -39,6 +39,30 @@ object AppUpdater {
         fun emit(fraction: Float)
     }
 
+    /**
+     * Deletes stale APKs left behind in `updates/`. The file for the install that
+     * is about to happen is preserved via [keep]; anything older than the running
+     * build is dead weight. Safe to call on every cold start.
+     */
+    fun purgeStaleUpdates(context: Context, keep: File? = null) {
+        try {
+            val dir = File(context.filesDir, "updates")
+            if (!dir.isDirectory) return
+            val installed = installedVersionCode(context)
+            val keepPath = keep?.absolutePath
+            dir.listFiles { f -> f.isFile && f.name.endsWith(".apk", ignoreCase = true) }
+                ?.forEach { f ->
+                    if (keepPath != null && f.absolutePath == keepPath) return@forEach
+                    val n = Regex("-(\\d+)\\.apk$").find(f.name)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                        ?: return@forEach
+                    // versionCode == runNumber + 1, so strictly older builds are purgable.
+                    if (n + 1 < installed) f.delete()
+                }
+        } catch (_: Throwable) {
+            // Storage hygiene must never break the updater.
+        }
+    }
+
     /** Returns the latest release for the configured channel, otherwise null. */
     suspend fun check(context: Context): UpdateInfo? = withContext(Dispatchers.IO) {
         val current = installedVersionCode(context)
@@ -84,6 +108,8 @@ object AppUpdater {
         withContext(Dispatchers.IO) {
             val dir = File(context.filesDir, "updates").apply { mkdirs() }
             val out = File(dir, "horiZen-${info.runNumber}.apk")
+            // A fresh check means anything already there is superseded (or a duplicate).
+            purgeStaleUpdates(context, keep = out)
             try {
                 if (out.exists() && out.length() > 0) {
                     progress?.emit(1f)

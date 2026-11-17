@@ -24,7 +24,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -84,6 +86,7 @@ private val settingsEntries = listOf(
     SettingsEntry("Search suggestions", "Live suggestions as you type", "search", "find"),
     SettingsEntry("Open links in apps", "Hand app links off to installed apps", "search", "open"),
     SettingsEntry("Default browser", "Set horiZen as the default browser", "search", "globe"),
+    SettingsEntry("Download folder", "Where completed downloads are saved", "search", "download"),
     SettingsEntry("Tracking protection", "Block cross-site trackers", "privacy", "lock"),
     SettingsEntry("Cookie banners", "Auto-answer cookie consent banners", "privacy", "close"),
     SettingsEntry("HTTPS-Only Mode", "Require secure connections", "privacy", "lock"),
@@ -435,6 +438,8 @@ private fun SearchPreferencesPage(vm: BrowserViewModel) {
     var engineAddName by remember { mutableStateOf("") }
     var engineAddUrl by remember { mutableStateOf("") }
     var engineAddError by remember { mutableStateOf<String?>(null) }
+    var folderDialog by remember { mutableStateOf(false) }
+    var folderText by remember { mutableStateOf("") }
 
     val defaultBrowserLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -526,7 +531,53 @@ private fun SearchPreferencesPage(vm: BrowserViewModel) {
                     else vm.openDefaultBrowserSettings()
                 },
             )
+            SettingsRow(
+                "Download folder",
+                icon = { Glyph(Ico.download, c.text, size = 19.dp, strokeWidth = 1.9f) },
+                value = if (vm.downloadSubfolder.isBlank()) "Download" else "Download/${vm.downloadSubfolder}",
+                onClick = {
+                    folderText = vm.downloadSubfolder
+                    folderDialog = true
+                },
+            )
         }
+    }
+
+    if (folderDialog) {
+        AlertDialog(
+            onDismissRequest = { folderDialog = false },
+            title = { Text("Download folder", color = c.text, fontWeight = FontWeight.SemiBold) },
+            text = {
+                Column {
+                    Text(
+                        "Subfolder inside the Downloads collection. Leave blank to use Download.",
+                        color = c.muted,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp,
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    EngineField(folderText, { folderText = it }, "e.g. horiZen")
+                }
+            },
+            confirmButton = {
+                Row {
+                    TextButton(onClick = {
+                        vm.updateDownloadSubfolder("")
+                        folderDialog = false
+                    }) { Text("Reset", color = c.muted, fontSize = 13.sp) }
+                    TextButton(onClick = {
+                        vm.updateDownloadSubfolder(folderText)
+                        folderDialog = false
+                    }) { Text("Save", color = c.accent, fontSize = 13.sp) }
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { folderDialog = false }) {
+                    Text("Cancel", color = c.text, fontSize = 13.sp)
+                }
+            },
+            containerColor = c.surface,
+        )
     }
 }
 

@@ -65,6 +65,8 @@ With the system animator scale at 0 the mark is drawn at rest and the hand-over 
   reaching the top restores the three icons. Home, open sheets, immersive mode and
   back/forward page changes don't move it.
 - The pill pulses while a page loads.
+- A fresh navigation dips the page to 92% and eases it back; reloads, offline retries and
+  restored sessions (same URL modulo the fragment) don't dip it.
 - Sheets grow out of the pill: search and menu share the same 47% height; the pill floats
   above them. Settings, site settings and the account page grow to full height.
 - In the menu the pill stays put as a capsule in the sheet's base — chip fill, hairline
@@ -202,6 +204,17 @@ The manifest already advertises the standard
 `VIEW`/`WEB_SEARCH`/`SEND` intent filters, so horiZen appears in the chooser without
 extra work.
 
+## Updates
+
+The **About** page carries an update channel toggle (**Beta** / **Stable**), a manual
+**Check for updates**, **Check for updates on launch**, and a **What's new** page rendering
+the bundled release notes. When a newer release exists a banner appears over everything
+(anchored above settings too); tapping **Download** streams the APK into `filesDir/updates/`
+with progress, hands it to the system package installer through `FileProvider` on
+**Download & install**, and stale APKs older than the running build are swept on every cold
+start and on every fresh download. Installed builds ignore any banner that isn't newer than
+themselves.
+
 ## Build
 
 Requirements: JDK 17 and the Android SDK (platform 35, build-tools 35.0.0).
@@ -243,17 +256,29 @@ Caveats:
 
 The download chip is its own 46dp button beside the pill (right 6dp, bottom 24dp), never
 inside it. It shows a badge only while more than one transfer is active, opens the manager on
-tap, and morphs its flight from the point it was tapped. With no transfer running, the
-expanded menu still shows it as a static download button beside the pill.
+tap, and morphs its flight from the point it was tapped. On the page it appears only while a
+transfer is moving, then hides itself three seconds after the last one finishes; the
+expanded menu always shows it as a static download button.
 
 Downloads stream through a foreground `DownloadService`, so they keep going while the app is
 backgrounded:
 
 - Bytes are written to app-private `filesDir/downloads/download-<id>.bin` first; completed
   files are published to the public Downloads collection through MediaStore on API 29+, and
-  to external files plus a `FileProvider` URI below that.
+  to external files plus a `FileProvider` URI below that. The target folder is
+  configurable in the settings row **Download folder** (**Settings > Search and
+  preferences > Preferences**): blank means the Download root, and any typed subfolder
+  (e.g. `horiZen` or `horiZen/work`, a leading `Download/` is discarded) is created
+  inside it.
 - Pause/resume uses an HTTP `Range` request; a server that ignores the range restarts the
   transfer cleanly.
+- The manager groups active, paused and earlier transfers (finished, failed, canceled), and
+  offers pause, resume, retry, cancel, open and remove. Removing a transfer (or clearing the
+  list) also deletes the underlying file: MediaStore rows are deleted through the resolver,
+  FileProvider URIs are mapped back to the app directories declared in `file_paths.xml`.
+- OTA update APKs downloaded by the in-app updater accumulate in `filesDir/updates/`; they
+  are swept on every cold start and on every fresh update download, keeping only the file
+  for the running build and the pending install.
 - The manager groups active, paused and earlier transfers (finished, failed, canceled), and
   offers pause, resume, retry, cancel, open and remove.
 - The list is persisted on every meaningful change (start, pause, cancel, finish, failure);
