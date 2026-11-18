@@ -714,6 +714,15 @@ fun SiteFavicon(host: String, letter: String, size: Dp = 22.dp) {
     }
 }
 
+/** Dominant saturated color of the site's favicon (or null). */
+@Composable
+fun faviconAccent(host: String): Color? {
+    val color by produceState(initialValue = FaviconCache.peekColor(host), key1 = host) {
+        value = FaviconCache.loadColor(host)
+    }
+    return color
+}
+
 /** Preloads favicons for the given hosts so the UI never has to wait on the network. */
 fun prewarmFaviconCache(hosts: List<String>) {
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -724,16 +733,26 @@ fun prewarmFaviconCache(hosts: List<String>) {
 
 private object FaviconCache {
     private val lock = Any()
-    private val icons = HashMap<String, Bitmap?>()
+    private val icons = HashMap<String, Pair<Bitmap?, Color?>>()
 
     private fun key(host: String): String =
         host.trim().lowercase().removePrefix("www.")
 
-    fun peek(host: String): Bitmap? = synchronized(lock) { icons[key(host)] }
+    fun peek(host: String): Bitmap? = synchronized(lock) { icons[key(host)]?.first }
 
-    suspend fun load(host: String): Bitmap? {
+    fun peekColor(host: String): Color? = synchronized(lock) { icons[key(host)]?.second }
+
+    suspend fun load(host: String): Bitmap? = loadEntry(host)?.first
+
+    suspend fun loadColor(host: String): Color? = loadEntry(host)?.second
+
+    private suspend fun loadEntry(host: String): Pair<Bitmap?, Color?>? {
         val key = key(host)
-        if (key.isBlank() || key == "new tab" || key == "home") return null
+        if (key.isBlank() || key == "new tab" || key == "home") {
+            val entry = Pair(null as Bitmap?, null as Color?)
+            synchronized(lock) { icons[key] = entry }
+            return entry
+        }
         synchronized(lock) {
             if (icons.containsKey(key)) return icons[key]
         }
@@ -750,8 +769,44 @@ private object FaviconCache {
                 null
             }
         }
-        synchronized(lock) { icons[key] = bitmap }
-        return bitmap
+        val color = bitmap?.let { dominantSaturatedColor(it) }
+        val entry = Pair(bitmap, color)
+        synchronized(lock) { icons[key] = entry }
+        return entry
+    }
+
+    /** Mean saturation-filtered color of the icon, or null when too pale/desaturated. */
+    private fun dominantSaturatedColor(bmp: Bitmap): Color? {
+        val width = bmp.width.coerceAtMost(96)
+        val height = bmp.height.coerceAtMost(96)
+        if (width <= 0 || height <= 0) return null
+        var r = 0L; var g = 0L; var b = 0L; var n = 0
+        val stepX = (bmp.width / width).coerceAtLeast(1)
+        val stepY = (bmp.height / height).coerceAtLeast(1)
+        var y = 0
+        while (y < bmp.height) {
+            var x = 0
+            while (x < bmp.width) {
+                val px = bmp.getPixel(x, y)
+                val alpha = px ushr 24
+                if (alpha >= 128) {
+                    val pr = (px shr 16) and 0xFF
+                    val pg = (px shr 8) and 0xFF
+                    val pb = px and 0xFF
+                    r += pr; g += pg; b += pb; n++
+                }
+                x += stepX
+            }
+            y += stepY
+        }
+        if (n < 16) return null
+        val meanR = (r / n).toInt(); val meanG = (g / n).toInt(); val meanB = (b / n).toInt()
+        val maxC = maxOf(meanR, meanG, meanB); val minC = minOf(meanR, meanG, meanB)
+        val saturation = if (maxC == 0) 0f else (maxC - minC).toFloat() / maxC
+        val luma = 0.2126f * meanR + 0.7152f * meanG + 0.0722f * meanB
+        if (saturation < 0.18f) return null          // gray/washed icon: fall back to accent
+        if (luma > 215f || luma < 25f) return null   // too pale or too dark to read as an accent
+        return Color(0xFF000000L or ((meanR.toLong() shl 16) or (meanG.toLong() shl 8) or meanB.toLong()))
     }
 }
 

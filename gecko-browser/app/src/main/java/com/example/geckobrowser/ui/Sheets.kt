@@ -65,6 +65,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.geckobrowser.BrowserViewModel
+import java.util.Locale
 
 /* ---------------------------------------------------------------- search */
 
@@ -415,17 +416,25 @@ private fun PinnedRow(vm: BrowserViewModel) {
     val c = LocalArc.current
     val pins = vm.pins
     var unpinMode by remember { mutableStateOf<String?>(null) }
-    Row(
+    val config = androidx.compose.ui.platform.LocalConfiguration.current
+    val gap = 10.dp
+    val tileWidth = ((config.screenWidthDp - 32 - 20).dp / 3f)
+    // Tap on dead space clears unpin mode.
+    Box(
         Modifier
             .fillMaxWidth()
-            .padding(top = 4.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(c.surface)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .then(
+                if (unpinMode != null) {
+                    Modifier
+                        .height(140.dp)
+                        .clickable { unpinMode = null }
+                } else {
+                    Modifier.height(140.dp)
+                },
+            ),
     ) {
         LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(gap),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp),
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -435,10 +444,13 @@ private fun PinnedRow(vm: BrowserViewModel) {
                 val host = origin.substringAfter("://")
                 val active = vm.activeOrigin == origin
                 val showUnpin = unpinMode == origin
+                val accentColor = faviconAccent(host)
                 Column(
                     Modifier
-                        .width(76.dp)
-                        .clip(RoundedCornerShape(14.dp))
+                        .width(tileWidth)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(if (active) c.chipStrong else c.chip)
+                        .border(if (active) 2.dp else 1.dp, if (active) accentColor ?: c.accent else c.stroke, RoundedCornerShape(22.dp))
                         .combinedClickable(
                             onClick = {
                                 if (unpinMode != null) {
@@ -450,23 +462,16 @@ private fun PinnedRow(vm: BrowserViewModel) {
                             },
                             onLongClick = { unpinMode = origin },
                         )
-                        .padding(vertical = 4.dp),
+                        .padding(vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Box(
                         Modifier
-                            .size(46.dp)
-                            .clip(CircleShape)
-                            .then(
-                                if (active) {
-                                    Modifier.border(2.dp, c.accent, CircleShape)
-                                } else {
-                                    Modifier.background(c.hairline, CircleShape)
-                                },
-                            ),
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        SiteFavicon(host, pin.title.ifBlank { host }, 46.dp)
+                        SiteFavicon(host, host.take(1).uppercase(Locale.US), 34.dp)
                         if (showUnpin) {
                             Box(
                                 Modifier
@@ -480,14 +485,6 @@ private fun PinnedRow(vm: BrowserViewModel) {
                             }
                         }
                     }
-                    Text(
-                        pin.title.ifBlank { host },
-                        color = c.text,
-                        fontSize = 10.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
                 }
             }
         }
@@ -607,13 +604,19 @@ fun MenuSheet(vm: BrowserViewModel) {
             MenuAction("Find", Ico.find) { vm.openFind() }
             MenuAction("Share", Ico.share) { vm.shareCurrentUrl() }
             val activeOrigin = vm.activeOrigin
+            val pinned = vm.isActiveTabSitePinned
             if (activeOrigin.isNotEmpty()) {
-                val pinned = vm.isActiveTabSitePinned
                 MenuAction(
                     if (pinned) "Unpin" else "Pin",
                     Ico.pin,
                     accent = pinned,
                 ) { vm.togglePinForActiveSite() }
+            } else {
+                MenuAction(
+                    "Pin",
+                    Ico.pin,
+                    enabled = false,
+                ) { /* pin needs a site; no-op on home */ }
             }
         }
 
@@ -706,19 +709,25 @@ private fun RowScope.MenuAction(
     paths: List<androidx.compose.ui.graphics.Path>,
     badge: String? = null,
     accent: Boolean = false,
+    enabled: Boolean = true,
     onClick: () -> Unit,
 ) {
     val c = LocalArc.current
+    val tint = when {
+        accent -> c.accent
+        enabled -> c.text
+        else -> c.muted
+    }
     Column(
         Modifier
             .weight(1f)
             .clip(RoundedCornerShape(13.dp))
-            .clickable { onClick() }
+            .then(if (enabled) Modifier.clickable { onClick() } else Modifier)
             .padding(vertical = 7.dp, horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(contentAlignment = Alignment.TopEnd) {
-            Glyph(paths, if (accent) c.accent else c.text, size = 20.dp, strokeWidth = 1.8f)
+            Glyph(paths, tint, size = 20.dp, strokeWidth = 1.8f)
             if (badge != null) {
                 Box(
                     Modifier
