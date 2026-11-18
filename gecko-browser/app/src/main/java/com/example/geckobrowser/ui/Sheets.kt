@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
@@ -419,6 +421,11 @@ private fun PinnedRow(vm: BrowserViewModel) {
     val config = androidx.compose.ui.platform.LocalConfiguration.current
     val gap = 10.dp
     val tileWidth = ((config.screenWidthDp - 32 - 20).dp / 3f)
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val tileWidthPx = with(density) { tileWidth.toPx() }
+    // Drag-to-reorder state (drag a tile left/right past a third of its width).
+    var dragOrigin by remember { mutableStateOf<String?>(null) }
+    var accumulatedDragPx by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     // Tap on dead space clears unpin mode.
     Box(
         Modifier
@@ -462,6 +469,38 @@ private fun PinnedRow(vm: BrowserViewModel) {
                             },
                             onLongClick = { unpinMode = origin },
                         )
+                        .pointerInput(pin.origin) {
+                            detectHorizontalDragGestures(
+                                onDragStart = { _ ->
+                                    dragOrigin = origin
+                                    accumulatedDragPx = 0f
+                                },
+                                onDragEnd = {
+                                    vm.persistPins()
+                                    dragOrigin = null
+                                    accumulatedDragPx = 0f
+                                },
+                                onDragCancel = {
+                                    dragOrigin = null
+                                    accumulatedDragPx = 0f
+                                },
+                                onHorizontalDrag = { change, dragAmount ->
+                                    change.consume()
+                                    accumulatedDragPx += dragAmount
+                                    val threshold = tileWidthPx * 0.33f
+                                    if (kotlin.math.abs(accumulatedDragPx) >= threshold) {
+                                        val direction = if (accumulatedDragPx > 0f) 1 else -1
+                                        val from = vm.pins.indexOfFirst { it.origin == origin }
+                                        if (from >= 0) {
+                                            val to = (from + direction).coerceIn(0, vm.pins.lastIndex)
+                                            if (to != from) vm.movePin(from, to)
+                                        }
+                                        accumulatedDragPx = 0f
+                                    }
+                                },
+                            )
+                        }
+                        .alpha(if (dragOrigin == origin) 0.6f else 1f)
                         .padding(vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {

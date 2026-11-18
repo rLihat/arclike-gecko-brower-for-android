@@ -7,6 +7,7 @@ import android.net.Uri
 import androidx.core.content.FileProvider
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
@@ -41,6 +42,9 @@ object AppUpdater {
         fun emit(fraction: Float)
     }
 
+    /** Shared with [UpdateService]: -1f idle, [0,1] downloading, persists until next action. */
+    val progress = MutableStateFlow(-1f)
+
     /**
      * Deletes stale APKs left behind in `updates/`. The file for the install that
      * is about to happen is preserved via [keep]; anything older than the running
@@ -57,8 +61,9 @@ object AppUpdater {
                     if (keepPath != null && f.absolutePath == keepPath) return@forEach
                     val n = Regex("-(\\d+)\\.apk$").find(f.name)?.groupValues?.getOrNull(1)?.toIntOrNull()
                         ?: return@forEach
-                    // versionCode == runNumber + 1, so strictly older builds are purgable.
-                    if (n + 1 < installed) f.delete()
+                    // versionCode == runNumber + 1, so n+1 <= installed means the APK
+                    // is for the running build (or older) and can be thrown away.
+                    if (n + 1 <= installed) f.delete()
                 }
         } catch (_: Throwable) {
             // Storage hygiene must never break the updater.

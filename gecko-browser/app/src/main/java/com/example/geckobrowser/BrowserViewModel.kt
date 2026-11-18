@@ -249,7 +249,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             pins - existing
         } else {
             val title = activeTab?.title?.ifBlank { origin } ?: origin
-            listOf(PinRecord(origin, url, title)) + pins
+            pins + listOf(PinRecord(origin, url, title))
         }
         persistPins()
         return pins.any { it.origin == origin }
@@ -259,6 +259,16 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         if (pins.none { it.origin == origin }) return
         pins = pins.filterNot { it.origin == origin }
         persistPins()
+    }
+
+    /** Moves a pin from one index to another; drag-to-reorder in the search sheet. */
+    fun movePin(fromIndex: Int, toIndex: Int) {
+        if (fromIndex !in pins.indices || toIndex !in pins.indices) return
+        if (fromIndex == toIndex) return
+        pins = pins.toMutableList().also { list ->
+            val item = list.removeAt(fromIndex)
+            list.add(toIndex, item)
+        }
     }
 
     /** Switches to the pinned tab if one is already open on that origin; otherwise opens a new tab. */
@@ -283,7 +293,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         if (loaded.isNotEmpty()) pins = loaded
     }
 
-    private fun persistPins() {
+    fun persistPins() {
         val snapshot = pins
         scope.launch(Dispatchers.IO) {
             BrowserFiles.savePins(application, snapshot)
@@ -701,6 +711,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         scope.launch { DownloadCenter.items.collect { downloads = it } }
+        scope.launch { AppUpdater.progress.collect { p -> updateProgress = p } }
         scope.launch { bootstrap() }
     }
 
@@ -3954,21 +3965,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     /** Downloads the pending update and launches the system installer. */
     fun downloadAndInstallUpdate() {
         val info = updateInfo ?: return
-        scope.launch {
-            updateProgress = 0f
-            val file = AppUpdater.download(application, info) { fraction ->
-                // State writes off the main thread; safe because Compose snapshot reads are thread-agnostic.
-                updateProgress = fraction
-            }
-            updateProgress = -1f
-            if (file != null) {
-                val intent = AppUpdater.installIntent(application, file)
-                runCatching { application.startActivity(intent) }
-                updateInfo = null
-            } else {
-                showToast("Update download failed")
-            }
-        }
+        // The actual download runs in a foreground service, so it survives the
+        // user leaving the app; the in-app progress banner reads the same flow.
+        UpdateService.start(application, info)
+        updateInfo = null
     }
 
     fun toggleSearchSuggestions() {
