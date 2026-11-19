@@ -71,9 +71,11 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
@@ -83,6 +85,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -466,11 +470,39 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         var lastSheet by remember { mutableStateOf(Overlay.Menu) }
         if (open) lastSheet = overlay
         var panelVisible by remember { mutableStateOf(false) }
-        LaunchedEffect(open) {
-            if (open) panelVisible = true
-            else {
+        // Real frosted glass: the page lives in GeckoView's SurfaceView, so it is
+        // snapshotted, shrunk and blurred once per sheet open. Null means the
+        // device refused the capture and the plain tint is used instead.
+        var backdrop by remember { mutableStateOf<ImageBitmap?>(null) }
+        // Where the search sheet actually put its trailing badge (see SearchSheet).
+        var searchAnchor by remember { mutableStateOf<Rect?>(null) }
+        // The sheet reports during its morph too; only trust the settled layout,
+        // otherwise the pill would chase the widening sheet instead of landing.
+        var anchorSettled by remember { mutableStateOf(false) }
+        val context = LocalContext.current
+        LaunchedEffect(open, overlay) {
+            if (!open) {
                 delay(470)
                 panelVisible = false
+                backdrop = null
+                anchorSettled = false
+                return@LaunchedEffect
+            }
+            anchorSettled = false
+            val frost = overlay == Overlay.Search || overlay == Overlay.Menu
+            // Capture before the panel is shown, otherwise the snapshot would
+            // contain the sheet instead of the page behind it. Reopening during
+            // the close animation keeps the existing frame.
+            if (frost && !panelVisible) {
+                val window = context.findActivity()?.window
+                if (window != null) backdrop = captureFrost(window)
+            } else if (!frost) {
+                backdrop = null
+            }
+            panelVisible = true
+            if (overlay == Overlay.Search) {
+                delay(460)
+                if (open) anchorSettled = true
             }
         }
 
@@ -483,7 +515,13 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         // Only the bottom-sheet pages move with the keyboard; full pages stay put.
         val sheetLift = if (overlay == Overlay.Search) imeDp else 0.dp
         val content: @Composable () -> Unit = when (lastSheet) {
-            Overlay.Search -> ({ SearchSheet(vm) })
+            Overlay.Search -> ({
+                SearchSheet(vm) { rect ->
+                    // Ignore measurements taken while the sheet is closing (it is
+                    // still the last content when the overlay has already gone).
+                    if (overlay == Overlay.Search) searchAnchor = rect
+                }
+            })
             Overlay.Menu -> ({ MenuSheet(vm) })
             Overlay.Settings -> ({ SettingsScreen(vm) { vm.onBackPressed() } })
             Overlay.SiteSettings -> ({ SiteSettingsScreen(vm) { vm.onBackPressed() } })
@@ -507,10 +545,24 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             label = "scrim",
         )
         if (scrim > 0.01f) {
+            val frost = backdrop
+            if (frost != null) {
+                // Full-screen frost (iOS-style): the live page is replaced by a
+                // blurred snapshot while the sheet is up, so nothing sharp sits
+                // behind the translucent panel.
+                Image(
+                    bitmap = frost,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .alpha(scrim),
+                )
+            }
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.26f * scrim))
+                    .background(Color.Black.copy(alpha = 0.30f * scrim))
                     .clickable { vm.closeOverlay() }
             )
         }
@@ -573,7 +625,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                     .background(
                         when {
                             closing -> Color.Transparent
-                            lastSheet == Overlay.Search || lastSheet == Overlay.Menu ||
+                            lastSheet == Overlay.Search || lastSheet == Overlay.Menu -> c.sheetFrost
                             lastSheet == Overlay.ExtensionMenu -> c.sheetSoft
                             lastSheet == Overlay.Downloads || lastSheet == Overlay.History ||
                                 lastSheet == Overlay.Translate || lastSheet == Overlay.Passwords ||
@@ -608,13 +660,29 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         if (pillVisible) {
             val searchMode = overlay == Overlay.Search
             val sheetH = screenH * 0.47f
+            // The X mirrors the engine badge: same 34dp box, on the placeholder's
+            // line, pinned to the trailing edge. The sheet reports that box, so
+            // the pill lands on the real layout; the arithmetic below only covers
+            // the frame before the first measurement (16 + 17dp from the edge,
+            // and the 18dp drag strip + 28dp half-row for the line).
+            val anchor = if (anchorSettled) searchAnchor else null
+            val searchBottom = if (anchor != null) {
+                with(density) { screenH - anchor.center.y.toDp() - 29.dp }
+            } else {
+                sheetLift + sheetH - 75.dp
+            }
+            val searchX = if (anchor != null) {
+                with(density) { anchor.center.x.toDp() } - screenW / 2
+            } else {
+                screenW / 2 - 33.dp
+            }
             NavPill(
                 vm = vm,
                 screenW = screenW,
                 menuMode = overlay == Overlay.Menu,
                 searchMode = searchMode,
-                searchBottom = sheetLift + sheetH - 61.dp,
-                searchX = screenW / 2 - 22.dp,
+                searchBottom = searchBottom,
+                searchX = searchX,
                 visible = true,
             )
         }

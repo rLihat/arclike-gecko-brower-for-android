@@ -111,7 +111,13 @@ private data class SearchRow(
 )
 
 @Composable
-fun SearchSheet(vm: BrowserViewModel) {
+fun SearchSheet(
+    vm: BrowserViewModel,
+    // The X pill is drawn by the chrome overlay, outside this sheet. Reporting
+    // the trailing badge's bounds lets the pill land exactly in that slot (the
+    // mirror of the engine badge) instead of guessing dp offsets.
+    onFieldAnchor: ((androidx.compose.ui.geometry.Rect) -> Unit)? = null,
+) {
     val c = LocalArc.current
     // The field owns the text so a prefilled URL can arrive fully selected, and
     // so an inline completion can be shown as a selected suffix.
@@ -245,7 +251,18 @@ fun SearchSheet(vm: BrowserViewModel) {
                     )
                 }
             }
-            Box(Modifier.width(44.dp))
+            // Mirrors the engine badge: a 34dp box pinned to the trailing edge.
+            // The X pill centres on this rect, so for the first time its
+            // position comes from the real layout instead of arithmetic.
+            Box(Modifier.width(44.dp), contentAlignment = Alignment.CenterEnd) {
+                Box(
+                    Modifier
+                        .size(34.dp)
+                        .onGloballyPositioned { coords ->
+                            onFieldAnchor?.invoke(coords.boundsInRoot())
+                        },
+                )
+            }
         }
 
         AnimatedVisibility(
