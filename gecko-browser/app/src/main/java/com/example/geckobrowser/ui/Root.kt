@@ -614,7 +614,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                 menuMode = overlay == Overlay.Menu,
                 searchMode = searchMode,
                 searchBottom = sheetLift + sheetH - 61.dp,
-                searchX = screenW / 2 - 47.dp,
+                searchX = screenW / 2 - 22.dp,
                 visible = true,
             )
         }
