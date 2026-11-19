@@ -328,7 +328,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateSystemDark(dark: Boolean) { systemDark = dark }
 
-    var accentKey by mutableStateOf("firefox_purple")
+    var accentKey by mutableStateOf("dynamic")
         private set
 
     var openLinksMode by mutableStateOf(

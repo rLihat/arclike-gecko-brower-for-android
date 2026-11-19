@@ -16,11 +16,16 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 
 /* ---------------------------------------------------------------- frosting */
+
+/** Serialises GPU readbacks so several live glass surfaces cannot overlap. */
+private val readbackMutex = Mutex()
 
 /**
  * GeckoView paints the page into a SurfaceView, outside the Compose layer tree,
@@ -127,10 +132,12 @@ private fun crop(source: Bitmap, rect: android.graphics.Rect): Bitmap? {
  * [scratch] and reused on every tick, so a 30fps refresh allocates only the
  * tiny blurred output bitmap (the old one becomes garbage immediately).
  */
-internal suspend fun capturePillFrost(
+internal suspend fun captureAreaFrost(
     window: Window,
     rect: Rect,
     scratch: FrostScratch,
+    maxEdge: Int = 96,
+    radius: Int = 4,
 ): ImageBitmap? {
     val frame = withTimeoutOrNull(80) {
         val surface = scratch.surface?.takeIf { it.isShown && it.width > 0 }
@@ -163,7 +170,7 @@ internal suspend fun capturePillFrost(
     } ?: return null
     // Reuse the buffer on blank frames too; only the blurred output is returned.
     if (looksBlank(frame)) return null
-    val out = withContext(Dispatchers.Default) { frost(frame, maxEdge = 96, radius = 4) }
+    val out = withContext(Dispatchers.Default) { frost(frame, maxEdge, radius) }
     return out?.asImageBitmap()
 }
 
@@ -172,14 +179,16 @@ private suspend fun captureSurfaceInto(
     view: SurfaceView,
     rect: android.graphics.Rect,
     dest: Bitmap,
-): Boolean = suspendCancellableCoroutine { cont ->
-    val handler = Handler(Looper.getMainLooper())
-    try {
-        PixelCopy.request(view, rect, dest, { result ->
-            if (cont.isActive) cont.resume(result == PixelCopy.SUCCESS)
-        }, handler)
-    } catch (t: Throwable) {
-        if (cont.isActive) cont.resume(false)
+): Boolean = readbackMutex.withLock {
+    suspendCancellableCoroutine { cont ->
+        val handler = Handler(Looper.getMainLooper())
+        try {
+            PixelCopy.request(view, rect, dest, { result ->
+                if (cont.isActive) cont.resume(result == PixelCopy.SUCCESS)
+            }, handler)
+        } catch (t: Throwable) {
+            if (cont.isActive) cont.resume(false)
+        }
     }
 }
 

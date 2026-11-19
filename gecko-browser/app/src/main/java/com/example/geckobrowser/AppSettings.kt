@@ -27,8 +27,8 @@ data class SettingsSnapshot(
     val cookieBanner: Boolean = false,
     /** Hosts where tracking protection is switched off. */
     val trackingExceptions: Set<String> = emptySet(),
-    /** Accent preset key (see AccentPresets). Defaults to Firefox purple. */
-    val accent: String = "firefox_purple",
+    /** Accent preset key (see AccentPresets). Defaults to Dynamic. */
+    val accent: String = "dynamic",
     /** "system" | "light" | "dark". Defaults to system. */
     val appearance: String = "system",
     /** "off" | "on" | "ask". Defaults to on. */
@@ -93,7 +93,7 @@ class AppSettings(context: Context) {
             etpStrict = p[KEY_ETP_STRICT] ?: false,
             cookieBanner = p[KEY_COOKIE_BANNER] ?: false,
             trackingExceptions = trackingExceptions,
-            accent = p[KEY_ACCENT] ?: "firefox_purple",
+            accent = p[KEY_ACCENT] ?: "dynamic",
             appearance = p[KEY_APPEARANCE] ?: if (p[KEY_DARK] == true) "dark" else "system",
             openLinksMode = p[KEY_OPEN_LINKS_MODE] ?: "on",
             downloadSubfolder = sanitizeDownloadSubfolder(p[KEY_DOWNLOAD_SUBFOLDER].orEmpty()),

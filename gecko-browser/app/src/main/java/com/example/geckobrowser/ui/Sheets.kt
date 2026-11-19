@@ -535,7 +535,7 @@ private fun PinnedRow(vm: BrowserViewModel) {
                             }
                         }
                         .clip(RoundedCornerShape(22.dp))
-                        .background(if (active) c.chipStrong else c.chip)
+                        .background(if (active) c.chipStrong else c.field)
                         .border(if (active) 2.dp else 1.dp, if (active) accentColor ?: c.accent else c.stroke, RoundedCornerShape(22.dp))
                         .alpha(if (dragOrigin == origin) 0.6f else 1f)
                         .padding(vertical = 10.dp)

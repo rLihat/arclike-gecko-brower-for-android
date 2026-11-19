@@ -6,6 +6,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.text.BasicTextField
@@ -45,7 +48,12 @@ import androidx.compose.ui.unit.sp
 import com.example.geckobrowser.BrowserViewModel
 
 @Composable
-fun SettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
+fun SettingsScreen(
+    vm: BrowserViewModel,
+    onBack: () -> Unit,
+    /** Blurred snapshot of the page behind Settings. */
+    frost: ImageBitmap? = null,
+) {
     val c = LocalArc.current
     val route = vm.settingsRoute
     // Back inside a sub-page returns to the category hub; from the hub itself, leave Settings.
@@ -54,7 +62,21 @@ fun SettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
         else onBack()
     }
 
-    Column(Modifier.fillMaxSize().background(c.settingsBg)) {
+    Box(Modifier.fillMaxSize()) {
+        if (frost != null) {
+            Image(
+                bitmap = frost,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Box(Modifier.fillMaxSize().background(c.settingsBg.copy(alpha = 0.86f)))
+        }
+        Column(
+            Modifier
+                .fillMaxSize()
+                .then(if (frost == null) Modifier.background(c.settingsBg) else Modifier),
+        ) {
         when (route) {
             "look" -> LookAndFeelPage(vm)
             "search" -> SearchPreferencesPage(vm)
@@ -69,6 +91,7 @@ fun SettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 SettingsHub(vm, onBack)
             }
             else -> SettingsHub(vm, onBack)
+        }
         }
     }
 }
@@ -367,7 +390,7 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
             SettingsRow(
                 "Accent colour",
                 icon = { Glyph(Ico.grid, c.text, size = 19.dp, strokeWidth = 1.7f) },
-                value = AccentPresets.firstOrNull { it.key == vm.accentKey }?.label ?: "Firefox purple",
+                value = AccentPresets.firstOrNull { it.key == vm.accentKey }?.label ?: "Dynamic",
                 onClick = { accentPicker = !accentPicker },
                 trailing = {
                     Glyph(
@@ -396,7 +419,13 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
                                 .padding(horizontal = 12.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Box(Modifier.size(20.dp).clip(CircleShape).background(preset.dark))
+                            Box(
+                                Modifier
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(preset.dark)
+                                    .border(1.dp, c.stroke, CircleShape),
+                            )
                             Spacer(Modifier.width(11.dp))
                             Text(
                                 preset.label,

@@ -50,6 +50,7 @@ fun UpdateBanner(vm: BrowserViewModel) {
             .shadow(18.dp, RoundedCornerShape(18.dp))
             .clip(RoundedCornerShape(18.dp))
             .background(c.surface)
+            .then(rememberGlass(c.surface, fps = 15))
             .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

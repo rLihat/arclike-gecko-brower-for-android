@@ -24,6 +24,14 @@ data class AccentPreset(
 )
 
 val AccentPresets = listOf(
+    // Sentinel colours for the dynamic option: ArcTheme replaces them with the
+    // current site's accent (or this neutral grey-white when there is no site).
+    AccentPreset("dynamic", "Dynamic",
+        Color(0xFFDADDE0), Color(0xFF7D858B), Color(0xFFDADDE0), Color(0xFF3F494F),
+        Color(0x80DADDE0), Color(0x667D858B)),
+    AccentPreset("white", "White",
+        Color(0xFFFFFFFF), Color(0xFFF7F7F5), Color(0xFFFFFFFF), Color(0xFF3A4044),
+        Color(0x80FFFFFF), Color(0x668A9298)),
     AccentPreset("firefox_purple", "Firefox purple",
         Color(0xFF9059FF), Color(0xFF8951F6), Color(0xFFD9C8FF), Color(0xFF6B3FD9),
         Color(0x8C9059FF), Color(0x668951F6)),
@@ -43,6 +51,23 @@ val AccentPresets = listOf(
 
 private fun accentByKey(key: String): AccentPreset =
     AccentPresets.firstOrNull { it.key == key } ?: AccentPresets.first()
+
+/** Keeps a favicon-derived accent readable on either theme. */
+private fun readableAccent(color: Color, dark: Boolean): Color {
+    val lum = 0.2126f * color.red + 0.7152f * color.green + 0.0722f * color.blue
+    val mix = when {
+        dark && lum < 0.42f -> 0.38f to Color.White
+        !dark && lum > 0.62f -> 0.45f to Color(0xFF273036)
+        else -> return color
+    }
+    val (amount, other) = mix
+    return Color(
+        red = color.red + (other.red - color.red) * amount,
+        green = color.green + (other.green - color.green) * amount,
+        blue = color.blue + (other.blue - color.blue) * amount,
+        alpha = color.alpha,
+    )
+}
 
 /** The mockup's design tokens, transcribed for native Compose. */
 data class ArcColors(
@@ -91,8 +116,8 @@ val LightArc = ArcColors(
     surfaceStrong = Color(0xFFEBEBEA),
     field = Color(0xFFFFFFFF),
     navSurface = Color(0xFFF2F2F0),
-    navSoft = Color(0xCCF6F6F4),
-    sheetSoft = Color(0xE0F9F9F7),
+    navSoft = Color(0xE8F6F6F4),
+    sheetSoft = Color(0xF5F9F9F7),
     sheetFrost = Color(0xC4F9F9F7),
     navFrost = Color(0x99F6F6F4),
     sheet = Color(0xFFF3F3F1),
@@ -123,8 +148,8 @@ val DarkArc = ArcColors(
     surfaceStrong = Color(0xFF232A2E),
     field = Color(0xFF232A2E),
     navSurface = Color(0xFF1C2226),
-    navSoft = Color(0xCC1C2226),
-    sheetSoft = Color(0xE0181E22),
+    navSoft = Color(0xE61C2226),
+    sheetSoft = Color(0xF2181E22),
     sheetFrost = Color(0xB8181E22),
     navFrost = Color(0x991C2226),
     sheet = Color(0xFF1A2024),
@@ -164,8 +189,28 @@ fun rememberReduceMotion(): Boolean {
 }
 
 @Composable
-fun ArcTheme(dark: Boolean, accentKey: String = "firefox_purple", content: @Composable () -> Unit) {
-    val preset = accentByKey(accentKey)
+fun ArcTheme(
+    dark: Boolean,
+    accentKey: String = "dynamic",
+    /** Live site accent, used only by the Dynamic option. */
+    liveAccent: Color? = null,
+    content: @Composable () -> Unit,
+) {
+    val chosen = accentByKey(accentKey)
+    val preset = if (accentKey == "dynamic") {
+        val neutral = if (dark) Color(0xFFDADDE0) else Color(0xFF7D858B)
+        val accent = readableAccent(liveAccent ?: neutral, dark)
+        chosen.copy(
+            dark = accent,
+            light = accent,
+            inkDark = accent,
+            inkLight = accent,
+            glowDark = accent.copy(alpha = 0.5f),
+            glowLight = accent.copy(alpha = 0.4f),
+        )
+    } else {
+        chosen
+    }
     val base = if (dark) DarkArc else LightArc
     val colors = base.copy(
         accent = if (dark) preset.dark else preset.light,

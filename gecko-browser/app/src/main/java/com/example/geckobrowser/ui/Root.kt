@@ -126,7 +126,9 @@ import kotlin.math.abs
 
 @Composable
 fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
-    ArcTheme(vm.darkMode, vm.accentKey) {
+    val liveHost = BrowserViewModel.hostOf(vm.activeTab?.url.orEmpty())
+    val liveAccent = if (liveHost.isNotBlank()) faviconAccent(liveHost) else null
+    ArcTheme(vm.darkMode, vm.accentKey, liveAccent) {
         val systemDark = isSystemInDarkTheme()
         LaunchedEffect(systemDark) { vm.updateSystemDark(systemDark) }
         val c = LocalArc.current
@@ -135,17 +137,17 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
         val reduceMotion = rememberReduceMotion()
         val haptics = LocalHapticFeedback.current
         val appContext = LocalContext.current
-        // The tab carousel sits on a blurred copy of the current page. One
-        // capture when it opens is enough; it is held through the closing morph.
-        var tabsFrost by remember { mutableStateOf<ImageBitmap?>(null) }
+        // The tab carousel and Settings sit on a blurred copy of the current
+        // page. One capture when they open is enough; held through the close.
+        var pageFrost by remember { mutableStateOf<ImageBitmap?>(null) }
         LaunchedEffect(overlay) {
-            if (overlay == Overlay.Tabs) {
+            if (overlay == Overlay.Tabs || overlay == Overlay.Settings) {
                 val window = appContext.findActivity()?.window
                 val pageLive = vm.activeTab?.let { !it.isHome && it.url.isNotBlank() } == true
-                if (window != null) tabsFrost = captureFrost(window, pageLive, maxEdge = 360, radius = 6)
+                if (window != null) pageFrost = captureFrost(window, pageLive, maxEdge = 360, radius = 6)
             } else {
                 delay(420)
-                tabsFrost = null
+                pageFrost = null
             }
         }
 
@@ -286,7 +288,7 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
             if (tabsVisible) {
                 TabSwitcher(
                     vm = vm,
-                    frost = tabsFrost,
+                    frost = pageFrost,
                     modifier = Modifier.graphicsLayer {
                         val progress = ((tabAnim.value - 0.14f) / 0.86f).coerceIn(0f, 1f)
                         scaleX = tabAnim.value
@@ -346,7 +348,16 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
             }
 
             if (!vm.fullscreen) {
-                ChromeOverlay(vm, immersive)
+                // Settings sub-pages paint their own opaque settingsBg roots;
+                // make that token translucent while the frost is behind them.
+                val chromeColors = if (overlay == Overlay.Settings && pageFrost != null) {
+                    c.copy(settingsBg = c.settingsBg.copy(alpha = 0.86f))
+                } else {
+                    c
+                }
+                CompositionLocalProvider(LocalArc provides chromeColors) {
+                    ChromeOverlay(vm, immersive, pageFrost)
+                }
                 Box(
                     Modifier
                         .align(Alignment.TopCenter)
@@ -462,8 +473,17 @@ private val sheetOverlays = setOf(
     Overlay.Translate, Overlay.Passwords, Overlay.About, Overlay.ExtensionMenu, Overlay.ReleaseNotes,
 )
 
+/** Bottom sheets whose background is frosted from the live page. */
+private val frostedSheets = setOf(
+    Overlay.Search, Overlay.Menu, Overlay.ExtensionMenu, Overlay.ExtensionPopup,
+)
+
 @Composable
-private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
+private fun ChromeOverlay(
+    vm: BrowserViewModel,
+    immersive: Boolean,
+    pageFrost: ImageBitmap? = null,
+) {
     val c = LocalArc.current
     val haptics = LocalHapticFeedback.current
     LaunchedEffect(vm.downloadsDonePulse) {
@@ -495,6 +515,10 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         // snapshotted, shrunk and blurred once per sheet open. Null means the
         // device refused the capture and the plain tint is used instead.
         var backdrop by remember { mutableStateOf<ImageBitmap?>(null) }
+        // Which overlay the frozen frame belongs to. Without this, navigating
+        // Settings -> Menu (or any full page -> sheet) kept panelVisible true
+        // and silently skipped the capture, leaving the sheet unfrosted.
+        var backdropFor by remember { mutableStateOf<Overlay?>(null) }
         // Where the search sheet actually put its trailing badge (see SearchSheet).
         var searchAnchor by remember { mutableStateOf<Rect?>(null) }
         // The page rect under the nav pill, and the frozen copy drawn inside it.
@@ -517,15 +541,18 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                 delay(470)
                 panelVisible = false
                 backdrop = null
+                backdropFor = null
                 searchSettled = false
                 return@LaunchedEffect
             }
             searchSettled = false
-            val frost = overlay == Overlay.Search || overlay == Overlay.Menu
-            // Capture before the panel is shown, otherwise the snapshot would
-            // contain the sheet instead of the page behind it. Reopening during
-            // the close animation keeps the existing frame.
-            if (frost && !panelVisible) {
+            val frost = overlay in frostedSheets
+            val stale = backdrop == null || backdropFor != overlay
+            // Page-surface captures are safe even while another panel is up:
+            // they read the page layer, not the window. Home uses a window
+            // capture, so it still waits for the panel to be gone.
+            val needCapture = frost && stale && (pageLive || !panelVisible)
+            if (needCapture) {
                 val window = context.findActivity()?.window
                 if (window != null) {
                     // Capture only the panel's final rect. Outside the sheet
@@ -538,9 +565,11 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                         with(density) { (screenH - sheetLift).toPx() }.toInt(),
                     )
                     backdrop = captureFrost(window, pageLive, panelRect)
+                    backdropFor = overlay
                 }
             } else if (!frost) {
                 backdrop = null
+                backdropFor = null
             }
             panelVisible = true
             if (overlay == Overlay.Search) {
@@ -564,7 +593,9 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                 }
             })
             Overlay.Menu -> ({ MenuSheet(vm) })
-            Overlay.Settings -> ({ SettingsScreen(vm) { vm.onBackPressed() } })
+            Overlay.Settings -> ({
+                SettingsScreen(vm, onBack = { vm.onBackPressed() }, frost = pageFrost)
+            })
             Overlay.SiteSettings -> ({ SiteSettingsScreen(vm) { vm.onBackPressed() } })
             Overlay.Account -> ({ AccountScreen(vm) { vm.onBackPressed() } })
             Overlay.Downloads -> ({ DownloadsScreen(vm) { vm.closeDownloads() } })
@@ -654,7 +685,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                     .background(
                         when {
                             closing -> Color.Transparent
-                            lastSheet == Overlay.Search || lastSheet == Overlay.Menu -> Color.Transparent
+                            lastSheet in frostedSheets -> Color.Transparent
                             lastSheet == Overlay.ExtensionMenu -> c.sheetSoft
                             lastSheet == Overlay.Downloads || lastSheet == Overlay.History ||
                                 lastSheet == Overlay.Translate || lastSheet == Overlay.Passwords ||
@@ -666,7 +697,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                 // The frosted page lives only inside the panel's rounded clip.
                 // Its translucent tint sits above the snapshot, so the rest of
                 // the window keeps the live, sharp page.
-                if (!closing && (lastSheet == Overlay.Search || lastSheet == Overlay.Menu)) {
+                if (!closing && lastSheet in frostedSheets) {
                     val frozen = backdrop
                     if (frozen != null) {
                         Image(
@@ -708,7 +739,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         val siteHost = BrowserViewModel.hostOf(vm.activeTab?.url.orEmpty())
         val siteAccent = (if (siteHost.isNotBlank()) faviconAccent(siteHost) else null) ?: c.accent
         LaunchedEffect(pillVisible, overlay, pageLive) {
-            if (!pillVisible || overlay != Overlay.None || !pageLive) {
+            if (!pillVisible || (overlay != Overlay.None && overlay != Overlay.Tabs) || !pageLive) {
                 pillFrost.value = null
                 return@LaunchedEffect
             }
@@ -726,7 +757,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                     if (due) {
                         val rect = pillRect
                         if (rect != null) {
-                            capturePillFrost(window, rect, pillScratch)?.let { pillFrost.value = it }
+                            captureAreaFrost(window, rect, pillScratch)?.let { pillFrost.value = it }
                         }
                     }
                 }
@@ -764,8 +795,8 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                 // Once settled, the sheet draws the X itself in the field row
                 // and the pill gets out of the way.
                 visible = !(searchMode && searchSettled),
-                frost = if (overlay == Overlay.None) pillFrost else null,
-                glow = if (overlay == Overlay.None) siteAccent else null,
+                frost = if (overlay == Overlay.None || overlay == Overlay.Tabs) pillFrost else null,
+                glow = if (overlay == Overlay.None || overlay == Overlay.Tabs) siteAccent else null,
                 onBounds = { pillRect = it },
             )
         }
@@ -861,6 +892,7 @@ private fun BoxScope.ToastHost(vm: BrowserViewModel, raised: Boolean) {
                 .height(58.dp)
                 .clip(RoundedCornerShape(29.dp))
                 .background(c.navSurface)
+                .then(rememberGlass(c.navSurface, fps = 15))
                 .border(1.dp, c.stroke, RoundedCornerShape(29.dp)),
             contentAlignment = Alignment.Center,
         ) {
@@ -994,6 +1026,7 @@ private fun DownloadChip(
                     // In the expanded menu the chip reads as one more pill icon:
                     // no bead, just the glyph (the ring still reports progress).
                     .background(if (iconOnly) Color.Transparent else c.navSoft)
+                    .then(rememberGlass(c.navSoft, fps = 15, maxEdge = 96, radius = 4))
                     .then(if (iconOnly) Modifier else Modifier.border(1.dp, c.stroke, CircleShape)),
                 contentAlignment = Alignment.Center,
             ) {
@@ -1290,6 +1323,7 @@ private fun BoxScope.PermissionPromptHost(vm: BrowserViewModel) {
                 .shadow(20.dp, RoundedCornerShape(24.dp))
                 .clip(RoundedCornerShape(24.dp))
                 .background(c.navSurface)
+                .then(rememberGlass(c.navSurface))
                 .border(1.dp, c.stroke, RoundedCornerShape(24.dp))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -1359,6 +1393,7 @@ private fun BoxScope.BrowserPromptHost(vm: BrowserViewModel) {
                 .shadow(22.dp, RoundedCornerShape(26.dp))
                 .clip(RoundedCornerShape(26.dp))
                 .background(c.navSurface)
+                .then(rememberGlass(c.navSurface))
                 .border(1.dp, c.stroke, RoundedCornerShape(26.dp))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -1752,6 +1787,7 @@ private fun BoxScope.DownloadPromptHost(vm: BrowserViewModel) {
                         .height(58.dp)
                         .clip(RoundedCornerShape(29.dp))
                         .background(c.navSurface)
+                        .then(rememberGlass(c.navSurface, fps = 15))
                         .border(1.dp, c.stroke, RoundedCornerShape(29.dp))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
@@ -1835,6 +1871,7 @@ private fun BoxScope.PopupBlockedHost(vm: BrowserViewModel) {
                         .height(58.dp)
                         .clip(RoundedCornerShape(29.dp))
                         .background(c.navSurface)
+                        .then(rememberGlass(c.navSurface, fps = 15))
                         .border(1.dp, c.stroke, RoundedCornerShape(29.dp))
                         .padding(start = 10.dp, end = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -1936,6 +1973,7 @@ private fun BoxScope.FindBarHost(vm: BrowserViewModel) {
                     .height(54.dp)
                     .clip(RoundedCornerShape(27.dp))
                     .background(c.navSurface)
+                    .then(rememberGlass(c.navSurface))
                     .border(1.dp, c.stroke, RoundedCornerShape(27.dp))
                     .padding(start = 13.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -2039,6 +2077,7 @@ private fun BoxScope.SelectionHost(vm: BrowserViewModel, screenW: Dp, screenH: D
             .shadow(18.dp, RoundedCornerShape(14.dp))
             .clip(RoundedCornerShape(14.dp))
             .background(c.sheet)
+            .then(rememberGlass(c.sheet, fps = 15, maxEdge = 120, radius = 4))
             .border(1.dp, c.stroke, RoundedCornerShape(14.dp))
             .padding(horizontal = 4.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -2120,6 +2159,7 @@ private fun BoxScope.ContextMenuHost(vm: BrowserViewModel, screenW: Dp, screenH:
                 .shadow(20.dp, RoundedCornerShape(16.dp))
                 .clip(RoundedCornerShape(16.dp))
                 .background(c.sheet)
+                .then(rememberGlass(c.sheet, fps = 15, maxEdge = 120, radius = 4))
                 .border(1.dp, c.stroke, RoundedCornerShape(16.dp))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -2262,6 +2302,7 @@ private fun BoxScope.DownloadFlightLayer(vm: BrowserViewModel, screenW: Dp, scre
             .shadow(20.dp, shape)
             .clip(shape)
             .background(c.sheet)
+            .then(rememberGlass(c.sheet, fps = 15, maxEdge = 96, radius = 4))
             .border(1.dp, c.stroke, shape),
     ) {
         Box(
