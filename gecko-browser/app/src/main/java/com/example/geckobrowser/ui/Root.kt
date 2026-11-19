@@ -131,6 +131,7 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
         val overlay = vm.overlay
         val tab = vm.activeTab
         val reduceMotion = rememberReduceMotion()
+        val haptics = LocalHapticFeedback.current
 
         // Pinch-in hides the chrome; it only applies on a live page at 100%
         // zoom with nothing layered over it. Leaving that state brings it back.
@@ -2187,6 +2188,7 @@ private fun BoxScope.NavPill(
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer()
     val reduceMotion = rememberReduceMotion()
+    val haptics = LocalHapticFeedback.current
     val tab = vm.activeTab
     val compact = vm.compactPill && !menuMode && !searchMode
 

@@ -396,6 +396,22 @@ def rule8_buildconfig():
             return
 
 
+def rule9_haptics_scope():
+    """Every haptics.performHapticFeedback needs `val haptics` in the enclosing function."""
+    for p in KT_FILES:
+        has_haptics = False
+        for ln, line in enumerate(code_of_file(p), 1):
+            if re.match(r"^\s*(?:(?:private|internal|protected|public)\s+)*(?:suspend\s+)?fun\s+", line):
+                has_haptics = False
+            elif re.match(r"^\s*(?:companion\s+object\b|object\s|data\s+class\s|class\s)", line):
+                has_haptics = False
+            if re.search(r"\bval\s+haptics\s*=", line):
+                has_haptics = True
+            if "haptics.performHapticFeedback" in line and not has_haptics:
+                err(p, ln, "R9-haptics-scope",
+                    "haptics.performHapticFeedback without `val haptics = LocalHapticFeedback.current` in this function")
+
+
 # ------------------------------------------------------------------ main
 
 def main():
@@ -420,6 +436,7 @@ def main():
     rule2_vm_members()
     rule4_same_module_imports()
     rule8_buildconfig()
+    rule9_haptics_scope()
 
     errors = sum(1 for f in findings if f[0] == "ERROR")
     warns = sum(1 for f in findings if f[0] == "WARN")
@@ -431,7 +448,8 @@ def main():
         "",
     ]
     for rule_name in ["R5-mojibake", "R5-balance", "R5-encoding", "R6-xml", "R7-resref",
-                      "R1-setter-clash", "R3-icon", "R2-vm-member", "R4-import", "R8-buildconfig"]:
+                      "R1-setter-clash", "R3-icon", "R2-vm-member", "R4-import", "R8-buildconfig",
+                      "R9-haptics-scope"]:
         hits = [f for f in findings if f[3] == rule_name]
         status = "PASS" if not hits else f"FAIL ({len(hits)})"
         lines.append(f"## {rule_name}  {status}")
