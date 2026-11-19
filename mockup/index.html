@@ -918,8 +918,9 @@
     .menu-ext:hover svg, .menu-ext:active svg { stroke: var(--accent); }
     /* The menu's pinned toggle (Pin/Unpin) for the current site. */
     .action.pinned { color: var(--accent); }
-    /* Essentials row: Zen-style favicon tiles under the search field. */
-    /* Zen-essentials: equal thirds, spanning the search field width. */
+    /* Essentials row: horiZen favicon tiles under the search field, three per
+       row. Hold a tile, then drag sideways to reorder; the site you're on is
+       outlined in its favicon's dominant colour. */
     .essentials {
       display: flex; gap: 10px; padding: 12px 2px 2px;
       overflow-x: auto; scroll-snap-type: x mandatory;
@@ -929,16 +930,19 @@
     .essential {
       position: relative; flex: 0 0 calc((100% - 20px) / 3); aspect-ratio: 1.55;
       border-radius: 22px; border: 1px solid var(--stroke);
-      background: var(--icon-bg); cursor: pointer;
+      background: var(--chip); cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      scroll-snap-align: start; transition: border-color .18s ease;
+      scroll-snap-align: start; touch-action: pan-y;
+      user-select: none; -webkit-user-select: none;
+      transition: border-color .18s ease, transform .18s ease, opacity .18s ease;
     }
+    .essential.dragging { opacity: .6; transform: scale(1.06); border-color: var(--pin, var(--accent)); z-index: 3; box-shadow: 0 12px 28px rgba(0,0,0,.3); }
     .essential .ess-favicon {
       width: 34px; height: 34px; border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
       font-size: 15px; font-weight: 700; line-height: 1; color: #fff;
     }
-    .essential.active { border: 2px solid var(--accent); background: var(--chip); }
+    .essential.active { border: 2px solid var(--pin, var(--accent)); background: var(--chip-strong); }
     .essential .unpin {
       position: absolute; top: 6px; right: 6px; width: 20px; height: 20px;
       border-radius: 10px; background: #c0392b; color: #fff; border: 0;
@@ -1468,13 +1472,13 @@
                 </div>
               </div>
             </div>
-            <div class="essentials" id="essentials" aria-label="Pinned sites">
-              <div class="essential active" data-url="github.com" data-title="GitHub" data-letter="G" onclick="visit('github.com','GitHub','G','#24292f')"><span class="ess-favicon" style="background:#24292f">G</span><button class="unpin" aria-label="Unpin">×</button></div>
-              <div class="essential" data-url="youtube.com" data-title="YouTube" data-letter="Y" onclick="visit('youtube.com','YouTube','Y','#ff0033')"><span class="ess-favicon" style="background:#ff0033">Y</span><button class="unpin" aria-label="Unpin">×</button></div>
-              <div class="essential" data-url="mail.google.com" data-title="Gmail" data-letter="M" onclick="visit('mail.google.com','Gmail','M','#d93b30')"><span class="ess-favicon" style="background:#d93b30">M</span><button class="unpin" aria-label="Unpin">×</button></div>
-              <div class="essential" data-url="calendar.example" data-title="Calendar" data-letter="C" onclick="visit('calendar.example','Calendar','C','#8a5a20')"><span class="ess-favicon" style="background:#f6a04d;color:#3c2a10">C</span><button class="unpin" aria-label="Unpin">×</button></div>
-              <div class="essential" data-url="news.example" data-title="News" data-letter="N" onclick="visit('news.example','News','N','#2f5c69')"><span class="ess-favicon" style="background:#7bc96f;color:#0d3a11">N</span><button class="unpin" aria-label="Unpin">×</button></div>
-              <div class="essential" data-url="addons.mozilla.org" data-title="Add-ons" data-letter="A" onclick="visit('addons.mozilla.org','Add-ons','A','#b8431f')"><span class="ess-favicon" style="background:#ff7a59">A</span><button class="unpin" aria-label="Unpin">×</button></div>
+            <div class="essentials" id="essentials" aria-label="Pinned sites. Hold a tile, then drag sideways to reorder.">
+              <div class="essential active" style="--pin:#a371f7" data-url="github.com" data-title="GitHub" data-letter="G" data-color="#24292f"><span class="ess-favicon" style="background:#24292f">G</span><button class="unpin" aria-label="Unpin">&#10005;</button></div>
+              <div class="essential" style="--pin:#ff0033" data-url="youtube.com" data-title="YouTube" data-letter="Y" data-color="#ff0033"><span class="ess-favicon" style="background:#ff0033">Y</span><button class="unpin" aria-label="Unpin">&#10005;</button></div>
+              <div class="essential" style="--pin:#d93b30" data-url="mail.google.com" data-title="Gmail" data-letter="M" data-color="#d93b30"><span class="ess-favicon" style="background:#d93b30">M</span><button class="unpin" aria-label="Unpin">&#10005;</button></div>
+              <div class="essential" style="--pin:#f6a04d" data-url="calendar.example" data-title="Calendar" data-letter="C" data-color="#8a5a20"><span class="ess-favicon" style="background:#f6a04d;color:#3c2a10">C</span><button class="unpin" aria-label="Unpin">&#10005;</button></div>
+              <div class="essential" style="--pin:#34c759" data-url="news.example" data-title="News" data-letter="N" data-color="#2f5c69"><span class="ess-favicon" style="background:#7bc96f;color:#0d3a11">N</span><button class="unpin" aria-label="Unpin">&#10005;</button></div>
+              <div class="essential" style="--pin:#ff7a59" data-url="addons.mozilla.org" data-title="Add-ons" data-letter="A" data-color="#b8431f"><span class="ess-favicon" style="background:#ff7a59">A</span><button class="unpin" aria-label="Unpin">&#10005;</button></div>
             </div>
             <div class="suggestions" id="search-suggestions" onclick="pickSuggestion(event)"></div>
           </div>
@@ -1901,6 +1905,7 @@
       <div class="note"><b>Tabs:</b> favicon in navbar; tap for horizontal recents-style previews. <b>Search (+):</b> expands input only; queries open a DuckDuckGo results page. <b>Menu (⌃):</b> URL with copy, back/forward/refresh, share, extensions, settings + Mozilla pfp.</div>
       <div class="note"><b>Sites:</b> YouTube, GitHub, Gmail and Add-ons clones are long enough to scroll — page content runs edge-to-edge behind the pill, which glows while loading, condenses to a bare domain chip as you scroll down, and hands the icons back the moment you scroll up. A 3px scroll indicator fades in on the page edge.</div>
       <div class="note"><b>Immersive &amp; tabs:</b> pinch in on a page to hide the pill; pinch in again to bring it back (home and zoomed pages are ignored, trackpad pinch-in works too). In the carousel, swipe a card up to dismiss it (the row closes the gap) or down to focus it; horizontal drags still scroll. Page changes slide with the direction of travel, and the Debug switch for reduced motion collapses all of it.</div>
+       <div class="note"><b>Pinned sites:</b> the Essentials row sits under the search field - three equal favicon thirds per row, scrollable, order persists. The site you are on is outlined in its favicon's dominant colour. Hold a tile, then drag sideways to reorder; hold without dragging to arm the red x and tap it to unpin.</div>
       <div class="note"><b>Popups:</b> the download question and small messages like “Canceled” or “Opening” use the pill’s own footprint, and the pill steps aside while they show. Finished downloads don’t pop anything — the live chip already says it.</div>
       <div class="note"><b>Gestures:</b> swipe ↑ from the plus or menu arrow for the menu · ↓ from the plus, search ×, menu arrow or a sheet handle dismisses what’s open · ←/→ from the plus slides between tabs · ↑ from the tab icon opens previews (↓ closes them) · ←/→ from the tab icon goes back/forward · ← from the menu arrow goes back · ↑ from the live download chip cancels it and clears the row. Back and forward flash the same pill-sized notice as immersive mode.</div>
       <div class="section-title">Debug</div>
@@ -4182,35 +4187,80 @@
       log(reducedMotion ? 'Reduced motion: every transition collapses' : 'Reduced motion off');
     }
     // ---- essentials (pinned sites) -------------------------------------------
-    // Long-press an essential (~450ms) to arm unpin; click the x to remove; tap
-    // anywhere else cancels. A plain click opens the site.
+    // Hold a tile (~400ms) to arm it: drag sideways to reorder the row (the
+    // app persists the order); hold without dragging toggles unpin mode - the
+    // red x appears, tap it to unpin, tap anywhere else to cancel. A plain
+    // tap opens the site; a swipe is not a tap.
     (function wireEssentials() {
       const essentials = document.getElementById('essentials');
       if (!essentials) return;
+      const HOLD_MS = 400, TAP_SLOP = 12;
       let holdTimer = null;
-      const clearPinning = () => {
-        essentials.querySelectorAll('.essential.pinning').forEach(t => t.classList.remove('pinning'));
-      };
+      let gesture = null;   // { tile, startX, lastX, acc, moved }
+      let armed = false;    // long-press fired for the current gesture
+      let dragTile = null;  // tile currently being dragged, or null
+      let lastMoved = 0;    // moved distance of the last finished gesture
+      const clearPinning = () => essentials.querySelectorAll('.essential.pinning').forEach(t => t.classList.remove('pinning'));
       essentials.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('.unpin')) return;
         const tile = e.target.closest('.essential');
         if (!tile) return;
         clearTimeout(holdTimer);
-        holdTimer = setTimeout(() => { tile.classList.add('pinning'); }, 450);
+        gesture = { tile, startX: e.clientX, lastX: e.clientX, acc: 0, moved: 0 };
+        armed = false; dragTile = null;
+        holdTimer = setTimeout(() => { armed = true; }, HOLD_MS);
       });
+      essentials.addEventListener('pointermove', (e) => {
+        if (!gesture) return;
+        gesture.moved = Math.max(gesture.moved, Math.abs(e.clientX - gesture.startX));
+        if (!armed) return;   // the hold has not fired yet; the row scrolls normally
+        const tile = gesture.tile;
+        if (!dragTile) { dragTile = tile; tile.classList.add('dragging'); clearPinning(); }
+        const dx = e.clientX - gesture.lastX;
+        gesture.lastX = e.clientX;
+        gesture.acc += dx;
+        const threshold = tile.getBoundingClientRect().width * 0.33;
+        while (Math.abs(gesture.acc) >= threshold) {
+          const dir = gesture.acc > 0 ? 1 : -1;
+          const sibling = dir > 0 ? tile.nextElementSibling : tile.previousElementSibling;
+          if (sibling && sibling.classList.contains('essential')) {
+            if (dir > 0) essentials.insertBefore(sibling, tile);
+            else essentials.insertBefore(tile, sibling);
+          }
+          gesture.acc -= Math.sign(gesture.acc) * threshold;
+        }
+      });
+      const finish = (cancelled) => {
+        clearTimeout(holdTimer);
+        const tile = gesture && gesture.tile;
+        lastMoved = gesture ? gesture.moved : 0;
+        if (dragTile) {
+          dragTile.classList.remove('dragging');
+          dragTile = null;
+          log('Pin order saved');
+        } else if (!cancelled && armed && tile && lastMoved <= TAP_SLOP) {
+          // Long-press with no drag: toggle unpin mode for this tile.
+          const wasPinned = tile.classList.contains('pinning');
+          clearPinning();
+          if (!wasPinned) tile.classList.add('pinning');
+        }
+        gesture = null; armed = false;
+      };
       ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev =>
-        essentials.addEventListener(ev, () => clearTimeout(holdTimer)));
+        essentials.addEventListener(ev, () => finish(ev === 'pointercancel' || ev === 'pointerleave')));
       essentials.addEventListener('click', (e) => {
         const unpin = e.target.closest('.unpin');
         if (unpin) {
           e.stopPropagation();
           clearTimeout(holdTimer);
           const tile = unpin.closest('.essential');
-          if (tile) tile.remove();
+          if (tile) { tile.remove(); log('Pin removed'); }
           return;
         }
         const tile = e.target.closest('.essential');
         if (!tile) return;
         if (tile.classList.contains('pinning')) { tile.classList.remove('pinning'); return; }
+        if (lastMoved > TAP_SLOP) return;   // a swipe, not a tap
         visit(tile.dataset.url, tile.dataset.title, tile.dataset.letter, tile.dataset.color);
       });
       document.addEventListener('pointerdown', (e) => {
