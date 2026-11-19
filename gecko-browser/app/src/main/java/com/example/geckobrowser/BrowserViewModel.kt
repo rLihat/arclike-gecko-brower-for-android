@@ -3966,7 +3966,6 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Set the channel for OTA updates: "beta" or "stable". */
     /** Toggle haptic acknowledgements for gestures and actions. */
     fun toggleHapticFeedback() {
         val value = !hapticFeedback
@@ -3974,6 +3973,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         scope.launch { withContext(Dispatchers.IO) { settingsStore.setHaptics(value) } }
     }
 
+    /** Set the channel for OTA updates: "beta" or "stable". */
     fun updateUpdateChannel(channel: String) {
         if (channel != "beta" && channel != "stable") return
         updateChannel = channel
