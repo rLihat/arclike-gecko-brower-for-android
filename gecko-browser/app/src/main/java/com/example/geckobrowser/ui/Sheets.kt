@@ -269,16 +269,25 @@ fun SearchSheet(
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    AnimatedVisibility(
-                        visible = showClose,
-                        enter = fadeIn(tween(180)) +
-                            scaleIn(initialScale = 0.78f, animationSpec = tween(220)),
-                        exit = fadeOut(tween(110)) +
-                            scaleOut(targetScale = 0.88f, animationSpec = tween(140)),
-                    ) {
+                    // Plain alpha/scale instead of AnimatedVisibility: inside
+                    // this Row the scoped overload wins resolution and does not
+                    // accept the nested Box as a receiver.
+                    val closeAlpha by animateFloatAsState(
+                        if (showClose) 1f else 0f,
+                        tween(if (showClose) 180 else 110),
+                        label = "searchCloseAlpha",
+                    )
+                    val closeScale by animateFloatAsState(
+                        if (showClose) 1f else 0.78f,
+                        tween(if (showClose) 220 else 140),
+                        label = "searchCloseScale",
+                    )
+                    if (closeAlpha > 0.01f || showClose) {
                         Box(
                             Modifier
                                 .size(32.dp)
+                                .alpha(closeAlpha)
+                                .scale(closeScale)
                                 .clip(CircleShape)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
