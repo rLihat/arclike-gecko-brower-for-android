@@ -20,7 +20,8 @@ system rather than shipping its own store.
   three-per-page row of favicon tiles; accent-outlined when you're on that site.
   Pin or unpin from the menu (extensions moved to the bottom-left corner,
   icon-only, mirroring the downloads chip). Pins persist across restarts.
-  Drag horizontally to reorder them (hold to start a drag).
+  Hold a pin and it swaps into a red x; release to unpin, or keep holding and
+  drag sideways to reorder (neighbours slide aside, gap closes after an unpin).
 - Haptic feedback can be toggled in **Settings -> Look and feel -> Touch and motion**;
   it governs short acknowledgements for gestures (tab-swipe, pin drag-to-reorder,
   drag-to-cancel download threshold crossings), long-presses (context menus, text

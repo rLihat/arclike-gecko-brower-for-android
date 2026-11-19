@@ -1,6 +1,7 @@
 package com.example.geckobrowser.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -13,8 +14,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
@@ -48,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
@@ -459,55 +461,100 @@ private fun PinnedRow(vm: BrowserViewModel) {
                 Column(
                     Modifier
                         .width(tileWidth)
+                        .animateItem()
                         .clip(RoundedCornerShape(22.dp))
                         .background(if (active) c.chipStrong else c.chip)
                         .border(if (active) 2.dp else 1.dp, if (active) accentColor ?: c.accent else c.stroke, RoundedCornerShape(22.dp))
-                        .combinedClickable(
-                            onClick = {
-                                if (unpinMode != null) {
-                                    if (unpinMode == origin) vm.unpin(origin)
-                                    unpinMode = null
-                                    return@combinedClickable
-                                }
-                                vm.openPin(pin)
-                            },
-                            onLongClick = { unpinMode = origin; if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
-                        )
-                        .pointerInput(pin.origin) {
-                            detectDragGesturesAfterLongPress(
-                                onDragStart = { _ ->
-                                    if (vm.hapticFeedback) haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                                    dragOrigin = origin
-                                    accumulatedDragPx = 0f
-                                },
-                                onDragEnd = {
-                                    vm.persistPins()
-                                    if (vm.hapticFeedback) haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
-                                    dragOrigin = null
-                                    accumulatedDragPx = 0f
-                                },
-                                onDragCancel = {
-                                    dragOrigin = null
-                                    accumulatedDragPx = 0f
-                                },
-                                onDrag = { change, dragAmount ->
-                                    change.consume()
-                                    accumulatedDragPx += dragAmount.x
-                                    val threshold = tileWidthPx * 0.33f
-                                    if (kotlin.math.abs(accumulatedDragPx) >= threshold) {
-                                        val direction = if (accumulatedDragPx > 0f) 1 else -1
-                                        val from = vm.pins.indexOfFirst { it.origin == origin }
-                                        if (from >= 0) {
-                                            val to = (from + direction).coerceIn(0, vm.pins.lastIndex)
-                                            if (to != from) vm.movePin(from, to)
-                                        }
-                                        accumulatedDragPx = 0f
-                                    }
-                                },
-                            )
-                        }
                         .alpha(if (dragOrigin == origin) 0.6f else 1f)
-                        .padding(vertical = 10.dp),
+                        .padding(vertical = 10.dp)
+                        .pointerInput(pin.origin) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown()
+                                val slop = viewConfiguration.touchSlop
+                                val startX = down.position.x
+                                val startY = down.position.y
+                                // Phase A: hold until the long-press fires (armed), or the
+                                // gesture ends/moves before then.
+                                val phase: Int = withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis.toLong()) {
+                                    while (true) {
+                                        val ev = awaitPointerEvent()
+                                        val ch = ev.changes.first()
+                                        if (!ch.pressed) return@withTimeoutOrNull 1
+                                        if (kotlin.math.abs(ch.position.x - startX) > slop ||
+                                            kotlin.math.abs(ch.position.y - startY) > slop
+                                        ) return@withTimeoutOrNull 2
+                                    }
+                                    @Suppress("UNREACHABLE_CODE") 0
+                                } ?: 0
+                                if (phase == 1) {
+                                    // Plain tap: the old onClick handoff.
+                                    if (unpinMode != null) {
+                                        if (unpinMode == origin) vm.unpin(origin)
+                                        unpinMode = null
+                                    } else {
+                                        vm.openPin(pin)
+                                    }
+                                    return@awaitEachGesture
+                                }
+                                if (phase == 2) {
+                                    // Moved before the hold fired: not a pin gesture.
+                                    while (true) {
+                                        val ev = awaitPointerEvent()
+                                        if (ev.changes.all { !it.pressed }) break
+                                    }
+                                    return@awaitEachGesture
+                                }
+                                // Armed: the favicon swaps to the red x.
+                                unpinMode = origin
+                                if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                var dragging = false
+                                var lastX = startX
+                                while (true) {
+                                    val ev = awaitPointerEvent()
+                                    val ch = ev.changes.first()
+                                    if (!ch.pressed) {
+                                        if (!dragging) {
+                                            vm.unpin(origin)
+                                        } else {
+                                            vm.persistPins()
+                                        }
+                                        unpinMode = null
+                                        dragOrigin = null
+                                        accumulatedDragPx = 0f
+                                        if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        return@awaitEachGesture
+                                    }
+                                    val dx = ch.position.x - lastX
+                                    lastX = ch.position.x
+                                    if (!dragging) {
+                                        if (kotlin.math.abs(ch.position.x - startX) > slop ||
+                                            kotlin.math.abs(ch.position.y - startY) > slop
+                                        ) {
+                                            // Drag engaged instead of unpin.
+                                            dragging = true
+                                            unpinMode = null
+                                            dragOrigin = origin
+                                            accumulatedDragPx = 0f
+                                            ch.consume()
+                                            if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        }
+                                    } else {
+                                        ch.consume()
+                                        accumulatedDragPx += dx
+                                        val threshold = tileWidthPx * 0.33f
+                                        if (kotlin.math.abs(accumulatedDragPx) >= threshold) {
+                                            val direction = if (accumulatedDragPx > 0f) 1 else -1
+                                            val from = vm.pins.indexOfFirst { it.origin == origin }
+                                            if (from >= 0) {
+                                                val to = (from + direction).coerceIn(0, vm.pins.lastIndex)
+                                                if (to != from) vm.movePin(from, to)
+                                            }
+                                            accumulatedDragPx = 0f
+                                        }
+                                    }
+                                }
+                            }
+                        },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Box(
@@ -516,17 +563,30 @@ private fun PinnedRow(vm: BrowserViewModel) {
                             .clip(RoundedCornerShape(10.dp)),
                         contentAlignment = Alignment.Center,
                     ) {
-                        SiteFavicon(host, host.take(1).uppercase(Locale.US), 34.dp)
-                        if (showUnpin) {
+                        val faviconAlpha by animateFloatAsState(if (showUnpin) 0f else 1f, tween(140), label = "pinFaviconOut")
+                        val faviconScale by animateFloatAsState(if (showUnpin) 0.55f else 1f, tween(180), label = "pinFaviconScale")
+                        val unpinAlpha by animateFloatAsState(if (showUnpin) 1f else 0f, tween(140), label = "pinUnpinIn")
+                        val unpinScale by animateFloatAsState(if (showUnpin) 1f else 0.55f, tween(220), label = "pinUnpinScale")
+                        Box(
+                            Modifier
+                                .matchParentSize()
+                                .alpha(faviconAlpha)
+                                .scale(faviconScale),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            SiteFavicon(host, host.take(1).uppercase(Locale.US), 34.dp)
+                        }
+                        if (unpinAlpha > 0f) {
                             Box(
                                 Modifier
-                                    .size(17.dp)
-                                    .clip(RoundedCornerShape(9.dp))
+                                    .matchParentSize()
+                                    .scale(unpinScale)
+                                    .clip(RoundedCornerShape(10.dp))
                                     .background(Color(0xFFE23D3D))
-                                    .align(Alignment.TopEnd),
+                                    .alpha(unpinAlpha),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Glyph(Ico.close, Color(0xFFFFFFFF), size = 11.dp, strokeWidth = 2.4f)
+                                Glyph(Ico.close, Color(0xFFFFFFFF), size = 19.dp, strokeWidth = 2.6f)
                             }
                         }
                     }

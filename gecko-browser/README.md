@@ -119,11 +119,13 @@ page's thumb gets an accent outline. Pin order is recency (newest pinned first).
   site is pinned); the Extensions action moved to the bottom-left corner, icon-only,
   mirroring the downloads chip in the opposite corner.
 - **Tap** a pin: switches to a tab already on that origin, otherwise opens it in a new tab.
-- **Long-press** a pin and tap the cross to unpin it (unpin mode clears itself on the next tap).
+- **Long-press** a pin and it swaps into a red x (favicon fades out, x scales in, same 34dp thumb);
+  release to unpin it there and then. Keep holding and drag sideways instead to reorder.
 - Pins persist via `filesDir/pins.json` (`BrowserFiles#savePins` / `#loadPins`); no settings.
   Pinned sites survive restarts.
 - **Drag** a pin horizontally to reorder it (hold first; the drag starts after a long
-  press). Reordering persists across restarts.
+  press). Reordering persists across restarts. Pins slide aside to make room, and the
+  row closes the gap after an unpin.
 - Haptic feedback is toggled under **Look and feel > Touch and motion**
   and fires for: long-press reorder/pin, tab swipes, drag-to-cancel-download
   thresholds, download lifecycle events, the download confirmation prompt, the OTA
