@@ -341,8 +341,7 @@ fun SearchSheet(
                         .widthIn(max = 322.dp)
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(c.sheet)
-                        .then(rememberGlass(c.sheet, fps = 15, maxEdge = 140, radius = 5))
+                        .background(c.menuCard)
                         .border(1.dp, c.stroke, RoundedCornerShape(16.dp))
                         .padding(6.dp),
                 ) {
@@ -536,8 +535,7 @@ private fun PinnedRow(vm: BrowserViewModel) {
                             }
                         }
                         .clip(RoundedCornerShape(22.dp))
-                        .background(if (active) c.chipStrong else c.field)
-                        .then(rememberGlass(if (active) c.chipStrong else c.field, fps = 15, maxEdge = 110, radius = 4))
+                        .background(c.menuCard)
                         .border(if (active) 2.dp else 1.dp, if (active) accentColor ?: c.accent else c.stroke, RoundedCornerShape(22.dp))
                         .alpha(if (dragOrigin == origin) 0.6f else 1f)
                         .padding(vertical = 10.dp)
@@ -758,8 +756,7 @@ fun MenuSheet(vm: BrowserViewModel) {
                 .fillMaxWidth()
                 .height(42.dp)
                 .clip(RoundedCornerShape(18.dp))
-                .background(c.sheetSoft)
-                .then(rememberGlass(c.sheetSoft, fps = 15, maxEdge = 160))
+                .background(c.menuCard)
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -791,8 +788,7 @@ fun MenuSheet(vm: BrowserViewModel) {
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(18.dp))
-                .background(c.navSoft)
-                .then(rememberGlass(c.navSoft, fps = 15, maxEdge = 160))
+                .background(c.menuCard)
                 .padding(6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
@@ -829,8 +825,7 @@ fun MenuSheet(vm: BrowserViewModel) {
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(18.dp))
-                .background(c.sheetSoft)
-                .then(rememberGlass(c.sheetSoft, fps = 15, maxEdge = 160)),
+                .background(c.menuCard),
         ) {
             Row(
                 Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 14.dp),

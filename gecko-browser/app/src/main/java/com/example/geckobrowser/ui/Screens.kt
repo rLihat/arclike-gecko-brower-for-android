@@ -1,4 +1,4 @@
-package com.example.geckobrowser.ui
+﻿package com.example.geckobrowser.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
@@ -405,7 +405,7 @@ private fun EmptyDownloads(vm: BrowserViewModel, modifier: Modifier = Modifier) 
             Modifier
                 .size(54.dp)
                 .clip(RoundedCornerShape(18.dp))
-                .background(c.chip),
+                .background(c.menuCard),
             contentAlignment = Alignment.Center,
         ) {
             Glyph(Ico.download, c.accent, size = 26.dp, strokeWidth = 1.8f)
@@ -495,7 +495,7 @@ private fun DownloadRow(vm: BrowserViewModel, d: DownloadItem) {
                 overflow = TextOverflow.Ellipsis,
             )
             Spacer(Modifier.height(9.dp))
-            Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(c.chip)) {
+            Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(c.menuCard)) {
                 Box(
                     Modifier
                         .fillMaxWidth(bar.coerceIn(0.01f, 1f))
@@ -594,7 +594,7 @@ fun ExtensionsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                             .weight(1f)
                             .height(40.dp)
                             .clip(CircleShape)
-                            .background(c.chip)
+                            .background(c.menuCard)
                             .clickable { vm.updateAllExtensions() },
                         contentAlignment = Alignment.Center,
                     ) {
@@ -622,7 +622,7 @@ fun ExtensionsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                         .weight(1f)
                         .height(46.dp)
                         .clip(CircleShape)
-                        .background(c.chip)
+                        .background(c.menuCard)
                         .clickable { vm.visitExtensionStore() },
                     contentAlignment = Alignment.Center,
                 ) {
@@ -671,7 +671,7 @@ private fun EmptyExtensions() {
             Modifier
                 .size(54.dp)
                 .clip(RoundedCornerShape(18.dp))
-                .background(c.chip),
+                .background(c.menuCard),
             contentAlignment = Alignment.Center,
         ) {
             Glyph(Ico.puzzle, c.accent, size = 26.dp, strokeWidth = 1.8f)
@@ -754,7 +754,7 @@ private fun ExtensionRow(vm: BrowserViewModel, item: ExtensionItem) {
             .fillMaxWidth()
             .padding(bottom = 9.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(c.surface)
+            .background(c.menuCard)
             .border(1.dp, c.stroke, RoundedCornerShape(16.dp))
             .padding(12.dp),
     ) {
@@ -763,7 +763,7 @@ private fun ExtensionRow(vm: BrowserViewModel, item: ExtensionItem) {
                 Modifier
                     .size(34.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(c.chip),
+                    .background(c.menuCard),
                 contentAlignment = Alignment.Center,
             ) {
                 if (item.icon != null) {
@@ -907,7 +907,7 @@ fun AccountScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(22.dp))
-                    .background(c.surface)
+                    .background(c.menuCard)
                     .padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -952,7 +952,7 @@ fun AccountScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     .fillMaxWidth()
                     .height(46.dp)
                     .clip(CircleShape)
-                    .background(c.surface)
+                    .background(c.menuCard)
                     .clickable { vm.showToast("Signed out") },
                 contentAlignment = Alignment.Center,
             ) {
@@ -992,7 +992,7 @@ private fun EngineField(value: String, onValueChange: (String) -> Unit, placehol
             .fillMaxWidth()
             .padding(top = 6.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(c.chip)
+            .background(c.menuCard)
             .border(1.dp, c.stroke, RoundedCornerShape(10.dp))
             .padding(horizontal = 11.dp, vertical = 10.dp),
     ) {

@@ -1,4 +1,4 @@
-package com.example.geckobrowser.ui
+﻿package com.example.geckobrowser.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -168,7 +168,7 @@ private fun accountCard(vm: BrowserViewModel, c: ArcColors) {
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .background(c.surface)
+            .background(c.menuCard)
             .clickable { vm.openAccount() }
             .padding(14.dp),
     ) {
@@ -320,7 +320,7 @@ private fun CategoryTile(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .background(c.surface)
+            .background(c.menuCard)
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 17.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -329,7 +329,7 @@ private fun CategoryTile(
             Modifier
                 .size(46.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(c.chip),
+                .background(c.menuCard),
             contentAlignment = Alignment.Center,
         ) { icon() }
         Spacer(Modifier.width(14.dp))
@@ -411,7 +411,7 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
                             Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(11.dp))
-                                .background(if (selected) c.chip else Color.Transparent)
+                                .background(if (selected) c.menuCard else Color.Transparent)
                                 .clickable {
                                     vm.setAccent(preset.key)
                                     accentPicker = false
@@ -644,7 +644,7 @@ private fun EngineList(
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(11.dp))
-                    .background(if (selected) c.chip else Color.Transparent)
+                    .background(if (selected) c.menuCard else Color.Transparent)
                     .padding(horizontal = 12.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -713,7 +713,7 @@ private fun EngineList(
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier
                             .clip(RoundedCornerShape(9.dp))
-                            .background(c.chip)
+                            .background(c.menuCard)
                             .clickable { onAddCancel() }
                             .padding(horizontal = 12.dp, vertical = 7.dp),
                     )
@@ -923,7 +923,7 @@ private fun EngineField(value: String, onValueChange: (String) -> Unit, placehol
             .fillMaxWidth()
             .padding(top = 6.dp)
             .clip(RoundedCornerShape(10.dp))
-            .background(c.chip)
+            .background(c.menuCard)
             .border(1.dp, c.stroke, RoundedCornerShape(10.dp))
             .padding(horizontal = 11.dp, vertical = 10.dp),
     ) {

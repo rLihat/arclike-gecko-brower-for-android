@@ -1171,8 +1171,7 @@ private fun BoxScope.DownloadCancelPreview(
                         translationY = (1f - progress) * 18.dp.toPx()
                     }
                     .clip(CircleShape)
-                    .background(if (armed) red.copy(alpha = 0.14f) else c.navSoft)
-                    .then(rememberGlass(c.navSoft, fps = 15, maxEdge = 96, radius = 4))
+                    .background(if (armed) red.copy(alpha = 0.14f) else c.menuCard)
                     .border(
                         1.dp,
                         if (armed) red.copy(alpha = 0.5f) else c.stroke,
@@ -1243,8 +1242,7 @@ private fun BoxScope.NavNoticeHost(vm: BrowserViewModel) {
                 translationY = (1f - appear.value) * 14.dp.toPx()
             }
             .clip(RoundedCornerShape(29.dp))
-            .background(c.navSoft)
-            .then(rememberGlass(c.navSoft, fps = 15, maxEdge = 120, radius = 4))
+            .background(c.menuCard)
             .border(1.dp, c.stroke, RoundedCornerShape(29.dp)),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,

@@ -1,4 +1,4 @@
-package com.example.geckobrowser.ui
+﻿package com.example.geckobrowser.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -108,7 +108,7 @@ fun HistoryScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 .padding(top = 4.dp)
                 .height(42.dp)
                 .clip(RoundedCornerShape(18.dp))
-                .background(c.surface)
+                .background(c.menuCard)
                 .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -142,7 +142,7 @@ fun HistoryScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     .padding(horizontal = 16.dp)
                     .padding(top = 8.dp)
                     .clip(RoundedCornerShape(16.dp))
-                    .background(c.surface)
+                    .background(c.menuCard)
                     .border(1.dp, c.stroke, RoundedCornerShape(16.dp))
                     .padding(6.dp),
             ) {
@@ -245,7 +245,7 @@ private fun EmptyHistory(filtered: Boolean) {
             Modifier
                 .size(54.dp)
                 .clip(CircleShape)
-                .background(c.chip),
+                .background(c.menuCard),
             contentAlignment = Alignment.Center,
         ) { Glyph(Ico.clock, c.muted, size = 24.dp, strokeWidth = 1.8f) }
         Spacer(Modifier.height(14.dp))

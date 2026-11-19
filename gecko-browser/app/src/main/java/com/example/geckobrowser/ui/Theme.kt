@@ -83,6 +83,8 @@ data class ArcColors(
     val navSurface: Color,
     /** Translucent surfaces used only by the nav pill and the search/menu sheets. */
     val navSoft: Color,
+    /** Darker frosted fill for cards inside sheets and full-page overlays. */
+    val menuCard: Color,
     val sheetSoft: Color,
     /** More transparent variant for Search/Menu, which sit over the frost. */
     val sheetFrost: Color,
@@ -117,6 +119,7 @@ val LightArc = ArcColors(
     field = Color(0xFFFFFFFF),
     navSurface = Color(0xFFF2F2F0),
     navSoft = Color(0xE8F6F6F4),
+    menuCard = Color(0xDCD9D5),
     sheetSoft = Color(0xF5F9F9F7),
     sheetFrost = Color(0xC4F9F9F7),
     navFrost = Color(0x99F6F6F4),
@@ -149,6 +152,7 @@ val DarkArc = ArcColors(
     field = Color(0xFF232A2E),
     navSurface = Color(0xFF1C2226),
     navSoft = Color(0xE61C2226),
+    menuCard = Color(0xE0141A1E),
     sheetSoft = Color(0xF2181E22),
     sheetFrost = Color(0xB8181E22),
     navFrost = Color(0x991C2226),

@@ -1,4 +1,4 @@
-package com.example.geckobrowser.ui
+﻿package com.example.geckobrowser.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -354,7 +354,7 @@ private fun SupportCard(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .background(c.surface)
+            .background(c.menuCard)
             .padding(16.dp),
     ) {
         Text(title, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)

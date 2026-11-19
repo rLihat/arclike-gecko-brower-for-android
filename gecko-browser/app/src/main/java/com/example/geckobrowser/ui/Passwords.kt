@@ -1,4 +1,4 @@
-package com.example.geckobrowser.ui
+﻿package com.example.geckobrowser.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -152,7 +152,7 @@ fun PasswordsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
-                    .background(c.surface)
+                    .background(c.menuCard)
                     .padding(horizontal = 12.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -178,7 +178,7 @@ fun PasswordsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(18.dp))
-                        .background(c.surface)
+                        .background(c.menuCard)
                         .padding(22.dp),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -233,7 +233,7 @@ private fun LoginRow(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .background(c.surface)
+            .background(c.menuCard)
             .padding(14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -290,7 +290,7 @@ private fun ActionChip(label: String, onClick: () -> Unit) {
     Box(
         Modifier
             .clip(RoundedCornerShape(14.dp))
-            .background(c.chip)
+            .background(c.menuCard)
             .clickable { onClick() }
             .padding(horizontal = 14.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
@@ -306,7 +306,7 @@ private fun StatusCard(title: String, body: String, action: String?, onAction: (
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .background(c.surface)
+            .background(c.menuCard)
             .padding(16.dp),
     ) {
         Text(title, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
@@ -415,7 +415,7 @@ private fun EditorField(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(c.field)
+                .background(c.menuCard)
                 .padding(horizontal = 12.dp, vertical = 10.dp),
         )
     }
