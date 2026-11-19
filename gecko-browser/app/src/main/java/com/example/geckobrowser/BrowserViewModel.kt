@@ -741,7 +741,6 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 downloads = list
             }
         }
-        scope.launch { AppUpdater.progress.collect { p -> updateProgress = p } }
         scope.launch { bootstrap() }
     }
 
@@ -3994,13 +3993,24 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         updateInfo = null
     }
 
-    /** Downloads the pending update and launches the system installer. */
+    /** Downloads the pending update in-app and launches the system installer. */
     fun downloadAndInstallUpdate() {
         val info = updateInfo ?: return
-        // The actual download runs in a foreground service, so it survives the
-        // user leaving the app; the in-app progress banner reads the same flow.
-        UpdateService.start(application, info)
-        updateInfo = null
+        scope.launch {
+            updateProgress = 0f
+            val file = AppUpdater.download(application, info) { fraction ->
+                // State writes off the main thread; safe because Compose snapshot reads are thread-agnostic.
+                updateProgress = fraction
+            }
+            if (file != null) {
+                val intent = AppUpdater.installIntent(application, file)
+                runCatching { application.startActivity(intent) }
+                updateInfo = null
+            } else {
+                showToast("Update download failed")
+            }
+            updateProgress = -1f
+        }
     }
 
     fun toggleSearchSuggestions() {
