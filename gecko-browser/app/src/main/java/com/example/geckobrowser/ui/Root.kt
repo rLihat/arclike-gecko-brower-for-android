@@ -604,15 +604,14 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             }
         }
 
-        // The nav pill floats above the sheet, exactly like the mockup. While a
-        // back/forward notice is up it steps aside entirely, handing its
-        // footprint to the popup for the same brief dwell. Immersive mode, the
-        // download question, a blocked popup, find-in-page and a page-level
-        // toast all borrow that footprint.
+        // The nav pill floats above the sheet, exactly like the mockup. The
+        // back/forward notice keeps the pill on screen so its swipe zone stays
+        // usable while the popup is up; immersive mode, the download question,
+        // a blocked popup, find-in-page and a page-level toast all still hide it.
         val popupPill = vm.popupBlocked != null && overlay == Overlay.None &&
             !vm.findOpen
         val pillVisible = (overlay == Overlay.None || overlay == Overlay.Menu ||
-            overlay == Overlay.Search || overlay == Overlay.Tabs) && vm.navNotice == null && !immersive &&
+            overlay == Overlay.Search || overlay == Overlay.Tabs) && !immersive &&
             vm.pendingDownload == null && !popupPill && !vm.findOpen &&
             !(overlay == Overlay.None && vm.toastMessage != null)
         if (pillVisible) {
@@ -688,19 +687,19 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         PopupBlockedHost(vm)
         SelectionHost(vm, screenW, screenH)
         ContextMenuHost(vm, screenW, screenH)
-        ToastHost(vm)
+        ToastHost(vm, raised = pillVisible)
         DownloadFlightLayer(vm, screenW, screenH)
     }
 }
 
 @Composable
-private fun BoxScope.ToastHost(vm: BrowserViewModel) {
+private fun BoxScope.ToastHost(vm: BrowserViewModel, raised: Boolean) {
     val c = LocalArc.current
     val reduceMotion = rememberReduceMotion()
     val message = vm.toastMessage
-    // Over a sheet the message sits just above the capsule; on the page it takes
-    // the pill's own footprint and the pill steps aside.
-    val raised = vm.overlay != Overlay.None
+    // Over a visible pill the message sits just above the capsule; when the
+    // pill is hidden (on a page toast, or a full-height overlay like Settings
+    // where there is no capsule) it takes the pill's own footprint.
     LaunchedEffect(message) {
         if (message != null) {
             delay(2100)
@@ -1049,7 +1048,7 @@ private fun BoxScope.NavNoticeHost(vm: BrowserViewModel) {
     Row(
         Modifier
             .align(Alignment.BottomCenter)
-            .padding(bottom = 18.dp)
+            .padding(bottom = 84.dp)
             .fillMaxWidth(0.7f)
             .height(58.dp)
             .graphicsLayer {

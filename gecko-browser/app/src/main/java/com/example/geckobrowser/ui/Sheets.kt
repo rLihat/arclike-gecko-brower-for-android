@@ -18,6 +18,9 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.layout.onGloballyPositioned
+import kotlinx.coroutines.delay
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -425,6 +428,12 @@ private fun PinnedRow(vm: BrowserViewModel) {
     var unpinMode by remember { mutableStateOf<String?>(null) }
     val config = androidx.compose.ui.platform.LocalConfiguration.current
     val gap = 10.dp
+    val listState = rememberLazyListState()
+    var rowLeftPx by remember { mutableStateOf(0f) }
+    var rowRightPx by remember { mutableStateOf(0f) }
+    var dragTileWindowX by remember { mutableStateOf(Float.NaN) }
+    // -1 scrolls left, +1 scrolls right, 0 idle; used while a tile is dragged near the row's edge.
+    var edgeScroll by remember { mutableStateOf(0) }
     val tileWidth = ((config.screenWidthDp - 32 - 20).dp / 3f)
     val density = androidx.compose.ui.platform.LocalDensity.current
     val tileWidthPx = with(density) { tileWidth.toPx() }
@@ -432,6 +441,13 @@ private fun PinnedRow(vm: BrowserViewModel) {
     // Drag-to-reorder state (drag a tile left/right past a third of its width).
     var dragOrigin by remember { mutableStateOf<String?>(null) }
     var accumulatedDragPx by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    LaunchedEffect(edgeScroll) {
+        if (edgeScroll == 0) return@LaunchedEffect
+        while (edgeScroll != 0 && dragOrigin != null) {
+            listState.scrollBy(edgeScroll * 22f)
+            delay(16)
+        }
+    }
     // Tap on dead space clears unpin mode.
     Box(
         Modifier
@@ -447,9 +463,15 @@ private fun PinnedRow(vm: BrowserViewModel) {
             ),
     ) {
         LazyRow(
+            state = listState,
             horizontalArrangement = Arrangement.spacedBy(gap),
             contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 0.dp),
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .onGloballyPositioned { coords ->
+                    rowLeftPx = coords.localToWindow(androidx.compose.ui.geometry.Offset.Zero).x
+                    rowRightPx = rowLeftPx + coords.size.width
+                },
         ) {
             items(pins.size, key = { i -> pins[i].origin }) { i ->
                 val pin = pins[i]
@@ -462,6 +484,11 @@ private fun PinnedRow(vm: BrowserViewModel) {
                     Modifier
                         .width(tileWidth)
                         .animateItem()
+                        .onGloballyPositioned { coords ->
+                            if (dragOrigin == origin) {
+                                dragTileWindowX = coords.localToWindow(androidx.compose.ui.geometry.Offset.Zero).x
+                            }
+                        }
                         .clip(RoundedCornerShape(22.dp))
                         .background(if (active) c.chipStrong else c.chip)
                         .border(if (active) 2.dp else 1.dp, if (active) accentColor ?: c.accent else c.stroke, RoundedCornerShape(22.dp))
@@ -513,6 +540,8 @@ private fun PinnedRow(vm: BrowserViewModel) {
                                     val ev = awaitPointerEvent()
                                     val ch = ev.changes.first()
                                     if (!ch.pressed) {
+                                        edgeScroll = 0
+                                        dragTileWindowX = Float.NaN
                                         if (!dragging) {
                                             vm.unpin(origin)
                                         } else {
@@ -543,13 +572,21 @@ private fun PinnedRow(vm: BrowserViewModel) {
                                         accumulatedDragPx += dx
                                         val threshold = tileWidthPx * 0.33f
                                         if (kotlin.math.abs(accumulatedDragPx) >= threshold) {
+                                            // One swap per event; carry the remainder so fast
+                                            // flicks step one tile per frame, never two at once.
                                             val direction = if (accumulatedDragPx > 0f) 1 else -1
                                             val from = vm.pins.indexOfFirst { it.origin == origin }
                                             if (from >= 0) {
                                                 val to = (from + direction).coerceIn(0, vm.pins.lastIndex)
                                                 if (to != from) vm.movePin(from, to)
                                             }
-                                            accumulatedDragPx = 0f
+                                            accumulatedDragPx -= direction * threshold
+                                        }
+                                        val edge = tileWidthPx * 0.25f
+                                        edgeScroll = if (dragTileWindowX.isNaN()) 0 else when {
+                                            dragTileWindowX < rowLeftPx + edge -> -1
+                                            dragTileWindowX + tileWidthPx > rowRightPx - edge -> 1
+                                            else -> 0
                                         }
                                     }
                                 }

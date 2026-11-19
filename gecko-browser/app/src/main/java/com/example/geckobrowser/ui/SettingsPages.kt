@@ -350,17 +350,6 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
             .padding(bottom = 40.dp),
     ) {
         Spacer(Modifier.height(6.dp))
-        SectionLabel("Touch and motion")
-        SettingsGroup {
-            SettingsRow(
-                "Haptic feedback",
-                icon = { Glyph(Ico.grid, c.text, size = 21.dp, strokeWidth = 1.9f) },
-                trailing = {
-                    ArcSwitch(vm.hapticFeedback) { vm.toggleHapticFeedback() }
-                },
-                onClick = { vm.toggleHapticFeedback() },
-            )
-        }
         SectionLabel("Appearance")
         SettingsGroup {
             SettingsRow(
@@ -437,6 +426,17 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
                 icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.7f) },
                 value = "English (US)",
                 onClick = { vm.showToast("Language: English (US)") },
+            )
+        }
+        SectionLabel("Touch and motion")
+        SettingsGroup {
+            SettingsRow(
+                "Haptic feedback",
+                icon = { Glyph(Ico.grid, c.text, size = 21.dp, strokeWidth = 1.9f) },
+                trailing = {
+                    ArcSwitch(vm.hapticFeedback) { vm.toggleHapticFeedback() }
+                },
+                onClick = { vm.toggleHapticFeedback() },
             )
         }
     }
