@@ -212,7 +212,7 @@
       display: flex; align-items: center; justify-content: center; padding: 0; touch-action: none;
     }
     .nav-btn:active { background: var(--press); }
-    .nav-btn svg { width: 24px; height: 24px; stroke: var(--text); stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .nav-btn svg { width: 24px; height: 24px; stroke: var(--text); stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
 
     .fav-in-nav {
       width: 22px; height: 22px; border-radius: 7px; display:flex; align-items:center; justify-content:center;
@@ -232,7 +232,7 @@
     .url-row { display:flex; align-items:center; gap: 8px; margin: 4px 0 10px; }
     .url-box { flex:1; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,0.4); font-size: 14px; color: #234; word-break: break-all; text-align: center; }
     .copy-btn { width: 42px; height: 42px; border: 1px solid var(--stroke); border-radius: 14px; background: rgba(255,255,255,0.45); cursor: pointer; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-    .copy-btn svg { width: 18px; height: 18px; stroke: var(--text); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .copy-btn svg { width: 18px; height: 18px; stroke: var(--text); stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .copy-btn.copied { background: rgba(120,200,150,0.45); }
     /* Compact menu: address bar with integrated nav, quick actions, page controls */
     .address-bar {
@@ -245,7 +245,7 @@
       transition: background .15s ease;
     }
     .addr-btn:hover { background: var(--row-hover); }
-    .addr-btn svg { width: 16px; height: 16px; stroke: var(--text); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .addr-btn svg { width: 16px; height: 16px; stroke: var(--text); stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .addr-btn.copied { background: rgba(120,200,150,0.45); }
     .addr-url {
       flex: 1; min-width: 0; padding: 3px 6px; text-align: center; font-size: 13px; color: var(--text);
@@ -273,7 +273,7 @@
     }
     .action:hover { background: var(--chip-strong); }
     .action-ico { position: relative; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; }
-    .action-ico svg { width: 20px; height: 20px; stroke: var(--text); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .action-ico svg { width: 20px; height: 20px; stroke: var(--text); stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .action-badge {
       position: absolute; top: -5px; right: -8px; min-width: 14px; height: 14px; padding: 0 3px;
       border-radius: 7px; background: #de5833; color: #fff; font-size: 9px; font-weight: 700;
@@ -286,7 +286,7 @@
     .menu-row .label { font-size: 14px; }
     .menu-left { display: flex; align-items: center; gap: 11px; min-width: 0; }
     .menu-ico { width: 22px; height: 22px; flex: 0 0 22px; display: flex; align-items: center; justify-content: center; }
-    .menu-ico svg { width: 19px; height: 19px; stroke: var(--menu-ico); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .menu-ico svg { width: 20px; height: 20px; stroke: var(--menu-ico); stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     /* Site-mode icon flips between phone and monitor instead of swapping instantly */
     .site-ico { position: relative; }
     .site-ico svg {
@@ -298,14 +298,14 @@
     .site-ico.is-desktop #ico-desktop { transform: rotate(0) scale(1); opacity: 1; }
     .zoom { display: flex; align-items: center; gap: 8px; }
     .zoom-btn {
-      width: 26px; height: 26px; border-radius: 9px; border: 0; background: var(--nav-surface);
+      width: 26px; height: 26px; border-radius: 9px; border: 0; background: var(--nav-soft); -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3);
       cursor: pointer; font-size: 15px; line-height: 1; display: flex; align-items: center; justify-content: center; padding: 0;
       color: var(--text);
     }
     .zoom-value { width: 42px; text-align: center; font-size: 13px; font-variant-numeric: tabular-nums; }
     /* Trailing glyphs share the zoom buttons' 26px box so they align on the same column */
     .row-ico { width: 26px; height: 26px; flex: 0 0 26px; display: flex; align-items: center; justify-content: center; }
-    .row-ico svg { width: 16px; height: 16px; stroke: var(--row-ico); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .row-ico svg { width: 18px; height: 18px; stroke: var(--row-ico); stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .switch { width: 42px; height: 25px; border-radius: 13px; background: var(--switch-off); position: relative; transition: background .2s ease; flex: 0 0 auto; }
     .switch span { position: absolute; top: 2px; left: 2px; width: 21px; height: 21px; border-radius: 50%; background: var(--knob); box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .2s ease; }
     .switch.on { background: var(--accent); }
@@ -334,7 +334,7 @@
       display: flex; align-items: center; justify-content: center; cursor: pointer; flex: 0 0 38px;
     }
     .settings-back:hover { background: var(--row-hover); }
-    .settings-back svg { width: 22px; height: 22px; stroke: var(--text); stroke-width: 2.2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .settings-back svg { width: 22px; height: 22px; stroke: var(--text); stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .settings-title { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
     .settings-scroll { flex: 1; overflow-y: auto; padding: 12px 16px 96px; scrollbar-width: none; }
     .settings-scroll::-webkit-scrollbar { display: none; }
@@ -343,10 +343,10 @@
       position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 3;
       width: 70%; height: 58px; padding: 0 20px; margin: 0;
       display: flex; align-items: center; gap: 10px;
-      background: var(--nav-surface); border: 1px solid var(--stroke); border-radius: 29px;
+      background: var(--nav-soft); -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3); border: 1px solid var(--stroke); border-radius: 29px;
       box-shadow: var(--shadow);
     }
-    .settings-search svg { width: 18px; height: 18px; flex: 0 0 18px; stroke: var(--muted); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .settings-search svg { width: 18px; height: 18px; flex: 0 0 18px; stroke: var(--muted); stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .settings-search input {
       flex: 1; min-width: 0; border: 0; background: transparent; outline: none; font-family: inherit;
       font-size: 15px; color: var(--text);
@@ -370,7 +370,7 @@
     .settings-row + .settings-row { border-top: 1px solid var(--hairline); }
     .settings-row:active { background: var(--surface); }
     .settings-ico { width: 22px; height: 22px; flex: 0 0 22px; display: flex; align-items: center; justify-content: center; }
-    .settings-ico svg { width: 19px; height: 19px; stroke: var(--menu-ico); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .settings-ico svg { width: 20px; height: 20px; stroke: var(--menu-ico); stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .settings-row .label { flex: 1; min-width: 0; font-size: 14px; }
     .settings-row .value { font-size: 13px; color: var(--muted); max-width: 40%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .settings-row .row-ico { width: 22px; height: 22px; flex: 0 0 22px; }
@@ -395,7 +395,7 @@
     body:has(#menu-overlay.account-mode) .bottom-bar .nav-set,
     body:has(#menu-overlay.account-mode) .bottom-bar .nav-btn { opacity: 0; pointer-events: none; }
     .site-globe { width: 30px; height: 30px; flex: 0 0 30px; display: flex; align-items: center; justify-content: center; }
-    .site-globe svg { width: 21px; height: 21px; stroke: var(--text); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .site-globe svg { width: 22px; height: 22px; stroke: var(--text); stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .site-host { font-size: 12px; color: var(--muted); margin: -2px 0 4px 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .site-scroll, .acct-scroll { flex: 1; overflow-y: auto; padding: 12px 16px 40px; scrollbar-width: none; }
     .site-scroll::-webkit-scrollbar, .acct-scroll::-webkit-scrollbar { display: none; }
@@ -609,7 +609,7 @@
       position: absolute; left: 50%; bottom: 18px; z-index: 35;
       width: 70%; height: 58px; padding: 0 18px;
       display: flex; align-items: center; justify-content: center; gap: 11px;
-      border-radius: 29px; background: var(--nav-surface);
+      border-radius: 29px; background: var(--nav-soft); -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3);
       border: 1px solid var(--stroke); box-shadow: var(--shadow);
       opacity: 0; visibility: hidden; pointer-events: none;
       transform: translate(-50%, 14px) scale(.96);
@@ -991,7 +991,7 @@
       -webkit-backdrop-filter: blur(12px) saturate(1.12); backdrop-filter: blur(12px) saturate(1.12);
       box-shadow: 0 6px 18px rgba(20, 30, 35, 0.14);
     }
-    .dl-core svg { width: 19px; height: 19px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .dl-core svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .dl-chip.active .dl-core { color: var(--accent); }
     .dl-chip.active .dl-core svg { animation: dl-bob 1.35s ease-in-out infinite; }
     @keyframes dl-bob {
@@ -1031,7 +1031,7 @@
     .dlc-trash {
       position: relative; width: 42px; height: 42px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      background: var(--nav-surface); border: 1px solid var(--stroke);
+      background: var(--nav-soft); -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3); border: 1px solid var(--stroke);
       box-shadow: 0 8px 22px rgba(20, 30, 35, .18); color: var(--text);
       opacity: calc(.3 + var(--p, 0) * .7);
       transform: translateY(calc((1 - var(--p, 0)) * 18px)) scale(calc(.74 + var(--p, 0) * .28));
@@ -1106,7 +1106,7 @@
     .dl-prompt {
       position: relative; width: 70%; height: 58px; padding: 0 8px 0 10px;
       display: flex; align-items: center; gap: 8px;
-      background: var(--nav-surface); border: 1px solid var(--stroke); border-radius: 29px;
+      background: var(--nav-soft); -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3); border: 1px solid var(--stroke); border-radius: 29px;
       box-shadow: var(--shadow);
       opacity: 0; transform: translateY(14px) scale(.96);
       transition: opacity .26s ease, transform .32s cubic-bezier(0.32, 0.72, 0, 1);
@@ -1140,7 +1140,7 @@
     .dl-toast {
       position: absolute; left: 50%; bottom: 18px; z-index: 58; width: 70%; height: 58px;
       padding: 0 18px; display: flex; align-items: center; justify-content: center;
-      border-radius: 29px; background: var(--nav-surface); border: 1px solid var(--stroke);
+      border-radius: 29px; background: var(--nav-soft); -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3); border: 1px solid var(--stroke);
       box-shadow: var(--shadow); color: var(--text);
       font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       opacity: 0; pointer-events: none; transform: translate(-50%, 14px) scale(.96);
@@ -1157,7 +1157,7 @@
     /* Context menu (long press / right click) */
     .ctx-menu {
       position: absolute; z-index: 59; min-width: 198px; max-width: 248px; padding: 6px;
-      background: var(--sheet-bg); border: 1px solid var(--stroke); border-radius: 16px;
+      background: var(--sheet-soft); border: 1px solid var(--stroke); border-radius: 16px; -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3);
       box-shadow: 0 20px 54px rgba(20, 30, 35, 0.26);
       opacity: 0; visibility: hidden; transform: scale(.86);
       transition: opacity .15s ease, transform .22s cubic-bezier(0.2, 0.9, 0.25, 1.04), visibility .15s;
@@ -1173,7 +1173,7 @@
       font: inherit; font-size: 13.5px; text-align: left; cursor: pointer;
     }
     .ctx-row:hover, .ctx-row:active { background: var(--chip); }
-    .ctx-row svg { width: 17px; height: 17px; flex: 0 0 17px; stroke: var(--menu-ico); stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .ctx-row svg { width: 17px; height: 17px; flex: 0 0 17px; stroke: var(--menu-ico); stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .ctx-sep { height: 1px; margin: 4px 6px; background: var(--hairline); }
 
     /* Full-height downloads manager, grown from the menu sheet */
@@ -1243,7 +1243,7 @@
       background: var(--chip); color: var(--accent);
       display: flex; align-items: center; justify-content: center;
     }
-    .dl-empty-ico svg { width: 26px; height: 26px; stroke: currentColor; stroke-width: 1.8; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .dl-empty-ico svg { width: 26px; height: 26px; stroke: currentColor; stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .dl-empty b { display: block; font-size: 15px; margin-bottom: 4px; }
     .dl-empty p { margin: 0 auto 16px; max-width: 250px; font-size: 12px; line-height: 1.5; color: var(--muted); }
     .dl-empty-btn {
@@ -2148,7 +2148,7 @@
     }, true);
 
     /* ---------- Theme ---------- */
-    let darkMode = false;
+    let darkMode = true;
     function syncThemeToggles() {
       const phone = document.getElementById('phone');
       phone.classList.toggle('dark', darkMode);
