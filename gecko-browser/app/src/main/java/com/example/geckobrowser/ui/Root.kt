@@ -1587,7 +1587,7 @@ private fun BoxScope.DownloadPromptHost(vm: BrowserViewModel) {
     var last by remember { mutableStateOf<PendingDownload?>(null) }
     // Keep the last pending file so the popup has content while it animates out.
     if (current != null) last = current
-    LaunchedEffect(current?.id) {
+    LaunchedEffect(current?.url) {
         if (current != null && vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
     }
     AnimatedVisibility(
