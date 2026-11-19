@@ -40,6 +40,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Generate bundled release notes
+        run: python3 ../tools/release_notes.py --channel beta --out app/src/main/res/raw/release_notes.md
+
       - id: tag
         run: |
           DATE=$(date +%d-%m-%Y)

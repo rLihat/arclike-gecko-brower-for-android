@@ -198,16 +198,7 @@ fun SearchSheet(vm: BrowserViewModel) {
                 .fillMaxWidth()
                 .padding(top = 4.dp, bottom = 14.dp)
                 .swipeActions(onDown = { vm.closeOverlay() }),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(
-                Modifier
-                    .width(42.dp)
-                    .height(5.dp)
-                    .clip(CircleShape)
-                    .background(c.handle)
-            )
-        }
+        )
 
         // Flat field: engine badge left, centred text, close at the right end.
         Row(
@@ -484,7 +475,11 @@ private fun PinnedRow(vm: BrowserViewModel) {
                 Column(
                     Modifier
                         .width(tileWidth)
-                        .animateItem()
+                        .animateItem(
+                            fadeInSpec = null,
+                            placementSpec = androidx.compose.animation.core.spring(),
+                            fadeOutSpec = null,
+                        )
                         .onGloballyPositioned { coords ->
                             if (dragOrigin == origin) {
                                 dragTileWindowX = coords.localToWindow(androidx.compose.ui.geometry.Offset.Zero).x
@@ -537,12 +532,14 @@ private fun PinnedRow(vm: BrowserViewModel) {
                                 if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 var dragging = false
                                 var lastX = startX
+                                var swapLock = 0
                                 while (true) {
                                     val ev = awaitPointerEvent()
                                     val ch = ev.changes.first()
                                     if (!ch.pressed) {
                                         edgeScroll = 0
                                         dragTileWindowX = Float.NaN
+                                        swapLock = 0
                                         if (!dragging) {
                                             vm.unpin(origin)
                                         } else {
@@ -557,14 +554,13 @@ private fun PinnedRow(vm: BrowserViewModel) {
                                     val dx = ch.position.x - lastX
                                     lastX = ch.position.x
                                     if (!dragging) {
-                                        if (kotlin.math.abs(ch.position.x - startX) > slop ||
-                                            kotlin.math.abs(ch.position.y - startY) > slop
-                                        ) {
-                                            // Drag engaged instead of unpin.
+                                        if (kotlin.math.abs(ch.position.x - startX) > slop) {
+                                            // Drag engaged instead of unpin (horizontal only).
                                             dragging = true
                                             unpinMode = null
                                             dragOrigin = origin
                                             accumulatedDragPx = 0f
+                                            swapLock = 0
                                             ch.consume()
                                             if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                         }
@@ -576,12 +572,19 @@ private fun PinnedRow(vm: BrowserViewModel) {
                                             // One swap per event; carry the remainder so fast
                                             // flicks step one tile per frame, never two at once.
                                             val direction = if (accumulatedDragPx > 0f) 1 else -1
-                                            val from = vm.pins.indexOfFirst { it.origin == origin }
-                                            if (from >= 0) {
-                                                val to = (from + direction).coerceIn(0, vm.pins.lastIndex)
-                                                if (to != from) vm.movePin(from, to)
+                                            if (swapLock != 0 && direction != swapLock) {
+                                                // Direction reversal: the accumulator must build up
+                                                // again from zero before the row swaps back.
+                                                accumulatedDragPx = 0f
+                                            } else {
+                                                val from = vm.pins.indexOfFirst { it.origin == origin }
+                                                if (from >= 0) {
+                                                    val to = (from + direction).coerceIn(0, vm.pins.lastIndex)
+                                                    if (to != from) vm.movePin(from, to)
+                                                }
+                                                accumulatedDragPx -= direction * threshold
+                                                swapLock = direction
                                             }
-                                            accumulatedDragPx -= direction * threshold
                                         }
                                         val edge = tileWidthPx * 0.25f
                                         edgeScroll = if (dragTileWindowX.isNaN()) 0 else when {
@@ -697,10 +700,7 @@ fun MenuSheet(vm: BrowserViewModel) {
                 .fillMaxWidth()
                 .padding(top = 4.dp, bottom = 10.dp)
                 .swipeActions(onDown = { vm.closeOverlay() }),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(Modifier.width(42.dp).height(5.dp).clip(CircleShape).background(c.handle))
-        }
+        )
 
         Row(
             Modifier

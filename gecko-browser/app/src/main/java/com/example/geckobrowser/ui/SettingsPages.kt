@@ -262,7 +262,6 @@ private fun SearchPill(value: String, onChange: (String) -> Unit, modifier: Modi
         modifier
             .fillMaxWidth(0.7f)
             .height(58.dp)
-            .shadow(14.dp, RoundedCornerShape(29.dp))
             .clip(RoundedCornerShape(29.dp))
             .background(c.navSurface)
             .padding(horizontal = 20.dp),

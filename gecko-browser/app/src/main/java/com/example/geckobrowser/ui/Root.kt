@@ -16,11 +16,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.asImageBitmap
@@ -69,7 +64,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
@@ -121,7 +115,6 @@ import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoView
 import kotlin.math.abs
 
-private val morphEasing = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)
 
 @Composable
 fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
@@ -181,7 +174,7 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
             // grows back out of it when a tab is picked.
             val flip by animateFloatAsState(
                 if (overlay == Overlay.Tabs) 0.9f else 1f,
-                tween(320, easing = morphEasing),
+                tween(260, easing = morphEasing),
                 label = "flipScale",
             )
             val flipAlpha by animateFloatAsState(
@@ -286,12 +279,12 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
             LaunchedEffect(immBanner) {
                 if (immBanner) {
                     immAppear.snapTo(0f)
-                    immAppear.animateTo(1f, tween(320, easing = morphEasing))
+                    immAppear.animateTo(1f, tween(260, easing = morphEasing))
                     delay(1800)
-                    immAppear.animateTo(0f, tween(220))
+                    immAppear.animateTo(0f, tween(140))
                     immBanner = false
                 } else {
-                    immAppear.animateTo(0f, tween(220))
+                    immAppear.animateTo(0f, tween(140))
                 }
             }
             if (immAppear.value > 0.01f) {
@@ -308,7 +301,6 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                             scaleY = s
                             translationY = (1f - immAppear.value) * 14.dp.toPx()
                         }
-                        .shadow(20.dp, RoundedCornerShape(29.dp))
                         .clip(RoundedCornerShape(29.dp))
                         .background(c.navSoft)
                         .border(1.dp, c.stroke, RoundedCornerShape(29.dp)),
@@ -519,7 +511,6 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                 Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.26f * scrim))
-                    .blur(20.dp)
                     .clickable { vm.closeOverlay() }
             )
         }
@@ -551,7 +542,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             val targetBottomRadius = if (open) 0.dp else 29.dp
 
             val morphSpec = tween<Dp>(
-                if (reduceMotion) 0 else 420,
+                if (reduceMotion) 0 else if (open) 420 else 300,
                 easing = morphEasing,
             )
             val w by animateDpAsState(targetW, morphSpec, label = "sheetW")
@@ -614,7 +605,10 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             overlay == Overlay.Search || overlay == Overlay.Tabs) && !immersive &&
             vm.pendingDownload == null && !popupPill && !vm.findOpen &&
             !(overlay == Overlay.None && vm.toastMessage != null)
-        if (pillVisible) {
+        // The pill fades in only once the keyboard is actually up in search
+        // mode; otherwise it would detach from the capsule position while IME slides in.
+        val keyboardShown = overlay != Overlay.Search || imeDp >= 100.dp
+        if (pillVisible && keyboardShown) {
             val searchMode = overlay == Overlay.Search
             val sheetH = screenH * 0.47f
             NavPill(
@@ -708,10 +702,8 @@ private fun BoxScope.ToastHost(vm: BrowserViewModel, raised: Boolean) {
     }
     AnimatedVisibility(
         visible = message != null,
-        enter = fadeIn(tween(if (reduceMotion) 0 else 160)) +
-            scaleIn(tween(if (reduceMotion) 0 else 260, easing = morphEasing), initialScale = 0.96f) +
-            slideInVertically(tween(if (reduceMotion) 0 else 260, easing = morphEasing)) { it / 6 },
-        exit = fadeOut(tween(if (reduceMotion) 0 else 160)),
+        enter = popupEnter(reduceMotion),
+        exit = popupExit(reduceMotion),
         modifier = Modifier.align(Alignment.BottomCenter),
     ) {
         Box(
@@ -719,7 +711,6 @@ private fun BoxScope.ToastHost(vm: BrowserViewModel, raised: Boolean) {
                 .padding(bottom = if (raised) 92.dp else 18.dp)
                 .fillMaxWidth(0.7f)
                 .height(58.dp)
-                .shadow(20.dp, RoundedCornerShape(29.dp))
                 .clip(RoundedCornerShape(29.dp))
                 .background(c.navSurface)
                 .border(1.dp, c.stroke, RoundedCornerShape(29.dp)),
@@ -779,9 +770,8 @@ private fun DownloadChip(
 
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(200)) +
-            scaleIn(tween(340, easing = morphEasing), initialScale = 0.78f),
-        exit = fadeOut(tween(150)) + scaleOut(tween(170), targetScale = 0.78f),
+        enter = popupEnter(false),
+        exit = popupExit(false),
         modifier = modifier,
     ) {
         Box(
@@ -908,8 +898,8 @@ private fun ExtensionChip(
     val c = LocalArc.current
     AnimatedVisibility(
         visible = visible,
-        enter = fadeIn(tween(180)) + scaleIn(tween(300, easing = morphEasing), initialScale = 0.78f),
-        exit = fadeOut(tween(140)) + scaleOut(tween(150), targetScale = 0.78f),
+        enter = popupEnter(false),
+        exit = popupExit(false),
         modifier = modifier,
     ) {
         Box(
@@ -1037,10 +1027,10 @@ private fun BoxScope.NavNoticeHost(vm: BrowserViewModel) {
     val appear = remember { Animatable(0f) }
     LaunchedEffect(notice?.at) {
         if (notice == null) {
-            appear.animateTo(0f, tween(220))
+            appear.animateTo(0f, tween(140))
         } else {
             appear.snapTo(0f)
-            appear.animateTo(1f, tween(320, easing = morphEasing))
+            appear.animateTo(1f, tween(260, easing = morphEasing))
         }
     }
     if (notice == null && appear.value <= 0.01f) return
@@ -1058,7 +1048,6 @@ private fun BoxScope.NavNoticeHost(vm: BrowserViewModel) {
                 scaleY = s
                 translationY = (1f - appear.value) * 14.dp.toPx()
             }
-            .shadow(20.dp, RoundedCornerShape(29.dp))
             .clip(RoundedCornerShape(29.dp))
             .background(c.navSoft)
             .border(1.dp, c.stroke, RoundedCornerShape(29.dp)),
@@ -1591,10 +1580,8 @@ private fun BoxScope.DownloadPromptHost(vm: BrowserViewModel) {
     }
     AnimatedVisibility(
         visible = current != null,
-        enter = fadeIn(tween(if (reduceMotion) 0 else 160)) +
-            scaleIn(tween(if (reduceMotion) 0 else 260, easing = morphEasing), initialScale = 0.96f) +
-            slideInVertically(tween(if (reduceMotion) 0 else 260, easing = morphEasing)) { it / 6 },
-        exit = fadeOut(tween(if (reduceMotion) 0 else 130)),
+        enter = popupEnter(reduceMotion),
+        exit = popupExit(reduceMotion),
         modifier = Modifier.fillMaxSize(),
     ) {
         Box(
@@ -1615,7 +1602,6 @@ private fun BoxScope.DownloadPromptHost(vm: BrowserViewModel) {
                         .padding(bottom = 18.dp)
                         .fillMaxWidth(0.7f)
                         .height(58.dp)
-                        .shadow(20.dp, RoundedCornerShape(29.dp))
                         .clip(RoundedCornerShape(29.dp))
                         .background(c.navSurface)
                         .border(1.dp, c.stroke, RoundedCornerShape(29.dp))
@@ -1684,10 +1670,8 @@ private fun BoxScope.PopupBlockedHost(vm: BrowserViewModel) {
     AnimatedVisibility(
         visible = notice != null && vm.overlay == Overlay.None && !vm.fullscreen &&
             !vm.findOpen,
-        enter = fadeIn(tween(if (reduceMotion) 0 else 160)) +
-            scaleIn(tween(if (reduceMotion) 0 else 260, easing = morphEasing), initialScale = 0.96f) +
-            slideInVertically(tween(if (reduceMotion) 0 else 260, easing = morphEasing)) { it / 6 },
-        exit = fadeOut(tween(if (reduceMotion) 0 else 130)),
+        enter = popupEnter(reduceMotion),
+        exit = popupExit(reduceMotion),
         modifier = Modifier.fillMaxSize(),
     ) {
         Box(Modifier.fillMaxSize()) {
@@ -1701,7 +1685,6 @@ private fun BoxScope.PopupBlockedHost(vm: BrowserViewModel) {
                         .padding(bottom = 18.dp)
                         .fillMaxWidth(0.7f)
                         .height(58.dp)
-                        .shadow(20.dp, RoundedCornerShape(29.dp))
                         .clip(RoundedCornerShape(29.dp))
                         .background(c.navSurface)
                         .border(1.dp, c.stroke, RoundedCornerShape(29.dp))
@@ -1781,10 +1764,8 @@ private fun BoxScope.FindBarHost(vm: BrowserViewModel) {
     val open = vm.findOpen
     AnimatedVisibility(
         visible = open && vm.overlay == Overlay.None,
-        enter = fadeIn(tween(if (reduceMotion) 0 else 150)) +
-            scaleIn(tween(if (reduceMotion) 0 else 240, easing = morphEasing), initialScale = 0.96f) +
-            slideInVertically(tween(if (reduceMotion) 0 else 240, easing = morphEasing)) { it / 6 },
-        exit = fadeOut(tween(if (reduceMotion) 0 else 120)),
+        enter = popupEnter(reduceMotion),
+        exit = popupExit(reduceMotion),
         modifier = Modifier.fillMaxSize(),
     ) {
         Box(Modifier.fillMaxSize()) {
@@ -1805,7 +1786,6 @@ private fun BoxScope.FindBarHost(vm: BrowserViewModel) {
                     .fillMaxWidth(0.88f)
                     .widthIn(max = 430.dp)
                     .height(54.dp)
-                    .shadow(20.dp, RoundedCornerShape(27.dp))
                     .clip(RoundedCornerShape(27.dp))
                     .background(c.navSurface)
                     .border(1.dp, c.stroke, RoundedCornerShape(27.dp))

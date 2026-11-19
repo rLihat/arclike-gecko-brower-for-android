@@ -2,8 +2,13 @@ package com.example.geckobrowser.ui
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
@@ -68,6 +73,17 @@ import java.net.HttpURLConnection
 import java.net.URL
 import kotlin.math.abs
 import kotlin.math.max
+
+/** One easing curve for every open/close animation in the app. */
+internal val morphEasing = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)
+
+/** The one enter animation for every popup/banner/pill notification in the app. */
+internal fun popupEnter(reduceMotion: Boolean) = fadeIn(tween(if (reduceMotion) 0 else 160)) +
+    scaleIn(tween(if (reduceMotion) 0 else 260, easing = morphEasing), initialScale = 0.96f) +
+    slideInVertically(tween(if (reduceMotion) 0 else 260, easing = morphEasing)) { it / 6 }
+
+/** The one exit animation for every popup/banner/pill notification in the app. */
+internal fun popupExit(reduceMotion: Boolean) = fadeOut(tween(if (reduceMotion) 0 else 140))
 
 /* ------------------------------------------------------------------ icons */
 
