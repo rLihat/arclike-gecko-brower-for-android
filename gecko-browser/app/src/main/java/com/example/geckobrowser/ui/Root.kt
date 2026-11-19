@@ -605,10 +605,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             overlay == Overlay.Search || overlay == Overlay.Tabs) && !immersive &&
             vm.pendingDownload == null && !popupPill && !vm.findOpen &&
             !(overlay == Overlay.None && vm.toastMessage != null)
-        // The pill fades in only once the keyboard is actually up in search
-        // mode; otherwise it would detach from the capsule position while IME slides in.
-        val keyboardShown = overlay != Overlay.Search || imeDp >= 100.dp
-        if (pillVisible && keyboardShown) {
+        if (pillVisible) {
             val searchMode = overlay == Overlay.Search
             val sheetH = screenH * 0.47f
             NavPill(
@@ -616,8 +613,8 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                 screenW = screenW,
                 menuMode = overlay == Overlay.Menu,
                 searchMode = searchMode,
-                searchBottom = sheetLift + sheetH - 80.dp,
-                searchX = screenW / 2 - 38.dp,
+                searchBottom = sheetLift + sheetH - 61.dp,
+                searchX = screenW / 2 - 47.dp,
                 visible = true,
             )
         }

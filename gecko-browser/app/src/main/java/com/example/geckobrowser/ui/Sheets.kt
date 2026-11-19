@@ -444,15 +444,7 @@ private fun PinnedRow(vm: BrowserViewModel) {
     Box(
         Modifier
             .fillMaxWidth()
-            .then(
-                if (unpinMode != null) {
-                    Modifier
-                        .height(140.dp)
-                        .clickable { unpinMode = null }
-                } else {
-                    Modifier.height(140.dp)
-                },
-            ),
+            .then(if (unpinMode != null) Modifier.clickable { unpinMode = null } else Modifier),
     ) {
         LazyRow(
             state = listState,
