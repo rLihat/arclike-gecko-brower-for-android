@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>horiZen v4 - mist-cyan, dark-only</title>
+<style>
+  :root {
+    --page-bg: #e6e9ec;
+    --bg1: #10151b; --bg2: #171d24; --bg3: #1e2630; --bg4: #232c36;
+    --surface: #0d1117;
+    --canvas: #06090d;
+    --chip: rgba(255,255,255,.05);
+    --chip-strong: rgba(255,255,255,.09);
+    --stroke: rgba(255,255,255,.09);
+    --hairline: rgba(255,255,255,.07);
+    --text: #edf2f5;
+    --muted: rgba(237,242,245,.52);
+    --accent: #7de0ef;          /* mist-cyan */
+    --accent-soft: rgba(125,224,239,.14);
+    --accent-ink: #062227;
+    --danger: #e5484d;
+    --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; }
+  body {
+    background: linear-gradient(140deg, #dfe5ea 0%, #c8d0d7 100%);
+    display: flex; gap: 34px; padding: 26px 30px;
+    font-family: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    color:#101418;
+  }
+  .phone-wrap { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .hint { font-size: 11.5px; color:#3c464e; text-align:center; max-width: 390px; }
+
+  /* ============ phone shell ============ */
+  .phone {
+    position: relative; width: 390px; height: 812px; border-radius: 54px;
+    background: #05070a; border: 9px solid #0a0d12;
+    box-shadow: 0 40px 90px rgba(10,14,19,.45), inset 0 0 0 1px rgba(255,255,255,.06);
+    overflow: hidden;
+  }
+  .page {
+    position: absolute; inset: 0; background: var(--canvas); overflow: auto;
+    scrollbar-width: none;
+  }
+  .page::-webkit-scrollbar { display: none; }
+  .repo {
+    padding: 26px 18px 130px; color: var(--text);
+  }
+  .repo-head { display:flex; align-items:center; gap:10px; }
+  .repo-logo { width:42px;height:42px;border-radius:12px;background:#1b2733;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#58a6ff; }
+  .repo-name { font-size: 17px; font-weight: 700; }
+  .repo-vis { font-size: 10px; color: var(--muted); border: 1px solid var(--stroke); padding: 1px 6px; border-radius: 6px; margin-left:6px; vertical-align:2px; }
+  .repo-stats { display:flex; gap:14px; margin: 10px 2px 2px; font-size: 12px; color: var(--muted); }
+  .repo-stats b { color: var(--text); }
+  .repo-tabs { display:flex; gap: 2px; margin: 12px -6px 0; border-bottom: 1px solid var(--hairline); }
+  .repo-tabs span { padding: 8px 12px; font-size: 12px; color: var(--muted); border-bottom: 2px solid transparent; }
+  .repo-tabs .on { color: var(--accent); border-bottom-color: var(--accent); }
+  .file { display: flex; align-items: center; gap: 10px; padding: 12px 4px; border-bottom: 1px solid var(--hairline); font-size: 13px; color: var(--text); }
+  .file svg { color: var(--muted); }
+  .file small { margin-left: auto; color: var(--muted); font-size: 11px; }
+  .readme-card { margin-top: 20px; background: var(--bg3); border: 1px solid var(--hairline); border-radius: 18px; padding: 16px; font-size: 12px; line-height: 1.6; color: var(--muted); }
+  .readme-card b { color: var(--text); }
+
+  /* ============ pill ============ */
+  .pill {
+    position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+    z-index: 60; height: 58px; min-width: 154px; display: flex; align-items: center;
+    border-radius: 29px; padding: 0 8px; gap: 4px;
+    background: rgba(22,29,37,.72);
+    backdrop-filter: blur(16px) saturate(1.35); -webkit-backdrop-filter: blur(16px) saturate(1.35);
+    border: 1px solid rgba(255,255,255,.12);
+    box-shadow: 0 12px 34px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.08);
+    transition: width .42s var(--ease), min-width .42s var(--ease);
+  }
+  .pill-btn { position: relative; width: 46px; height: 46px; border-radius: 50%; border: 0; background: transparent; cursor: pointer; display:flex;align-items:center;justify-content:center; transition: background .15s; }
+  .pill-btn:active { background: rgba(255,255,255,.09); }
+  .pill-btn svg { color: var(--text); }
+  .pill-btn.active { background: var(--accent-soft); }
+  .pill-btn.active svg { color: var(--accent); }
+  #search-glyph { transition: transform .32s var(--ease); }
+  .pill-btn#pill-search.active #search-glyph { transform: rotate(45deg); }
+  #menu-glyph { transition: transform .34s var(--ease); }
+  .pill-btn#pill-menu.active #menu-glyph { transform: rotate(180deg); }
+
+  /* ============ downloads chip ============ */
+  .dl-chip { position: absolute; right: 4px; bottom: 26px; z-index: 58; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--stroke); background: var(--bg4); display:flex;align-items:center;justify-content:center; cursor: pointer; }
+  .dl-chip svg { color: var(--accent); }
+  .dl-chip .count { position: absolute; top: -4px; right: -4px; width: 18px; height: 18px; border-radius: 9px; background: var(--accent); color: var(--accent-ink); font-size: 10px; font-weight: 800; display:flex;align-items:center;justify-content:center; }
+
+  /* ============ sheets (search + menu) ============ */
+  .scrim { position:absolute; inset:0; z-index: 70; background: rgba(0,0,0,.45); opacity: 0; pointer-events:none; transition: opacity .3s var(--ease); }
+  .scrim.open { opacity: 1; pointer-events: auto; }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 71; height: 60%;
+    background: var(--bg2);
+    backdrop-filter: blur(16px) saturate(1.3); -webkit-backdrop-filter: blur(16px) saturate(1.3);
+    border-radius: 30px 30px 0 0; border-top: 1px solid rgba(255,255,255,.1);
+    transform: translateY(103%); transition: transform .42s var(--ease);
+    padding: 12px 14px 0; color: var(--text);
+    display: flex; flex-direction: column; overflow: auto; scrollbar-width: none;
+  }
+  .sheet::-webkit-scrollbar { display:none; }
+  .sheet.open { transform: translateY(0); }
+  .menu-group { padding: 2px 0 12px; }
+  .menu-title { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 10px 14px 4px; }
+  .menu-quick { display: flex; gap: 8px; padding: 4px 4px 2px; }
+  .quick-btn { flex: 1; display:flex; flex-direction:column; align-items:center; gap:4px; padding: 12px 0 8px; border-radius: 16px; background: var(--chip); border: 1px solid var(--stroke); cursor: pointer; transition: background .18s, transform .18s; }
+  .quick-btn:active { transform: scale(.95); background: var(--chip-strong); }
+  .quick-btn svg { color: var(--text); }
+  .quick-btn small { font-size: 10px; color: var(--muted); }
+  .quick-btn.danger svg { color: var(--danger); }
+  .menu-row { display: flex; align-items: center; gap: 12px; padding: 11px 10px; border-radius: 14px; cursor: pointer; transition: background .15s; }
+  .menu-row:active { background: var(--chip-strong); }
+  .menu-row-icon { width: 34px; height: 34px; border-radius: 11px; background: var(--chip); display:flex;align-items:center;justify-content:center; color: var(--text); flex:none; }
+  .menu-row-label { font-size: 13.5px; }
+  .menu-row-hint { font-size: 10.5px; color: var(--muted); }
+  .menu-row-badge { margin-left: auto; background: var(--accent-soft); color: var(--accent); font-size: 11px; font-weight: 800; border-radius: 8px; padding: 2px 8px; }
+  .menu-footer { margin-top: auto; padding: 14px 14px 26px; display:flex; align-items:center; justify-content:center; border-top: 1px solid var(--hairline); }
+  .menu-url { font-size: 11px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%; }
+
+  /* ============ search sheet internals ============ */
+  .sheet.search-sheet { height: 62%; }
+  .field { display:flex; align-items:center; gap: 10px; height: 52px; background: var(--chip); border-radius: 16px; padding: 0 4px 0 6px; }
+  .engine-badge { width: 38px; height: 38px; border-radius: 11px; background: #0f0f0f; display:flex;align-items:center;justify-content:center; font-size: 15px; cursor: pointer; border: 1px solid var(--stroke); }
+  .field input { flex: 1; background: transparent; border: 0; outline: none; color: var(--text); font-size: 16px; text-align: left; min-width: 0; }
+  .field input::placeholder { color: var(--muted); }
+  .field-x { width: 38px; height: 38px; border-radius: 11px; background: transparent; border: 0; color: var(--text); cursor: pointer; display:flex;align-items:center;justify-content:center; }
+
+  .essentials { display:flex; gap: 10px; padding: 10px 4px 2px; overflow: hidden; }
+  .essential { flex: 1; aspect-ratio: 1.55; border-radius: 16px; border: 1px solid var(--stroke); background: var(--bg4); display:flex;flex-direction:column;align-items:center;justify-content:center; gap: 6px; cursor: pointer; position: relative; transition: border-color .18s, transform .18s, opacity .18s; user-select: none; -webkit-user-select: none; }
+  .essential .favicon { width: 30px; height: 30px; border-radius: 9px; display:flex;align-items:center;justify-content:center; font-weight: 800; font-size: 14px; color:#fff; }
+  .essential small { font-size: 9px; color: var(--muted); }
+  .essential.active { border: 2px solid var(--pin, var(--accent)); background: var(--chip-strong); }
+  .essential.dragging { opacity:.6; transform: scale(1.06); border-color: var(--accent); z-index: 3; }
+  .essential.removing { opacity: 0; transform: scale(.7); }
+  .ess-x { position: absolute; top: 6px; right: 6px; width: 17px; height: 17px; border-radius: 9px; background: var(--danger); color: #fff; display:none; align-items:center;justify-content:center; font-size: 11px; font-weight: 800; pointer-events: none; }
+  .essential.armed .ess-x { display:flex; }
+  .essential.armed { border: 2px solid var(--danger); }
+
+  .suggestions { overflow: auto; flex: 1; margin: 4px -6px 0; padding: 0 6px; scrollbar-width: none; }
+  .suggestion { display:flex; gap: 12px; align-items:center; padding: 10px 6px; border-radius: 12px; cursor: pointer; }
+  .suggestion:active { background: var(--chip-strong); }
+  .suggestion-icon { width: 30px; height: 30px; border-radius: 9px; background: var(--chip); display:flex;align-items:center;justify-content:center; color: var(--muted); font-size: 12px; flex: none; }
+  .suggestion-label { font-size: 13.5px; color: var(--text); }
+  .suggestion-detail { font-size: 10.5px; color: var(--muted); }
+
+  /* ============ nav notice ============ */
+  .nav-notice { position:absolute; left: 50%; bottom: 84px; transform: translate(-50%, 12px); z-index: 61; opacity: 0; background: var(--bg3); border: 1px solid var(--stroke); border-radius: 19px; padding: 10px 16px; display:flex;gap: 10px;align-items:center; transition: all .25s var(--ease); pointer-events:none; box-shadow: 0 12px 40px rgba(0,0,0,.4); }
+  .nav-notice.show { opacity: 1; transform: translate(-50%, 0); }
+  .nav-notice-icon { width: 30px; height: 30px; border-radius: 9px; background: var(--chip-strong); display:flex;align-items:center;justify-content:center; color: var(--accent); }
+  .nav-notice-title { font-size: 12px; font-weight: 700; color: var(--text); }
+  .nav-notice-url { font-size: 10px; color: var(--muted); max-width: 180px; overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+
+  /* ============ tab switcher ============ */
+  .switcher { position:absolute; inset:0; z-index: 72; background: var(--surface); transform: translateY(100%); transition: transform .38s var(--ease); display:flex;flex-direction:column; padding: 26px 0 0; }
+  .switcher.open { transform: translateY(0); }
+  .switcher-head { padding: 0 26px; color: var(--text); font-size: 15px; font-weight: 700; }
+  .switcher-head span { color: var(--muted); font-weight: 500; }
+  .switcher-cards { display:flex; gap: 16px; overflow-x: auto; padding: 12px 26px 20px; scroll-snap-type: x mandatory; scrollbar-width: none; }
+  .switcher-cards::-webkit-scrollbar { display: none; }
+  .tab-card { flex: 0 0 240px; height: 320px; scroll-snap-align: center; border-radius: 18px; background: var(--bg3); border: 1px solid var(--stroke); overflow: hidden; cursor: pointer; }
+  .tab-card .tab-bar { display:flex; align-items:center; gap: 6px; padding: 10px 12px; background: rgba(0,0,0,.22); font-size: 12px; color: var(--muted); }
+  .tab-dot { width: 8px; height: 8px; border-radius: 50%; background: #3ddc97; }
+  .tab-body { padding: 16px 18px; font-size: 11px; line-height: 1.6; color: var(--muted); }
+
+  /* ============ toast ============ */
+  .toast { position: absolute; left: 50%; bottom: 18px; transform: translate(-50%, 10px); z-index: 65; opacity: 0; background: var(--bg3); border: 1px solid var(--stroke); border-radius: 29px; padding: 12px 20px; font-size: 12px; color: var(--text); transition: all .25s var(--ease); white-space: nowrap; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+
+  /* ============ notes panel ============ */
+  .panel { width: 420px; overflow: auto; max-height: 100%; padding-right: 6px; scrollbar-width: thin; }
+  .panel h2 { font-size: 21px; letter-spacing: -0.5px; margin-bottom: 4px; }
+  .panel p { font-size: 12px; color:#333d45; line-height: 1.6; margin-bottom: 12px; }
+  .note { background: #fbfbf9; border: 1px solid #d8dde2; border-radius: 14px; padding: 12px 14px; font-size: 11px; line-height: 1.6; margin-bottom: 10px; color:#2b343c; }
+  .note b { color:#0d1117; }
+  .chip-row { display:flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 10px; }
+  .chip { font-size: 10px; background: #eef2f5; border: 1px solid #d8dde2; border-radius: 6px; padding: 2px 7px; color:#3c4650; }
+</style>
+</head>
+<body>
+
+<div class="phone-wrap">
+  <div class="phone" id="phone">
+
+    <!-- PAGE -->
+    <div class="page" id="page">
+      <div class="repo">
+        <div class="repo-head">
+          <div class="repo-logo">G</div>
+          <div>
+            <div class="repo-name">arc-browser <span class="repo-vis">Public</span></div>
+            <div class="repo-stats"><span>★ <b>2.4k</b></span><span>forks <b>182</b></span><span><b>24</b> watching</span></div>
+          </div>
+        </div>
+        <div class="repo-tabs"><span class="on">Code</span><span>Issues 12</span><span>Pull requests 3</span><span>Actions</span></div>
+        <div id="files-list"></div>
+        <div class="readme-card"><b>README.md</b><br/><br/>An Android shell built on GeckoView: custom chrome, edge-to-edge, and a single morphing navigation pill. Accent is mist-cyan; dark-only surface.</div>
+      </div>
+    </div>
+
+    <!-- DOWNLOADS CHIP -->
+    <div class="dl-chip" id="dl-chip" title="1 download">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M4 19h16"/></svg>
+      <span class="count">1</span>
+    </div>
+
+    <!-- PILL -->
+    <div class="pill" id="pill">
+      <button class="pill-btn" id="pill-tabs" aria-label="Tabs">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 9h16"/></svg>
+      </button>
+      <button class="pill-btn" id="pill-search" aria-label="Search">
+        <svg id="search-glyph" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+      </button>
+      <button class="pill-btn" id="pill-menu" aria-label="Menu">
+        <svg id="menu-glyph" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+    </div>
+
+    <!-- NAV NOTICE -->
+    <div class="nav-notice" id="nav-notice">
+      <div class="nav-notice-icon">
+        <svg id="nav-notice-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>
+      </div>
+      <div>
+        <div class="nav-notice-title" id="nav-notice-title">Back</div>
+        <div class="nav-notice-url" id="nav-notice-url">github.com</div>
+      </div>
+    </div>
+
+    <!-- SCRIM -->
+    <div class="scrim" id="scrim"></div>
+
+    <!-- SEARCH SHEET -->
+    <div class="sheet search-sheet" id="search-sheet" role="dialog" aria-label="Search">
+      <div class="field">
+        <button class="engine-badge" id="engine-badge" title="DuckDuckGo">🦆</button>
+        <input id="search-input" placeholder="Search or enter a site" autocomplete="off" spellcheck="false" autocapitalize="none"/>
+        <button class="field-x" id="search-close" aria-label="Close search">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="essentials" id="essentials" aria-label="Pinned sites"></div>
+      <div class="suggestions" id="suggestions"></div>
+    </div>
+
+    <!-- GROUPED MENU SHEET -->
+    <div class="sheet menu-sheet" id="menu-sheet" role="dialog" aria-label="Menu">
+      <div class="menu-group">
+        <div class="menu-title">Navigate</div>
+        <div class="menu-quick">
+          <div class="quick-btn" data-act="Back"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg><small>Back</small></div>
+          <div class="quick-btn" data-act="Forward"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg><small>Forward</small></div>
+          <div class="quick-btn" data-act="Reload"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/></svg><small>Reload</small></div>
+          <div class="quick-btn" data-act="Share"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v10"/><path d="m8 8 4-4 4 4"/><path d="M5 16v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3"/></svg><small>Share</small></div>
+          <div class="quick-btn" data-act="Pin"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m6 9 6 6 6-6"/><path d="M5 20h14"/></svg><small>Pin</small></div>
+        </div>
+      </div>
+      <div class="menu-group">
+        <div class="menu-title">Tools</div>
+        <div class="menu-row" data-act="Extensions"><div class="menu-row-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="7" height="7" rx="2"/><rect x="13" y="4" width="7" height="7" rx="2"/><rect x="4" y="13" width="7" height="7" rx="2"/><rect x="13" y="13" width="7" height="7" rx="2"/></svg></div><div><div class="menu-row-label">Extensions</div><div class="menu-row-hint">Add-ons and pins</div></div><span class="menu-row-badge">3</span></div>
+        <div class="menu-row" data-act="Downloads"><div class="menu-row-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M4 19h16"/></svg></div><div><div class="menu-row-label">Downloads</div><div class="menu-row-hint">1 in progress · 4 complete</div></div></div>
+        <div class="menu-row" data-act="Find in page"><div class="menu-row-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg></div><div><div class="menu-row-label">Find in page</div><div class="menu-row-hint">Ctrl+F</div></div></div>
+        <div class="menu-row" data-act="Translate"><div class="menu-row-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10"/><path d="M9 4l2 8"/><path d="M7 9l1 2"/><path d="M3 15l4-9"/><path d="M12 15l4-9"/><path d="M10.5 12h3"/><path d="M17 8h4"/><path d="M18 10l1 5"/></svg></div><div><div class="menu-row-label">Translate</div><div class="menu-row-hint">Gecko supports EN, DE, FR, JA</div></div></div>
+      </div>
+      <div class="menu-group">
+        <div class="menu-title">System</div>
+        <div class="menu-row" data-act="History"><div class="menu-row-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div><div><div class="menu-row-label">History</div><div class="menu-row-hint">248 visits this week</div></div></div>
+        <div class="menu-row" data-act="Settings"><div class="menu-row-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg></div><div><div class="menu-row-label">Settings</div><div class="menu-row-hint">Look and feel · Search · Privacy</div></div></div>
+        <div class="menu-row" data-act="About"><div class="menu-row-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg></div><div><div class="menu-row-label">About horiZen</div><div class="menu-row-hint">What’s new</div></div></div>
+      </div>
+      <div class="menu-footer"><span class="menu-url">github.com/arc-browser</span></div>
+    </div>
+
+    <!-- TAB SWITCHER -->
+    <div class="switcher" id="switcher">
+      <div class="switcher-head">Tabs <span id="tab-count"></span></div>
+      <div class="switcher-cards" id="tab-cards"></div>
+    </div>
+
+    <!-- TOAST -->
+    <div class="toast" id="toast">Download complete</div>
+
+  </div>
+  <div class="hint">Tabs → switch · Plus → search · Chevron → grouped sheet menu · Hold a pin to unpin</div>
+</div>
+
+<div class="panel">
+  <h2>horiZen v4</h2>
+  <p>Dark-only, mist-cyan accent, normalized stroke glyph set, frosted chrome, and a grouped sheet menu instead of the radial experiment.</p>
+  <div class="chip-row"><span class="chip">dark-only</span><span class="chip">mist-cyan</span><span class="chip">backdrop-blur chrome</span><span class="chip">grouped sheet menu</span><span class="chip">24dp glyph grid</span></div>
+
+  <div class="note"><b>Chrome:</b> the pill is 58dp, radius 29, backdrop-blur(16px) over translucency (.72 alpha), hairline top stroke. Frosted look is CSS `backdrop-filter`; the app will use PixelCopy-captured blur (noted in the research).</div>
+
+  <div class="note"><b>Grouped sheet menu:</b> same flow as the search sheet, but purposeful clusters — <b>Navigate</b> (row of 5: back / forward / reload / share / pin), <b>Tools</b> (extensions w/ badge · downloads w/ count · find in page · translate) and <b>System</b> (history · settings · about). Notes area is anchored at the bottom showing the current URL, mimicking the real app’s context line.</div>
+
+  <div class="note"><b>Search + pins:</b> flat field row (engine badge · centered input · ×), essentials row in 1.55:1 favicon-dominant tiles; hold to reorder, hold to show the red × then release to unpin; live-filtered suggestions from a built-in list.</div>
+
+  <div class="note"><b>Icons:</b> one glyph grid — 24dp, 1.8–1.9 stroke, round caps/joins. Single-weight like the Zen set; filled accent reserved for active state.</div>
+
+  <div class="note"><b>Notable omissions:</b> no light theme (dark-only), no grab bar, no account avatar, no pill resize on scroll (the pill is static; nav-notice shows instead).</div>
+</div>
+
+<script>
+  /* ============ page contents ============ */
+  const FILES = [
+    ['src', 'folder'], ['app', 'folder'], ['mockup', 'folder'],
+    ['build.gradle', 'file'], ['README.md', 'file'], ['settings.gradle', 'file'], ['.github', 'folder'],
+  ];
+  const filesList = document.getElementById('files-list');
+  FILES.forEach(([label, type]) => {
+    const el = document.createElement('div');
+    el.className = 'file';
+    el.innerHTML = type === 'folder'
+      ? `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg><span>${label}/</span><small>now</small>`
+      : `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4a2 2 0 0 1 2-2h6l4 4v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2z"/><path d="M14 2v4h4"/></svg><span>${label}</span><small>2w</small>`;
+    filesList.appendChild(el);
+  });
+
+  /* ============ toast ============ */
+  let toastTimer = null;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+  }
+
+  /* ============ search sheet ============ */
+  const searchSheet = document.getElementById('search-sheet');
+  const menuSheet = document.getElementById('menu-sheet');
+  const scrim = document.getElementById('scrim');
+  const searchInput = document.getElementById('search-input');
+  const suggestions = document.getElementById('suggestions');
+  const EssentialsData = [
+    { host: 'github.com', letter: 'G', color: '#24292f', accent: '#a371f7' },
+    { host: 'youtube.com', letter: 'Y', color: '#ff0033', accent: '#ff0033' },
+    { host: 'mail.google.com', letter: 'M', color: '#d93b30', accent: '#ff6b57' },
+    { host: 'calendar.example', letter: 'C', color: '#f6a04d', accent: '#ffb454' },
+    { host: 'news.example', letter: 'N', color: '#7bc96f', accent: '#34c759' },
+    { host: 'addons.mozilla.org', letter: 'A', color: '#b8431f', accent: '#ff7a59' },
+  ];
+  const SUGGESTIONS = [
+    ['github.com', 'github.com', 'Arc browser repository'],
+    ['youtube.com', 'youtube.com', 'Watch anything'],
+    ['mail.google.com', 'mail.google.com', 'Inbox'],
+    ['calendar.example', 'calendar.example', 'Team calendar'],
+    ['news.example', 'news.example', 'Breaking stories'],
+    ['gecko engine', 'gecko engine', 'Bookmarks & ETP'],
+    ['arc browser android', 'arc browser android', 'Project'],
+    ['compose multiplatform', 'compose multiplatform', 'Docs'],
+    ['material 3 expressive', 'material 3 expressive', 'Specs'],
+    ['freebsd ports', 'freebsd ports', 'pkgsrc'],
+  ];
+  let essentialOrder = EssentialsData.map(d => d.host);
+  let holdTimer = null;
+
+  function openSearch() {
+    menuSheet.classList.remove('open');
+    searchSheet.classList.add('open');
+    scrim.classList.add('open');
+    pillSetActive('pill-search');
+    renderEssentials();
+    renderSuggestions('');
+    setTimeout(() => searchInput.focus(), 60);
+  }
+  function openMenu() {
+    searchSheet.classList.remove('open');
+    menuSheet.classList.add('open');
+    scrim.classList.add('open');
+    pillSetActive('pill-menu');
+  }
+  function closeSheets() {
+    searchSheet.classList.remove('open');
+    menuSheet.classList.remove('open');
+    scrim.classList.remove('open');
+    pillSetActive(null);
+    searchInput.blur();
+  }
+  function pillSetActive(id) {
+    ['pill-search', 'pill-menu', 'pill-tabs'].forEach(p => document.getElementById(p).classList.remove('active'));
+    if (id) document.getElementById(id).classList.add('active');
+  }
+  scrim.addEventListener('click', closeSheets);
+  document.getElementById('search-close').addEventListener('click', closeSheets);
+  searchInput.addEventListener('input', e => renderSuggestions(e.target.value.trim().toLowerCase()));
+  searchInput.addEventListener('keydown', e => { if (e.key === 'Enter' && searchInput.value.trim()) { showToast('Search: ' + searchInput.value.trim()); closeSheets(); } });
+
+  function renderEssentials() {
+    const wrap = document.getElementById('essentials');
+    wrap.innerHTML = '';
+    for (const host of essentialOrder) {
+      const d = EssentialsData.find(x => x.host === host);
+      if (!d) continue;
+      const tile = document.createElement('div');
+      tile.className = 'essential' + (d.host === 'github.com' ? ' active' : '');
+      tile.style.setProperty('--pin', d.accent || 'var(--accent)');
+      tile.dataset.host = d.host;
+      tile.innerHTML = `<span class="favicon" style="background:${d.color}">${d.letter}</span><small>${d.host.split('.')[0]}</small><span class="ess-x">✕</span>`;
+      attachEssentialHandlers(tile);
+      wrap.appendChild(tile);
+    }
+  }
+  function essentialDelete(host) {
+    essentialOrder = essentialOrder.filter(h => h !== host);
+    renderEssentials();
+    showToast('Unpinned ' + host);
+  }
+  function attachEssentialHandlers(tile) {
+    let startX = 0, lastX = 0, acc = 0, armed = false, drag = false;
+    const host = tile.dataset.host;
+    const HOLD = 400, SLOP = 12;
+    tile.addEventListener('pointerdown', e => {
+      startX = lastX = e.clientX; acc = 0; drag = false; armed = false;
+      clearTimeout(holdTimer);
+      holdTimer = setTimeout(() => { armed = true; tile.classList.add('armed'); }, HOLD);
+      tile.setPointerCapture(e.pointerId);
+    });
+    tile.addEventListener('pointermove', e => {
+      if (!armed && !drag) return;
+      const dx = e.clientX - lastX; lastX = e.clientX;
+      if (!drag) { if (Math.abs(e.clientX - startX) <= SLOP) return; drag = true; armed = false; tile.classList.remove('armed'); tile.classList.add('dragging'); }
+      acc += dx;
+      const tileW = tile.getBoundingClientRect().width;
+      const threshold = tileW * 0.33;
+      while (Math.abs(acc) >= threshold) {
+        const dir = acc > 0 ? 1 : -1;
+        const from = essentialOrder.indexOf(host);
+        const to = (from + dir) < 0 || (from + dir) >= essentialOrder.length ? from : from + dir;
+        if (to !== from) { [essentialOrder[from], essentialOrder[to]] = [essentialOrder[to], essentialOrder[from]]; renderEssentials(); }
+        acc -= Math.sign(acc) * threshold;
+      }
+    });
+    const finish = (cancelled) => {
+      clearTimeout(holdTimer);
+      tile.classList.remove('dragging');
+      if (armed && !cancelled) { essentialDelete(host); return; }
+      armed = false;
+    };
+    tile.addEventListener('pointerup', () => finish(false));
+    tile.addEventListener('pointercancel', () => finish(true));
+    tile.addEventListener('click', () => {
+      if (drag) { drag = false; return; }
+      if (tile.classList.contains('armed')) { tile.classList.remove('armed'); return; }
+      closeSheets();
+      showToast('Opening ' + host);
+    });
+  }
+  function renderSuggestions(query) {
+    suggestions.innerHTML = '';
+    const list = query ? SUGGESTIONS.filter(s => s[0].includes(query)).slice(0, 6) : SUGGESTIONS.slice(0, 6);
+    for (const [kind, label, detail] of list) {
+      const el = document.createElement('div');
+      el.className = 'suggestion';
+      el.innerHTML = `<span class="suggestion-icon">⌕</span><div><div class="suggestion-label">${label}</div><div class="suggestion-detail">${detail || ''}</div></div>`;
+      el.addEventListener('click', () => { showToast('Search: ' + label); closeSheets(); });
+      suggestions.appendChild(el);
+    }
+  }
+
+  /* ============ menu sheet ============ */
+  menuSheet.addEventListener('click', e => {
+    const act = e.target.closest('[data-act]');
+    if (!act) return;
+    showToast(act.dataset.act);
+    if (act.dataset.act !== 'Back' && act.dataset.act !== 'Forward' && act.dataset.act !== 'Reload' && act.dataset.act !== 'Pin') closeSheets();
+  });
+
+  /* ============ pill ============ */
+  const switcher = document.getElementById('switcher');
+  const tabCards = document.getElementById('tab-cards');
+  const tabCount = document.getElementById('tab-count');
+  const TABS = [
+    { host: 'github.com/arc-browser' },
+    { host: 'youtube.com' },
+    { host: 'addons.mozilla.org' },
+  ];
+  TABS.forEach((t, i) => {
+    const card = document.createElement('div');
+    card.className = 'tab-card';
+    card.innerHTML = `<div class="tab-bar"><span class="tab-dot"></span><span>${t.host}</span></div><div class="tab-body">Lazy placeholder for tab ${i + 1}. The real app renders the Gecko session here.</div>`;
+    card.addEventListener('click', () => { switcher.classList.remove('open'); pillSetActive(null); showToast('Switched to ' + t.host.split('/')[0]); });
+    tabCards.appendChild(card);
+  });
+  tabCount.textContent = TABS.length + ' open';
+
+  document.getElementById('pill-tabs').addEventListener('click', () => { switcher.classList.toggle('open'); pillSetActive('pill-tabs'); });
+  document.getElementById('pill-search').addEventListener('click', openSearch);
+  document.getElementById('pill-menu').addEventListener('click', () => menuSheet.classList.contains('open') ? closeSheets() : openMenu());
+
+  /* ============ nav notice ============ */
+  let navTimer = null;
+  function showNavNotice(forward) {
+    const notice = document.getElementById('nav-notice');
+    const icon = document.getElementById('nav-notice-icon');
+    const title = document.getElementById('nav-notice-title');
+    const url = document.getElementById('nav-notice-url');
+    title.textContent = forward ? 'Forward' : 'Back';
+    url.textContent = forward ? 'youtube.com' : 'github.com';
+    icon.innerHTML = forward ? '<path d="m9 6 6 6-6 6"/>' : '<path d="M15 6l-6 6 6 6"/>';
+    notice.classList.add('show');
+    clearTimeout(navTimer);
+    navTimer = setTimeout(() => notice.classList.remove('show'), 1150);
+  }
+  document.getElementById('pill-menu').addEventListener('dblclick', () => showNavNotice(true));
+
+  renderEssentials();
+  renderSuggestions('');
+</script>
+</body>
+</html>
