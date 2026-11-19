@@ -54,6 +54,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -61,6 +62,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -132,6 +134,20 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
         val tab = vm.activeTab
         val reduceMotion = rememberReduceMotion()
         val haptics = LocalHapticFeedback.current
+        val appContext = LocalContext.current
+        // The tab carousel sits on a blurred copy of the current page. One
+        // capture when it opens is enough; it is held through the closing morph.
+        var tabsFrost by remember { mutableStateOf<ImageBitmap?>(null) }
+        LaunchedEffect(overlay) {
+            if (overlay == Overlay.Tabs) {
+                val window = appContext.findActivity()?.window
+                val pageLive = vm.activeTab?.let { !it.isHome && it.url.isNotBlank() } == true
+                if (window != null) tabsFrost = captureFrost(window, pageLive, maxEdge = 360, radius = 6)
+            } else {
+                delay(420)
+                tabsFrost = null
+            }
+        }
 
         // Pinch-in hides the chrome; it only applies on a live page at 100%
         // zoom with nothing layered over it. Leaving that state brings it back.
@@ -270,6 +286,7 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
             if (tabsVisible) {
                 TabSwitcher(
                     vm = vm,
+                    frost = tabsFrost,
                     modifier = Modifier.graphicsLayer {
                         val progress = ((tabAnim.value - 0.14f) / 0.86f).coerceIn(0f, 1f)
                         scaleX = tabAnim.value
@@ -463,6 +480,8 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         val imeDp = with(density) { WindowInsets.ime.getBottom(this).toDp() }
         val overlay = vm.overlay
         val open = overlay in sheetOverlays
+        // Only the bottom-sheet pages move with the keyboard; full pages stay put.
+        val sheetLift = if (overlay == Overlay.Search) imeDp else 0.dp
         val fullHeight = overlay == Overlay.Settings || overlay == Overlay.SiteSettings ||
             overlay == Overlay.Account || overlay == Overlay.Downloads ||
             overlay == Overlay.Extensions || overlay == Overlay.History ||
@@ -480,7 +499,12 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         var searchAnchor by remember { mutableStateOf<Rect?>(null) }
         // The page rect under the nav pill, and the frozen copy drawn inside it.
         var pillRect by remember { mutableStateOf<Rect?>(null) }
-        var pillFrost by remember { mutableStateOf<ImageBitmap?>(null) }
+        // A state object (not a value) so 30fps updates recompose only the
+        // small frost image, never the whole overlay.
+        val pillFrost = remember { mutableStateOf<ImageBitmap?>(null) }
+        // The readback buffer is reused on every frame tick; only the tiny
+        // blurred output is replaced, so a live refresh does not churn memory.
+        val pillScratch = remember { FrostScratch() }
         // After the morph the X is drawn inside the field row itself, so it can
         // never drift from the sheet; the pill hands over at the same spot.
         var searchSettled by remember { mutableStateOf(false) }
@@ -504,7 +528,16 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             if (frost && !panelVisible) {
                 val window = context.findActivity()?.window
                 if (window != null) {
-                    backdrop = captureSheetFrost(window, pageLive)
+                    // Capture only the panel's final rect. Outside the sheet
+                    // the page must stay sharp, so no full-screen frost exists.
+                    val panelH = screenH * 0.47f
+                    val panelRect = android.graphics.Rect(
+                        0,
+                        with(density) { (screenH - panelH - sheetLift).toPx() }.toInt(),
+                        with(density) { screenW.toPx() }.toInt(),
+                        with(density) { (screenH - sheetLift).toPx() }.toInt(),
+                    )
+                    backdrop = captureFrost(window, pageLive, panelRect)
                 }
             } else if (!frost) {
                 backdrop = null
@@ -522,8 +555,6 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
         var cancelDone by remember { mutableStateOf(false) }
 
         val closing = !open && panelVisible
-        // Only the bottom-sheet pages move with the keyboard; full pages stay put.
-        val sheetLift = if (overlay == Overlay.Search) imeDp else 0.dp
         val content: @Composable () -> Unit = when (lastSheet) {
             Overlay.Search -> ({
                 SearchSheet(vm, showClose = searchSettled) { rect ->
@@ -555,20 +586,8 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             label = "scrim",
         )
         if (scrim > 0.01f) {
-            val frost = backdrop
-            if (frost != null) {
-                // Full-screen frost (iOS-style): the live page is replaced by a
-                // blurred snapshot while the sheet is up, so nothing sharp sits
-                // behind the translucent panel.
-                Image(
-                    bitmap = frost,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .alpha(scrim),
-                )
-            }
+            // Dim only. The blur belongs inside the panel; everything outside
+            // the search/menu sheet stays sharp.
             Box(
                 Modifier
                     .fillMaxSize()
@@ -635,7 +654,7 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                     .background(
                         when {
                             closing -> Color.Transparent
-                            lastSheet == Overlay.Search || lastSheet == Overlay.Menu -> c.sheetFrost
+                            lastSheet == Overlay.Search || lastSheet == Overlay.Menu -> Color.Transparent
                             lastSheet == Overlay.ExtensionMenu -> c.sheetSoft
                             lastSheet == Overlay.Downloads || lastSheet == Overlay.History ||
                                 lastSheet == Overlay.Translate || lastSheet == Overlay.Passwords ||
@@ -644,6 +663,21 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
                         }
                     ),
             ) {
+                // The frosted page lives only inside the panel's rounded clip.
+                // Its translucent tint sits above the snapshot, so the rest of
+                // the window keeps the live, sharp page.
+                if (!closing && (lastSheet == Overlay.Search || lastSheet == Overlay.Menu)) {
+                    val frozen = backdrop
+                    if (frozen != null) {
+                        Image(
+                            bitmap = frozen,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    }
+                    Box(Modifier.fillMaxSize().background(c.sheetFrost))
+                }
                 Box(
                     Modifier
                         .fillMaxSize()
@@ -667,26 +701,37 @@ private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
             overlay == Overlay.Search || overlay == Overlay.Tabs) && !immersive &&
             vm.pendingDownload == null && !popupPill && !vm.findOpen &&
             !(overlay == Overlay.None && vm.toastMessage != null)
-        // The pill frosts the page under it. A still snapshot is enough: it is
-        // refreshed a little more than once a second, only while the pill is on
-        // a real page with no sheet over it (any overlay would put the wrong
-        // pixels under the glass). Glow uses the site's own accent, so the
-        // capsule lifts off the page in that site's colour.
+        // The pill frosts the page under it in real time: a frame-paced 30fps
+        // refresh of just the capsule's rect, with a reused readback buffer and
+        // a tiny blur. Only on a live page with no sheet over it — any overlay
+        // would put the wrong pixels under the glass.
         val siteHost = BrowserViewModel.hostOf(vm.activeTab?.url.orEmpty())
         val siteAccent = (if (siteHost.isNotBlank()) faviconAccent(siteHost) else null) ?: c.accent
         LaunchedEffect(pillVisible, overlay, pageLive) {
             if (!pillVisible || overlay != Overlay.None || !pageLive) {
-                pillFrost = null
+                pillFrost.value = null
                 return@LaunchedEffect
             }
-            delay(180)
-            while (true) {
-                val rect = pillRect
-                val window = context.findActivity()?.window
-                if (rect != null && window != null) {
-                    capturePillFrost(window, rect)?.let { pillFrost = it }
+            val window = context.findActivity()?.window ?: return@LaunchedEffect
+            var lastTick = 0L
+            try {
+                while (true) {
+                    var due = false
+                    withFrameNanos { now ->
+                        if (now - lastTick >= 33_000_000L) {
+                            lastTick = now
+                            due = true
+                        }
+                    }
+                    if (due) {
+                        val rect = pillRect
+                        if (rect != null) {
+                            capturePillFrost(window, rect, pillScratch)?.let { pillFrost.value = it }
+                        }
+                    }
                 }
-                delay(800)
+            } finally {
+                pillScratch.release()
             }
         }
 
@@ -2257,6 +2302,21 @@ private fun lerpF(start: Float, end: Float, fraction: Float): Float =
 
 private enum class PillMode { Normal, Menu, Compact, Search }
 
+/** Isolated leaf so 30fps frost updates do not recompose the whole pill. */
+@Composable
+private fun PillFrostImage(frost: State<ImageBitmap?>, tint: Color) {
+    val bitmap = frost.value
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        Box(Modifier.fillMaxSize().background(tint))
+    }
+}
+
 @Composable
 private fun BoxScope.NavPill(
     vm: BrowserViewModel,
@@ -2267,7 +2327,7 @@ private fun BoxScope.NavPill(
     searchX: Dp,
     visible: Boolean,
     /** Pre-blurred page pixels under the capsule, drawn inside the glass. */
-    frost: ImageBitmap?,
+    frost: State<ImageBitmap?>?,
     /** Site accent used for the underglow bloom. */
     glow: Color?,
     /** Reports the capsule's place in the window so it can be read back. */
@@ -2344,25 +2404,6 @@ private fun BoxScope.NavPill(
             .width(w)
             .height(h)
             .alpha(alpha)
-            // Underglow: a soft bloom in the site's accent, centred on the
-            // capsule's bottom edge and spilling past it, so the bar reads as
-            // lit by the page instead of floating on a flat strip.
-            .drawBehind {
-                val tint = glow
-                if (tint != null && mode != PillMode.Search && mode != PillMode.Menu) {
-                    val radius = size.maxDimension * 0.95f
-                    val center = Offset(size.width / 2f, size.height)
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(tint.copy(alpha = 0.55f), Color.Transparent),
-                            center = center,
-                            radius = radius,
-                        ),
-                        radius = radius,
-                        center = center,
-                    )
-                }
-            }
             .onGloballyPositioned { onBounds(it.boundsInWindow()) },
     ) {
         LoadingGlow(vm.pipLoading, radius = h / 2, modifier = Modifier.fillMaxSize())
@@ -2376,15 +2417,29 @@ private fun BoxScope.NavPill(
         ) {
             // Frosted glass: the page snapshot is the capsule's fill, with a
             // tint on top so the glyphs stay legible.
-            val frozen = frost
-            if (frozen != null) {
-                Image(
-                    bitmap = frozen,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+            if (frost != null) PillFrostImage(frost, c.navFrost)
+            // Very subtle site accent, pinned to the bottom edge of the glass
+            // rather than blooming around the whole capsule.
+            val accentGlow = glow
+            if (accentGlow != null && mode != PillMode.Search && mode != PillMode.Menu) {
+                Box(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(9.dp)
+                        .drawBehind {
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        accentGlow.copy(alpha = 0.16f),
+                                    ),
+                                    startY = 0f,
+                                    endY = size.height,
+                                ),
+                            )
+                        },
                 )
-                Box(Modifier.fillMaxSize().background(c.navFrost))
             }
             Crossfade(targetState = mode, animationSpec = tween(150), label = "pillSet") { m ->
                 when (m) {

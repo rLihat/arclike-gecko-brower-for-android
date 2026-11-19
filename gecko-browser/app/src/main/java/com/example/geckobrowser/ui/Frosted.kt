@@ -39,19 +39,54 @@ internal fun Context.findActivity(): Activity? {
     return null
 }
 
+/** Reusable readback state for the live nav-pill frost. Owned by the caller. */
+internal class FrostScratch {
+    internal var surface: SurfaceView? = null
+    internal var bitmap: Bitmap? = null
+
+    internal fun release() {
+        bitmap?.recycle()
+        bitmap = null
+        surface = null
+    }
+}
+
 /**
- * Full-page frost for the search/menu sheets. Returns null when there is no
- * trustworthy frame (no page surface, PixelCopy error, timeout), so the caller
- * keeps the plain tint instead of risking a black sheet.
+ * Frost for the search/menu panel ([rect] = the panel's window rect) or for the
+ * whole tab-switcher background ([rect] = null). Returns null when there is no
+ * trustworthy frame, so the caller keeps the plain tint instead of risking a
+ * black surface. The readback is time-boxed; the blur runs after it.
  */
-internal suspend fun captureSheetFrost(window: Window, pageVisible: Boolean): ImageBitmap? {
-    // Only the readback is time-boxed; the blur runs after it so a slow device
-    // loses a frame of glass rather than dropping the frost entirely.
+internal suspend fun captureFrost(
+    window: Window,
+    pageVisible: Boolean,
+    rect: android.graphics.Rect? = null,
+    maxEdge: Int = 220,
+    radius: Int = 9,
+): ImageBitmap? {
     val frame = withTimeoutOrNull(220) {
         val surface = findPageSurface(window.decorView)
         when {
-            pageVisible && surface != null -> captureSurface(surface, null)
-            !pageVisible -> captureWindow(window)
+            pageVisible && surface != null -> {
+                val src = if (rect == null) {
+                    android.graphics.Rect(0, 0, surface.width, surface.height)
+                } else {
+                    surfaceRect(rect, surface)
+                }
+                if (src.width() > 0 && src.height() > 0 &&
+                    src.right <= surface.width && src.bottom <= surface.height
+                ) captureSurface(surface, src) else null
+            }
+            !pageVisible -> {
+                val full = captureWindow(window) ?: return@withTimeoutOrNull null
+                if (rect == null) {
+                    full
+                } else {
+                    val cropped = crop(full, rect)
+                    full.recycle()
+                    cropped
+                }
+            }
             else -> null
         }
     } ?: return null
@@ -61,45 +96,91 @@ internal suspend fun captureSheetFrost(window: Window, pageVisible: Boolean): Im
         frame.recycle()
         return null
     }
-    val out = withContext(Dispatchers.Default) { frost(frame, maxEdge = 220, radius = 9) }
+    val out = withContext(Dispatchers.Default) { frost(frame, maxEdge, radius) }
     frame.recycle()
     return out?.asImageBitmap()
 }
 
-/**
- * Snapshot of exactly the pill's rect, so the capsule can frost the page
- * underneath it. Only the small rect is read back, which keeps the periodic
- * refresh cheap.
- */
-internal suspend fun capturePillFrost(window: Window, rect: Rect): ImageBitmap? {
-    val frame = withTimeoutOrNull(160) {
-        val surface = findPageSurface(window.decorView) ?: return@withTimeoutOrNull null
-        val loc = IntArray(2)
-        surface.getLocationInWindow(loc)
-        val left = rect.left.toInt() - loc[0]
-        val top = rect.top.toInt() - loc[1]
-        val right = rect.right.toInt() - loc[0]
-        val bottom = rect.bottom.toInt() - loc[1]
-        val src = android.graphics.Rect(
-            left.coerceIn(0, surface.width),
-            top.coerceIn(0, surface.height),
-            right.coerceIn(0, surface.width),
-            bottom.coerceIn(0, surface.height),
-        )
-        // 1:1 only: if the surface cannot supply the whole capsule, skip it.
-        if (src.width() < 8 || src.height() < 8) return@withTimeoutOrNull null
-        if (src.width() != right - left || src.height() != bottom - top) {
-            return@withTimeoutOrNull null
-        }
-        captureSurface(surface, src)
-    } ?: return null
-    if (looksBlank(frame)) {
-        frame.recycle()
-        return null
+private fun surfaceRect(rect: android.graphics.Rect, surface: SurfaceView): android.graphics.Rect {
+    val loc = IntArray(2)
+    surface.getLocationInWindow(loc)
+    return android.graphics.Rect(
+        rect.left - loc[0], rect.top - loc[1], rect.right - loc[0], rect.bottom - loc[1],
+    )
+}
+
+private fun crop(source: Bitmap, rect: android.graphics.Rect): Bitmap? {
+    val left = rect.left.coerceIn(0, source.width)
+    val top = rect.top.coerceIn(0, source.height)
+    val right = rect.right.coerceIn(0, source.width)
+    val bottom = rect.bottom.coerceIn(0, source.height)
+    if (right <= left || bottom <= top) return null
+    return try {
+        Bitmap.createBitmap(source, left, top, right - left, bottom - top)
+    } catch (t: Throwable) {
+        null
     }
-    val out = withContext(Dispatchers.Default) { frost(frame, maxEdge = 150, radius = 7) }
-    frame.recycle()
+}
+
+/**
+ * Live snapshot of exactly the pill's rect. The readback buffer is owned by
+ * [scratch] and reused on every tick, so a 30fps refresh allocates only the
+ * tiny blurred output bitmap (the old one becomes garbage immediately).
+ */
+internal suspend fun capturePillFrost(
+    window: Window,
+    rect: Rect,
+    scratch: FrostScratch,
+): ImageBitmap? {
+    val frame = withTimeoutOrNull(80) {
+        val surface = scratch.surface?.takeIf { it.isShown && it.width > 0 }
+            ?: findPageSurface(window.decorView).also { scratch.surface = it }
+            ?: return@withTimeoutOrNull null
+        val winRect = android.graphics.Rect(
+            rect.left.toInt(), rect.top.toInt(), rect.right.toInt(), rect.bottom.toInt(),
+        )
+        val src = surfaceRect(winRect, surface)
+        // 1:1 only: if the surface cannot supply the whole capsule, skip it.
+        if (src.left < 0 || src.top < 0 || src.right > surface.width ||
+            src.bottom > surface.height || src.width() < 8 || src.height() < 8
+        ) return@withTimeoutOrNull null
+        val old = scratch.bitmap
+        val dest = if (old != null && !old.isRecycled &&
+            old.width == src.width() && old.height == src.height()
+        ) {
+            old
+        } else {
+            old?.recycle()
+            val created = try {
+                Bitmap.createBitmap(src.width(), src.height(), Bitmap.Config.ARGB_8888)
+            } catch (t: Throwable) {
+                return@withTimeoutOrNull null
+            }
+            scratch.bitmap = created
+            created
+        }
+        if (captureSurfaceInto(surface, src, dest)) dest else null
+    } ?: return null
+    // Reuse the buffer on blank frames too; only the blurred output is returned.
+    if (looksBlank(frame)) return null
+    val out = withContext(Dispatchers.Default) { frost(frame, maxEdge = 96, radius = 4) }
     return out?.asImageBitmap()
+}
+
+/** Like [captureSurface], but writes into a caller-owned buffer and never recycles it. */
+private suspend fun captureSurfaceInto(
+    view: SurfaceView,
+    rect: android.graphics.Rect,
+    dest: Bitmap,
+): Boolean = suspendCancellableCoroutine { cont ->
+    val handler = Handler(Looper.getMainLooper())
+    try {
+        PixelCopy.request(view, rect, dest, { result ->
+            if (cont.isActive) cont.resume(result == PixelCopy.SUCCESS)
+        }, handler)
+    } catch (t: Throwable) {
+        if (cont.isActive) cont.resume(false)
+    }
 }
 
 private fun findPageSurface(view: View): SurfaceView? {

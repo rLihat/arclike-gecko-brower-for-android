@@ -42,6 +42,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -66,7 +67,12 @@ private fun accentFor(host: String): Color = when {
 }
 
 @Composable
-fun TabSwitcher(vm: BrowserViewModel, modifier: Modifier = Modifier) {
+fun TabSwitcher(
+    vm: BrowserViewModel,
+    modifier: Modifier = Modifier,
+    /** Blurred snapshot of the live page, captured when the carousel opens. */
+    frost: ImageBitmap? = null,
+) {
     val c = LocalArc.current
     val tabs = vm.tabs
     val state = rememberLazyListState()
@@ -79,7 +85,7 @@ fun TabSwitcher(vm: BrowserViewModel, modifier: Modifier = Modifier) {
     BoxWithConstraints(
         modifier
             .fillMaxSize()
-            .background(c.switcherBg)
+            .then(if (frost == null) Modifier.background(c.switcherBg) else Modifier)
             // Empty space around the row closes the carousel; the cards
             // themselves consume their own taps and swipes.
             .clickable(
@@ -90,6 +96,17 @@ fun TabSwitcher(vm: BrowserViewModel, modifier: Modifier = Modifier) {
             // threshold keeps it out of the way of the horizontal paging.
             .swipeActions(threshold = 70.dp, onDown = { vm.closeOverlay() })
     ) {
+        if (frost != null) {
+            // Full-screen softened page under the carousel, tinted so the
+            // titles and cards stay legible on any website.
+            Image(
+                bitmap = frost,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Box(Modifier.fillMaxSize().background(c.switcherBg.copy(alpha = 0.72f)))
+        }
         val cardWidth = maxWidth * 0.88f
         LazyRow(
             state = state,
