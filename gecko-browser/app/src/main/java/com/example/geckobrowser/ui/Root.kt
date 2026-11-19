@@ -142,10 +142,13 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
         // page. One capture when they open is enough; held through the close.
         var pageFrost by remember { mutableStateOf<ImageBitmap?>(null) }
         LaunchedEffect(overlay) {
-            if (overlay == Overlay.Tabs || overlay == Overlay.Settings) {
+            val pageLive = vm.activeTab?.let { !it.isHome && it.url.isNotBlank() } == true
+            if ((overlay == Overlay.Tabs || overlay == Overlay.Settings) && pageLive) {
+                // Only a real website can be sampled. On the new-tab page the
+                // window capture would include the panel itself, so keep the
+                // solid background there.
                 val window = appContext.findActivity()?.window
-                val pageLive = vm.activeTab?.let { !it.isHome && it.url.isNotBlank() } == true
-                if (window != null) pageFrost = captureFrost(window, pageLive, maxEdge = 360, radius = 6)
+                if (window != null) pageFrost = captureFrost(window, true, maxEdge = 360, radius = 6)
             } else {
                 delay(420)
                 pageFrost = null
@@ -349,10 +352,11 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
             }
 
             if (!vm.fullscreen) {
-                // Settings sub-pages paint their own opaque settingsBg roots;
-                // make that token translucent while the frost is behind them.
+                // Sub-pages paint their own settingsBg roots; make them fully
+                // transparent while the frost is up. The single tint lives in
+                // SettingsScreen, so the page blur is not tinted twice.
                 val chromeColors = if (overlay == Overlay.Settings && pageFrost != null) {
-                    c.copy(settingsBg = c.settingsBg.copy(alpha = 0.86f))
+                    c.copy(settingsBg = Color.Transparent)
                 } else {
                     c
                 }
@@ -1088,6 +1092,8 @@ private fun ExtensionChip(
             Modifier
                 .size(46.dp)
                 .clip(CircleShape)
+                .background(c.navSoft)
+                .then(rememberGlass(c.navSoft, fps = 15, maxEdge = 96, radius = 4))
                 .clickable { onClick() },
             contentAlignment = Alignment.Center,
         ) {
@@ -1161,6 +1167,7 @@ private fun BoxScope.DownloadCancelPreview(
                     }
                     .clip(CircleShape)
                     .background(if (armed) red.copy(alpha = 0.14f) else c.navSoft)
+                    .then(rememberGlass(c.navSoft, fps = 15, maxEdge = 96, radius = 4))
                     .border(
                         1.dp,
                         if (armed) red.copy(alpha = 0.5f) else c.stroke,
@@ -1232,6 +1239,7 @@ private fun BoxScope.NavNoticeHost(vm: BrowserViewModel) {
             }
             .clip(RoundedCornerShape(29.dp))
             .background(c.navSoft)
+            .then(rememberGlass(c.navSoft, fps = 15, maxEdge = 120, radius = 4))
             .border(1.dp, c.stroke, RoundedCornerShape(29.dp)),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -1974,7 +1982,7 @@ private fun BoxScope.FindBarHost(vm: BrowserViewModel) {
                     .height(54.dp)
                     .clip(RoundedCornerShape(27.dp))
                     .background(c.navSurface)
-                    .then(rememberGlass(c.navSurface))
+                    .then(rememberGlass(c.navSurface, fps = 20, maxEdge = 170, radius = 6))
                     .border(1.dp, c.stroke, RoundedCornerShape(27.dp))
                     .padding(start = 13.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,

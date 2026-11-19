@@ -70,7 +70,7 @@ fun SettingsScreen(
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
-            Box(Modifier.fillMaxSize().background(c.settingsBg.copy(alpha = 0.86f)))
+            Box(Modifier.fillMaxSize().background(c.surface.copy(alpha = 0.74f)))
         }
         Column(
             Modifier
