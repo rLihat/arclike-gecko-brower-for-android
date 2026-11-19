@@ -35,6 +35,8 @@ data class SettingsSnapshot(
     val openLinksMode: String = "on",
     /** Subfolder inside the Downloads collection; "" = the Download root. */
     val downloadSubfolder: String = "",
+    /** Short haptic acknowledgements for gestures/actions. */
+    val haptics: Boolean = true,
 )
 
 private val Context.settingsStore: DataStore<Preferences> by preferencesDataStore(name = "arc_settings")
@@ -95,6 +97,7 @@ class AppSettings(context: Context) {
             appearance = p[KEY_APPEARANCE] ?: if (p[KEY_DARK] == true) "dark" else "system",
             openLinksMode = p[KEY_OPEN_LINKS_MODE] ?: "on",
             downloadSubfolder = sanitizeDownloadSubfolder(p[KEY_DOWNLOAD_SUBFOLDER].orEmpty()),
+            haptics = p[KEY_HAPTICS] ?: true,
         )
     }
 
@@ -142,6 +145,8 @@ class AppSettings(context: Context) {
 
     suspend fun setDownloadSubfolder(value: String) =
         store.edit { it[KEY_DOWNLOAD_SUBFOLDER] = sanitizeDownloadSubfolder(value) }
+
+    suspend fun setHaptics(value: Boolean) = store.edit { it[KEY_HAPTICS] = value }
     suspend fun setCookieBanner(enabled: Boolean) =
         store.edit { it[KEY_COOKIE_BANNER] = enabled }
 
@@ -165,6 +170,7 @@ class AppSettings(context: Context) {
     private val KEY_APPEARANCE = stringPreferencesKey("appearance")
     private val KEY_OPEN_LINKS_MODE = stringPreferencesKey("open_links_mode")
     private val KEY_DOWNLOAD_SUBFOLDER = stringPreferencesKey("download_subfolder")
+    private val KEY_HAPTICS = booleanPreferencesKey("haptics")
         private const val ZOOM_PREFIX = "zoom|"
         private const val PERM_PREFIX = "perm|"
         private const val DESKTOP_PREFIX = "desktop|"

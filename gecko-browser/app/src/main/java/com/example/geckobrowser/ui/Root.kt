@@ -198,6 +198,7 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
             }
             LaunchedEffect(tabSwitch) {
                 if (tabSwitch == null) return@LaunchedEffect
+                if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                 pageSlide.animateTo(0f, tween(if (reduceMotion) 0 else 320, easing = morphEasing))
                 vm.consumeTabSwitch()
             }
@@ -447,6 +448,12 @@ private val sheetOverlays = setOf(
 @Composable
 private fun ChromeOverlay(vm: BrowserViewModel, immersive: Boolean) {
     val c = LocalArc.current
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(vm.downloadsDonePulse) {
+        if (vm.downloadsDonePulse > 0 && vm.hapticFeedback) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val screenW = maxWidth
         val screenH = maxHeight
@@ -761,6 +768,8 @@ private fun DownloadChip(
     // 0..1 upward drag. Local state keeps every pointer sample, then mirrors the
     // value up so the trash confirm can float above the chip.
     var drag by remember { mutableFloatStateOf(0f) }
+    var cancelBucket by remember { mutableIntStateOf(0) }
+    val haptics = LocalHapticFeedback.current
     val label = when {
         active.isNotEmpty() -> "${active.size} download${if (active.size == 1) "" else "s"} in progress"
         vm.downloads.isNotEmpty() -> "${vm.downloads.size} download${if (vm.downloads.size == 1) "" else "s"}"
@@ -790,6 +799,11 @@ private fun DownloadChip(
                         onVerticalDrag = { change, amount ->
                             change.consume()
                             drag = (drag - amount / travel).coerceIn(0f, 1f)
+                            val bucket = (drag * 4f).toInt().coerceIn(0, 4)
+                            if (bucket > cancelBucket && vm.hapticFeedback) {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                            cancelBucket = bucket
                             onCancelProgress(drag)
                         },
                         onDragEnd = {
@@ -798,10 +812,12 @@ private fun DownloadChip(
                                 onCanceled()
                             }
                             drag = 0f
+                            cancelBucket = 0
                             onCancelProgress(0f)
                         },
                         onDragCancel = {
                             drag = 0f
+                            cancelBucket = 0
                             onCancelProgress(0f)
                         },
                     )
@@ -1564,10 +1580,14 @@ private fun ExtensionPopupSheet(vm: BrowserViewModel) {
 private fun BoxScope.DownloadPromptHost(vm: BrowserViewModel) {
     val c = LocalArc.current
     val reduceMotion = rememberReduceMotion()
+    val haptics = LocalHapticFeedback.current
     val current = vm.pendingDownload
     var last by remember { mutableStateOf<PendingDownload?>(null) }
     // Keep the last pending file so the popup has content while it animates out.
     if (current != null) last = current
+    LaunchedEffect(current?.id) {
+        if (current != null && vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
     AnimatedVisibility(
         visible = current != null,
         enter = fadeIn(tween(if (reduceMotion) 0 else 160)) +
@@ -1875,7 +1895,7 @@ private fun BoxScope.SelectionHost(vm: BrowserViewModel, screenW: Dp, screenH: D
     val state = vm.selectionState ?: return
     if (vm.overlay != Overlay.None || vm.fullscreen) return
     LaunchedEffect(state) {
-        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
     }
     val width = 216.dp
     val maxX = (screenW - width - 8.dp).coerceAtLeast(8.dp)
@@ -1945,7 +1965,7 @@ private fun BoxScope.ContextMenuHost(vm: BrowserViewModel, screenW: Dp, screenH:
     // A long-press should feel like one: the sheet and the buzz land together.
     val haptics = LocalHapticFeedback.current
     LaunchedEffect(ctx) {
-        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
     }
     val actions = contextActions(vm, ctx)
     if (actions.isEmpty()) return
@@ -2288,8 +2308,8 @@ private fun BoxScope.NavPill(
                             onClick = { vm.toggleMenu() },
                             onSwipeUp = { vm.openMenu() },
                             onSwipeDown = { vm.closeOverlay() },
-                            onSwipeLeft = { vm.navGesture(forward = false) },
-                            onSwipeRight = { vm.navGesture(forward = true) },
+                            onSwipeLeft = { vm.navGesture(forward = false); if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
+                            onSwipeRight = { vm.navGesture(forward = true); if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
                             strictHorizontal = true,
                         ) {
                             Glyph(Ico.chevronUp, c.text, size = 24.dp,
@@ -2329,8 +2349,8 @@ private fun BoxScope.NavPill(
                                 else vm.openMenu()
                             },
                             onSwipeDown = { vm.closeOverlay() },
-                            onSwipeLeft = { vm.switchTab(1) },
-                            onSwipeRight = { vm.switchTab(-1) },
+                            onSwipeLeft = { if (vm.tabs.size > 1) { vm.switchTab(1); if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress) } },
+                            onSwipeRight = { if (vm.tabs.size > 1) { vm.switchTab(-1); if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress) } },
                         ) {
                             if (vm.pipLoading) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
@@ -2353,8 +2373,8 @@ private fun BoxScope.NavPill(
                             onClick = { vm.toggleMenu() },
                             onSwipeUp = { vm.openMenu() },
                             onSwipeDown = { vm.closeOverlay() },
-                            onSwipeLeft = { vm.navGesture(forward = false) },
-                            onSwipeRight = { vm.navGesture(forward = true) },
+                            onSwipeLeft = { vm.navGesture(forward = false); if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
+                            onSwipeRight = { vm.navGesture(forward = true); if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
                             strictHorizontal = true,
                         ) {
                             Glyph(Ico.chevronUp, c.text, size = 24.dp, strokeWidth = 2.2f)

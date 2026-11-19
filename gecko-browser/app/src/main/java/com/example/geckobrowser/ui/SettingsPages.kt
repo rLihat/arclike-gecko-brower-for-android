@@ -82,6 +82,7 @@ private val settingsEntries = listOf(
     SettingsEntry("Accent color", "Personalize the browser accent", "look", "grid"),
     SettingsEntry("Text size", "Adjust page and UI text scale", "look", "textSize"),
     SettingsEntry("Language", "App and content language", "look", "globe"),
+    SettingsEntry("Haptic feedback", "Short acknowledgements for gestures and actions", "look", "grid"),
     SettingsEntry("Search provider", "Default engine for typed queries", "search", "find"),
     SettingsEntry("Search suggestions", "Live suggestions as you type", "search", "find"),
     SettingsEntry("Open links in apps", "Hand app links off to installed apps", "search", "open"),
@@ -349,6 +350,17 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
             .padding(bottom = 40.dp),
     ) {
         Spacer(Modifier.height(6.dp))
+        SectionLabel("Touch and motion")
+        SettingsGroup {
+            SettingsRow(
+                "Haptic feedback",
+                icon = { Glyph(Ico.grid, c.text, size = 21.dp, strokeWidth = 1.9f) },
+                trailing = {
+                    ArcSwitch(vm.hapticFeedback) { vm.toggleHapticFeedback() }
+                },
+                onClick = { vm.toggleHapticFeedback() },
+            )
+        }
         SectionLabel("Appearance")
         SettingsGroup {
             SettingsRow(

@@ -14,7 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Arrangement
@@ -58,6 +58,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -424,6 +426,7 @@ private fun PinnedRow(vm: BrowserViewModel) {
     val tileWidth = ((config.screenWidthDp - 32 - 20).dp / 3f)
     val density = androidx.compose.ui.platform.LocalDensity.current
     val tileWidthPx = with(density) { tileWidth.toPx() }
+    val haptics = LocalHapticFeedback.current
     // Drag-to-reorder state (drag a tile left/right past a third of its width).
     var dragOrigin by remember { mutableStateOf<String?>(null) }
     var accumulatedDragPx by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
@@ -468,16 +471,18 @@ private fun PinnedRow(vm: BrowserViewModel) {
                                 }
                                 vm.openPin(pin)
                             },
-                            onLongClick = { unpinMode = origin },
+                            onLongClick = { unpinMode = origin; if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress) },
                         )
                         .pointerInput(pin.origin) {
-                            detectHorizontalDragGestures(
+                            detectDragGesturesAfterLongPress(
                                 onDragStart = { _ ->
+                                    if (vm.hapticFeedback) haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                                     dragOrigin = origin
                                     accumulatedDragPx = 0f
                                 },
                                 onDragEnd = {
                                     vm.persistPins()
+                                    if (vm.hapticFeedback) haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                                     dragOrigin = null
                                     accumulatedDragPx = 0f
                                 },
@@ -485,9 +490,9 @@ private fun PinnedRow(vm: BrowserViewModel) {
                                     dragOrigin = null
                                     accumulatedDragPx = 0f
                                 },
-                                onHorizontalDrag = { change, dragAmount ->
+                                onDrag = { change, dragAmount ->
                                     change.consume()
-                                    accumulatedDragPx += dragAmount
+                                    accumulatedDragPx += dragAmount.x
                                     val threshold = tileWidthPx * 0.33f
                                     if (kotlin.math.abs(accumulatedDragPx) >= threshold) {
                                         val direction = if (accumulatedDragPx > 0f) 1 else -1

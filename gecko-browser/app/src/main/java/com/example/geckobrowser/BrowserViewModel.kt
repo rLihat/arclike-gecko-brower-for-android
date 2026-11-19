@@ -341,6 +341,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     /** Non-null when a newer release is available; cleared on install/ignore. */
+    var downloadsDonePulse by mutableIntStateOf(0)
+        private set
+
+    /** Haptic acknowledgements for gestures/actions; default on. */
+    var hapticFeedback by mutableStateOf(true)
+        private set
+
     var updateInfo by mutableStateOf<UpdateInfo?>(null)
         private set
 
@@ -710,7 +717,30 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
 
     init {
-        scope.launch { DownloadCenter.items.collect { downloads = it } }
+        scope.launch {
+            var previousDownloads = emptyList<com.example.geckobrowser.DownloadItem>()
+            DownloadCenter.items.collect { list ->
+                if (previousDownloads.isNotEmpty()) {
+                    val terminal = setOf(
+                        com.example.geckobrowser.DownloadStatus.Done,
+                        com.example.geckobrowser.DownloadStatus.Failed,
+                        com.example.geckobrowser.DownloadStatus.Canceled,
+                    )
+                    val beforeById = previousDownloads.associateBy { it.id }
+                    for (item in list) {
+                        val before = beforeById[item.id] ?: continue
+                        if (before.status != item.status &&
+                            item.status in terminal &&
+                            before.status == com.example.geckobrowser.DownloadStatus.Downloading
+                        ) {
+                            downloadsDonePulse++
+                        }
+                    }
+                }
+                previousDownloads = list
+                downloads = list
+            }
+        }
         scope.launch { AppUpdater.progress.collect { p -> updateProgress = p } }
         scope.launch { bootstrap() }
     }
@@ -750,6 +780,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         appearanceMode = snapshot.appearance
         openLinksMode = snapshot.openLinksMode
         downloadSubfolder = snapshot.downloadSubfolder
+        hapticFeedback = snapshot.haptics
         accentKey = snapshot.accent
         suggestionsEnabled = snapshot.suggestions
         // DataStore is the source of truth; a store written before engines were
@@ -2610,22 +2641,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private fun recordNavigation(id: Long, url: String) {
         val history = histories.getOrPut(id) { History() }
         val current = history.urls.getOrNull(history.index)
-        when {
-            current == url -> Unit
-            history.index < 0 -> {
-                history.urls.add(url)
-                history.index = 0
-            }
-
-            history.index >= history.urls.size - 1 -> {
-                history.urls.add(url)
-                history.index = history.urls.size - 1
-            }
-
-            else -> {
-                history.urls[history.index] = url
-            }
-        }
+        if (current == url) return
+        // Navigated to a different URL than the tracked one: drop anything
+        // ahead of it and append the new entry.
+        while (history.urls.size > history.index + 1) history.urls.removeAt(history.urls.size - 1)
+        history.urls.add(url)
+        history.index = history.urls.size - 1
     }
 
     fun submit(input: String) {
@@ -2717,12 +2738,16 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun navGesture(forward: Boolean) {
         val tab = activeTab ?: return
         val history = histories.getOrPut(tab.id) { History() }
-        val target = history.urls.getOrNull(history.index + if (forward) 1 else -1)
         val canMove = if (forward) tab.canGoForward else tab.canGoBack
+        val target = history.urls.getOrNull((if (forward) history.index + 1 else history.index - 1).coerceAtLeast(0))
         if (canMove) {
-            if (forward) goForward() else goBack()
-            // Same slide as a tab swipe, but read from the direction of travel:
-            // back enters from the left, forward from the right.
+            if (forward) {
+                history.index = (history.index + 1).coerceAtMost((history.urls.size - 1).coerceAtLeast(0))
+                goForward()
+            } else {
+                history.index = (history.index - 1).coerceAtLeast(0)
+                goBack()
+            }
             tabSwitch = TabSwitch(if (forward) 1 else -1)
         }
         navNotice = NavNotice(forward = forward, url = target)
@@ -3942,6 +3967,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Set the channel for OTA updates: "beta" or "stable". */
+    /** Toggle haptic acknowledgements for gestures and actions. */
+    fun toggleHapticFeedback() {
+        val value = !hapticFeedback
+        hapticFeedback = value
+        scope.launch { withContext(Dispatchers.IO) { settingsStore.setHaptics(value) } }
+    }
+
     fun updateUpdateChannel(channel: String) {
         if (channel != "beta" && channel != "stable") return
         updateChannel = channel

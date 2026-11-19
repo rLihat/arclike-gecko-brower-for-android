@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,6 +27,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.geckobrowser.BrowserViewModel
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 
 /**
  * Banner shown under the notch/status bar when a newer rolling release is available.
@@ -36,6 +39,10 @@ fun UpdateBanner(vm: BrowserViewModel) {
     val c = LocalArc.current
     val info = vm.updateInfo ?: return
     val progress = vm.updateProgress
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(info.runNumber) {
+        if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
 
     Column(
         Modifier

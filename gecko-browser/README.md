@@ -122,6 +122,12 @@ page's thumb gets an accent outline. Pin order is recency (newest pinned first).
 - **Long-press** a pin and tap the cross to unpin it (unpin mode clears itself on the next tap).
 - Pins persist via `filesDir/pins.json` (`BrowserFiles#savePins` / `#loadPins`); no settings.
   Pinned sites survive restarts.
+- **Drag** a pin horizontally to reorder it (hold first; the drag starts after a long
+  press). Reordering persists across restarts.
+- Haptic feedback is toggled under **Look and feel > Touch and motion**
+  and fires for: long-press reorder/pin, tab swipes, drag-to-cancel-download
+  thresholds, download lifecycle events, the download confirmation prompt, the OTA
+  banner and context menus.
 
 ## Find in page
 
