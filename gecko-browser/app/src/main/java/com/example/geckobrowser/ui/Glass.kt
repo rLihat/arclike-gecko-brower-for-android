@@ -34,13 +34,18 @@ fun rememberGlass(
     radius: Int = 5,
     /** Keep the tint translucent so the blurred pixels below stay visible. */
     tintAlpha: Float = 0.55f,
+    enabled: Boolean = true,
 ): Modifier {
     val context = LocalContext.current
     val bounds = remember { mutableStateOf<Rect?>(null) }
     val frost = remember { mutableStateOf<ImageBitmap?>(null) }
     val scratch = remember { FrostScratch() }
 
-    LaunchedEffect(fps, maxEdge, radius, tintAlpha) {
+    LaunchedEffect(enabled, fps, maxEdge, radius, tintAlpha) {
+        if (!enabled) {
+            frost.value = null
+            return@LaunchedEffect
+        }
         val window = context.findActivity()?.window ?: return@LaunchedEffect
         val interval = 1_000_000_000L / fps.coerceAtLeast(1)
         var last = 0L

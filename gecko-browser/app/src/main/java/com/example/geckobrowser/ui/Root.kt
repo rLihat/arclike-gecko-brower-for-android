@@ -1031,7 +1031,15 @@ private fun DownloadChip(
                     // In the expanded menu the chip reads as one more pill icon:
                     // no bead, just the glyph (the ring still reports progress).
                     .background(if (iconOnly) Color.Transparent else c.navSoft)
-                    .then(rememberGlass(c.navSoft, fps = 15, maxEdge = 96, radius = 4))
+                    .then(
+                        rememberGlass(
+                            c.navSoft,
+                            fps = 15,
+                            maxEdge = 96,
+                            radius = 4,
+                            enabled = !iconOnly,
+                        ),
+                    )
                     .then(if (iconOnly) Modifier else Modifier.border(1.dp, c.stroke, CircleShape)),
                 contentAlignment = Alignment.Center,
             ) {
@@ -1091,9 +1099,6 @@ private fun ExtensionChip(
         Box(
             Modifier
                 .size(46.dp)
-                .clip(CircleShape)
-                .background(c.navSoft)
-                .then(rememberGlass(c.navSoft, fps = 15, maxEdge = 96, radius = 4))
                 .clickable { onClick() },
             contentAlignment = Alignment.Center,
         ) {
