@@ -919,7 +919,7 @@
     /* The menu's pinned toggle (Pin/Unpin) for the current site. */
     .action.pinned { color: var(--accent); }
     /* Essentials row: horiZen favicon tiles under the search field, three per
-       row. Hold a tile and the red x appears (release to unpin); keep holding
+       row. Hold a tile until the x replaces its favicon (release to unpin); keep holding
        and drag sideways to reorder; the site you are on is outlined in its
        favicon's dominant colour. */
     .essentials {
@@ -939,17 +939,21 @@
     }
     .essential.dragging { opacity: .6; transform: scale(1.06); border-color: var(--pin, var(--accent)); z-index: 3; box-shadow: 0 12px 28px rgba(0,0,0,.3); }
     .essential .ess-unpin {
-      position: absolute; top: 6px; right: 6px; width: 20px; height: 20px;
-      border-radius: 10px; background: #c0392b; color: #fff;
-      display: none; align-items: center; justify-content: center;
-      font-size: 12px; line-height: 1; font-weight: 700; pointer-events: none;
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -50%) scale(.55);
+      width: 38px; height: 38px; border-radius: 12px; background: #c0392b; color: #fff;
+      opacity: 0; display: flex; align-items: center; justify-content: center;
+      font-size: 21px; line-height: 1; font-weight: 700; pointer-events: none;
+      transition: opacity .18s ease, transform .24s cubic-bezier(.34, 1.4, .3, 1);
     }
     .essential.armed { border: 2px solid #c0392b; }
-    .essential.armed .ess-unpin { display: flex; }
+    .essential.armed .ess-favicon { opacity: 0; transform: scale(.55); }
+    .essential.armed .ess-unpin { opacity: 1; transform: translate(-50%, -50%) scale(1); }
     .essential .ess-favicon {
       width: 34px; height: 34px; border-radius: 10px;
       display: flex; align-items: center; justify-content: center;
       font-size: 15px; font-weight: 700; line-height: 1; color: #fff;
+      transition: opacity .18s ease, transform .24s ease;
     }
     .essential.active { border: 2px solid var(--pin, var(--accent)); background: var(--chip-strong); }
     .essential.active.armed { border: 2px solid #c0392b; }
@@ -1908,7 +1912,7 @@
       <div class="note"><b>Tabs:</b> favicon in navbar; tap for horizontal recents-style previews. <b>Search (+):</b> expands input only; queries open a DuckDuckGo results page. <b>Menu (⌃):</b> URL with copy, back/forward/refresh, share, extensions, settings + Mozilla pfp.</div>
       <div class="note"><b>Sites:</b> YouTube, GitHub, Gmail and Add-ons clones are long enough to scroll — page content runs edge-to-edge behind the pill, which glows while loading, condenses to a bare domain chip as you scroll down, and hands the icons back the moment you scroll up. A 3px scroll indicator fades in on the page edge.</div>
       <div class="note"><b>Immersive &amp; tabs:</b> pinch in on a page to hide the pill; pinch in again to bring it back (home and zoomed pages are ignored, trackpad pinch-in works too). In the carousel, swipe a card up to dismiss it (the row closes the gap) or down to focus it; horizontal drags still scroll. Page changes slide with the direction of travel, and the Debug switch for reduced motion collapses all of it.</div>
-       <div class="note"><b>Pinned sites:</b> the Essentials row sits under the search field - three equal favicon thirds per row, scrollable, order persists. The site you are on is outlined in its favicon's dominant colour. Hold a tile until the red x appears, then release to unpin it; keep holding and drag sideways to reorder instead.</div>
+       <div class="note"><b>Pinned sites:</b> the Essentials row sits under the search field - three equal favicon thirds per row, scrollable, order persists. The site you are on is outlined in its favicon's dominant colour. Hold a tile until the x replaces the favicon, then release to unpin it; keep holding and drag sideways to reorder instead.</div>
       <div class="note"><b>Popups:</b> the download question and small messages like “Canceled” or “Opening” use the pill’s own footprint, and the pill steps aside while they show. Finished downloads don’t pop anything — the live chip already says it.</div>
       <div class="note"><b>Gestures:</b> swipe ↑ from the plus or menu arrow for the menu · ↓ from the plus, search ×, menu arrow or a sheet handle dismisses what’s open · ←/→ from the plus slides between tabs · ↑ from the tab icon opens previews (↓ closes them) · ←/→ from the tab icon goes back/forward · ← from the menu arrow goes back · ↑ from the live download chip cancels it and clears the row. Back and forward flash the same pill-sized notice as immersive mode.</div>
       <div class="section-title">Debug</div>
@@ -4190,7 +4194,7 @@
       log(reducedMotion ? 'Reduced motion: every transition collapses' : 'Reduced motion off');
     }
     // ---- essentials (pinned sites) -------------------------------------------
-    // Hold a tile (~400ms) and the red x appears; release to unpin the site
+    // Hold a tile (~400ms); the x replaces the favicon. Release to unpin the site
     // there and then. Keep holding and drag sideways to reorder instead (the
     // app persists the order). A plain tap opens the site; a swipe is not a tap.
     (function wireEssentials() {
