@@ -1912,7 +1912,7 @@
       <div class="note"><b>Tabs:</b> favicon in navbar; tap for horizontal recents-style previews. <b>Search (+):</b> expands input only; queries open a DuckDuckGo results page. <b>Menu (⌃):</b> URL with copy, back/forward/refresh, share, extensions, settings + Mozilla pfp.</div>
       <div class="note"><b>Sites:</b> YouTube, GitHub, Gmail and Add-ons clones are long enough to scroll — page content runs edge-to-edge behind the pill, which glows while loading, condenses to a bare domain chip as you scroll down, and hands the icons back the moment you scroll up. A 3px scroll indicator fades in on the page edge.</div>
       <div class="note"><b>Immersive &amp; tabs:</b> pinch in on a page to hide the pill; pinch in again to bring it back (home and zoomed pages are ignored, trackpad pinch-in works too). In the carousel, swipe a card up to dismiss it (the row closes the gap) or down to focus it; horizontal drags still scroll. Page changes slide with the direction of travel, and the Debug switch for reduced motion collapses all of it.</div>
-       <div class="note"><b>Pinned sites:</b> the Essentials row sits under the search field - three equal favicon thirds per row, scrollable, order persists. The site you are on is outlined in its favicon's dominant colour. Hold a tile until the x replaces the favicon, then release to unpin it; keep holding and drag sideways to reorder instead.</div>
+       <div class="note"><b>Pinned sites:</b> the Essentials row sits under the search field - three equal favicon thirds per row, scrollable, order persists. The site you are on is outlined in its favicon's dominant colour. Hold a tile until the x replaces the favicon, then release to unpin it; keep holding and drag sideways to reorder - neighbours slide into place and the row closes the gap after an unpin.</div>
       <div class="note"><b>Popups:</b> the download question and small messages like “Canceled” or “Opening” use the pill’s own footprint, and the pill steps aside while they show. Finished downloads don’t pop anything — the live chip already says it.</div>
       <div class="note"><b>Gestures:</b> swipe ↑ from the plus or menu arrow for the menu · ↓ from the plus, search ×, menu arrow or a sheet handle dismisses what’s open · ←/→ from the plus slides between tabs · ↑ from the tab icon opens previews (↓ closes them) · ←/→ from the tab icon goes back/forward · ← from the menu arrow goes back · ↑ from the live download chip cancels it and clears the row. Back and forward flash the same pill-sized notice as immersive mode.</div>
       <div class="section-title">Debug</div>
@@ -4209,7 +4209,29 @@
       const unpinTile = (tile) => {
         tile.classList.add('removing');
         log('Pin removed: ' + tile.dataset.title);
-        setTimeout(() => tile.remove(), 180);
+        setTimeout(() => flip(() => tile.remove()), 180);
+      };
+      // FLIP: capture every tile's rect, mutate the DOM, then animate the
+      // displaced tiles from their old positions into place. Rapid swaps
+      // re-measure mid-flight, so the push stays smooth.
+      const flip = (mutate) => {
+        const tiles = [...essentials.querySelectorAll('.essential')];
+        const before = tiles.map(t => t.getBoundingClientRect());
+        mutate();
+        tiles.forEach((t, i) => {
+          if (!t.isConnected) return;
+          const after = t.getBoundingClientRect();
+          const dx = before[i].left - after.left;
+          if (Math.abs(dx) < 1) return;
+          t.style.transition = 'none';
+          t.style.transform = `translateX(${dx}px)`;
+          void t.offsetWidth;
+          requestAnimationFrame(() => {
+            t.style.transition = 'transform .3s cubic-bezier(.2,.8,.25,1)';
+            t.style.transform = '';
+            t.addEventListener('transitionend', () => { t.style.transition = ''; }, { once: true });
+          });
+        });
       };
       essentials.addEventListener('pointerdown', (e) => {
         const tile = e.target.closest('.essential');
@@ -4234,8 +4256,10 @@
           const dir = gesture.acc > 0 ? 1 : -1;
           const sibling = dir > 0 ? tile.nextElementSibling : tile.previousElementSibling;
           if (sibling && sibling.classList.contains('essential')) {
-            if (dir > 0) essentials.insertBefore(sibling, tile);
-            else essentials.insertBefore(tile, sibling);
+            flip(() => {
+              if (dir > 0) essentials.insertBefore(sibling, tile);
+              else essentials.insertBefore(tile, sibling);
+            });
           }
           gesture.acc -= Math.sign(gesture.acc) * threshold;
         }
