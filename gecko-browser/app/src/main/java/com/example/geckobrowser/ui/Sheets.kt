@@ -17,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -114,6 +115,9 @@ private data class SearchRow(
 @Composable
 fun SearchSheet(
     vm: BrowserViewModel,
+    // Once the sheet has settled the X is drawn here, in the row itself: the
+    // pill hands over to it at the same coordinates, so it can never drift.
+    showClose: Boolean = false,
     // The X pill is drawn by the chrome overlay, outside this sheet. Reporting
     // the trailing badge's bounds lets the pill land exactly in that slot (the
     // mirror of the engine badge) instead of guessing dp offsets.
@@ -253,8 +257,9 @@ fun SearchSheet(
                 }
             }
             // Mirrors the engine badge: a 34dp box pinned to the trailing edge.
-            // The X pill centres on this rect, so for the first time its
-            // position comes from the real layout instead of arithmetic.
+            // The X pill centres on this rect, so its position comes from the
+            // real layout instead of arithmetic. After the sheet settles the X
+            // itself lives here, so closing never depends on the overlay pill.
             Box(Modifier.width(44.dp), contentAlignment = Alignment.CenterEnd) {
                 Box(
                     Modifier
@@ -262,7 +267,32 @@ fun SearchSheet(
                         .onGloballyPositioned { coords ->
                             onFieldAnchor?.invoke(coords.boundsInRoot())
                         },
-                )
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AnimatedVisibility(
+                        visible = showClose,
+                        enter = fadeIn(tween(180)) +
+                            scaleIn(initialScale = 0.78f, animationSpec = tween(220)),
+                        exit = fadeOut(tween(110)) +
+                            scaleOut(targetScale = 0.88f, animationSpec = tween(140)),
+                    ) {
+                        Box(
+                            Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) { vm.closeOverlay() },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Glyph(
+                                Ico.plus, c.text, size = 22.dp, strokeWidth = 2.2f,
+                                modifier = Modifier.rotate(315f),
+                            )
+                        }
+                    }
+                }
             }
         }
 

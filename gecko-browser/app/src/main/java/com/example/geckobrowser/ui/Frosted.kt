@@ -7,7 +7,11 @@ import android.graphics.Bitmap
 import android.os.Handler
 import android.os.Looper
 import android.view.PixelCopy
+import android.view.SurfaceView
+import android.view.View
+import android.view.ViewGroup
 import android.view.Window
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.Dispatchers
@@ -19,10 +23,12 @@ import kotlin.coroutines.resume
 /* ---------------------------------------------------------------- frosting */
 
 /**
- * The page is drawn by GeckoView into its own SurfaceView, so Compose cannot
- * sample it: `Modifier.blur` would only blur the chrome on top. The only way to
- * frost real page pixels is to snapshot the composited window with PixelCopy,
- * shrink it hard, blur the small copy once, and draw that behind the sheet.
+ * GeckoView paints the page into a SurfaceView, outside the Compose layer tree,
+ * so `Modifier.blur` cannot touch it. PixelCopy can: it reads back the page
+ * surface itself, which is also why capturing the *window* looked black (the
+ * SurfaceView is composited separately). Every capture here therefore goes
+ * straight to the page surface; the window is only used for the home screen,
+ * which Compose draws on top of it.
  */
 internal fun Context.findActivity(): Activity? {
     var ctx: Context? = this
@@ -34,16 +40,110 @@ internal fun Context.findActivity(): Activity? {
 }
 
 /**
- * Snapshots [window] and returns a pre-blurred, heavily downscaled frame, or
- * null when the capture cannot be trusted (PixelCopy failure, all-black
- * SurfaceView readback, timeout). Null callers just keep the plain tint, so a
- * device that refuses the capture never sees a broken sheet.
+ * Full-page frost for the search/menu sheets. Returns null when there is no
+ * trustworthy frame (no page surface, PixelCopy error, timeout), so the caller
+ * keeps the plain tint instead of risking a black sheet.
  */
-internal suspend fun captureFrost(window: Window): ImageBitmap? = withTimeoutOrNull(180) {
-    val frame = captureWindow(window) ?: return@withTimeoutOrNull null
-    val frosted = withContext(Dispatchers.Default) { frost(frame) }
+internal suspend fun captureSheetFrost(window: Window, pageVisible: Boolean): ImageBitmap? {
+    // Only the readback is time-boxed; the blur runs after it so a slow device
+    // loses a frame of glass rather than dropping the frost entirely.
+    val frame = withTimeoutOrNull(220) {
+        val surface = findPageSurface(window.decorView)
+        when {
+            pageVisible && surface != null -> captureSurface(surface, null)
+            !pageVisible -> captureWindow(window)
+            else -> null
+        }
+    } ?: return null
+    // A flat frame is either a blank page or a failed readback; both are better
+    // served by the plain tint than by a solid rectangle.
+    if (looksBlank(frame)) {
+        frame.recycle()
+        return null
+    }
+    val out = withContext(Dispatchers.Default) { frost(frame, maxEdge = 220, radius = 9) }
     frame.recycle()
-    frosted?.asImageBitmap()
+    return out?.asImageBitmap()
+}
+
+/**
+ * Snapshot of exactly the pill's rect, so the capsule can frost the page
+ * underneath it. Only the small rect is read back, which keeps the periodic
+ * refresh cheap.
+ */
+internal suspend fun capturePillFrost(window: Window, rect: Rect): ImageBitmap? {
+    val frame = withTimeoutOrNull(160) {
+        val surface = findPageSurface(window.decorView) ?: return@withTimeoutOrNull null
+        val loc = IntArray(2)
+        surface.getLocationInWindow(loc)
+        val left = rect.left.toInt() - loc[0]
+        val top = rect.top.toInt() - loc[1]
+        val right = rect.right.toInt() - loc[0]
+        val bottom = rect.bottom.toInt() - loc[1]
+        val src = android.graphics.Rect(
+            left.coerceIn(0, surface.width),
+            top.coerceIn(0, surface.height),
+            right.coerceIn(0, surface.width),
+            bottom.coerceIn(0, surface.height),
+        )
+        // 1:1 only: if the surface cannot supply the whole capsule, skip it.
+        if (src.width() < 8 || src.height() < 8) return@withTimeoutOrNull null
+        if (src.width() != right - left || src.height() != bottom - top) {
+            return@withTimeoutOrNull null
+        }
+        captureSurface(surface, src)
+    } ?: return null
+    if (looksBlank(frame)) {
+        frame.recycle()
+        return null
+    }
+    val out = withContext(Dispatchers.Default) { frost(frame, maxEdge = 150, radius = 7) }
+    frame.recycle()
+    return out?.asImageBitmap()
+}
+
+private fun findPageSurface(view: View): SurfaceView? {
+    if (view is SurfaceView && view.isShown && view.width > 0 && view.height > 0) return view
+    if (view is ViewGroup) {
+        for (i in 0 until view.childCount) {
+            findPageSurface(view.getChildAt(i))?.let { return it }
+        }
+    }
+    return null
+}
+
+private suspend fun captureSurface(
+    view: SurfaceView,
+    srcRect: android.graphics.Rect?,
+): Bitmap? {
+    val rect = srcRect ?: android.graphics.Rect(0, 0, view.width, view.height)
+    if (rect.width() <= 0 || rect.height() <= 0) return null
+    val bitmap = try {
+        Bitmap.createBitmap(rect.width(), rect.height(), Bitmap.Config.ARGB_8888)
+    } catch (t: Throwable) {
+        return null
+    }
+    return suspendCancellableCoroutine<Bitmap?> { cont ->
+        val handler = Handler(Looper.getMainLooper())
+        try {
+            PixelCopy.request(view, rect, bitmap, { result ->
+                if (!cont.isActive) {
+                    bitmap.recycle()
+                    return@request
+                }
+                if (result == PixelCopy.SUCCESS) {
+                    cont.resume(bitmap)
+                } else {
+                    bitmap.recycle()
+                    cont.resume(null)
+                }
+            }, handler)
+        } catch (t: Throwable) {
+            bitmap.recycle()
+            cont.resume(null)
+        }
+        cont.invokeOnCancellation { bitmap.recycle() }
+    }
 }
 
 private suspend fun captureWindow(window: Window): Bitmap? {
@@ -64,7 +164,7 @@ private suspend fun captureWindow(window: Window): Bitmap? {
                     bitmap.recycle()
                     return@request
                 }
-                if (result == PixelCopy.SUCCESS) {
+                if (result == PixelCopy.SUCCESS && !looksBlank(bitmap)) {
                     cont.resume(bitmap)
                 } else {
                     bitmap.recycle()
@@ -72,7 +172,6 @@ private suspend fun captureWindow(window: Window): Bitmap? {
                 }
             }, handler)
         } catch (t: Throwable) {
-            // Unattached window / mismatched buffer / unsupported capture.
             bitmap.recycle()
             cont.resume(null)
         }
@@ -81,26 +180,28 @@ private suspend fun captureWindow(window: Window): Bitmap? {
 }
 
 /** Downscale + box-blur pass, all on a tiny bitmap so the cost stays ~10ms. */
-private fun frost(source: Bitmap): Bitmap? {
-    if (looksBlank(source)) return null
-    val scale = 340f / maxOf(source.width, source.height)
-    if (scale >= 1f) return null
+private fun frost(source: Bitmap, maxEdge: Int, radius: Int): Bitmap? {
+    val scale = maxEdge.toFloat() / maxOf(source.width, source.height)
     val w = maxOf(2, (source.width * scale).toInt())
     val h = maxOf(2, (source.height * scale).toInt())
-    val small = try {
-        Bitmap.createScaledBitmap(source, w, h, true)
-    } catch (t: Throwable) {
-        return null
-    } ?: return null
-    val pixels = IntArray(w * h)
-    small.getPixels(pixels, 0, w, 0, 0, w, h)
-    boxBlur(pixels, w, h, radius = 6, passes = 3)
+    val small = if (scale < 1f) {
+        try {
+            Bitmap.createScaledBitmap(source, w, h, true)
+        } catch (t: Throwable) {
+            return null
+        } ?: return null
+    } else {
+        source
+    }
+    val pixels = IntArray(small.width * small.height)
+    small.getPixels(pixels, 0, small.width, 0, 0, small.width, small.height)
+    boxBlur(pixels, small.width, small.height, radius, passes = 3)
     val out = try {
-        Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        Bitmap.createBitmap(small.width, small.height, Bitmap.Config.ARGB_8888)
     } catch (t: Throwable) {
         null
     } ?: return null
-    out.setPixels(pixels, 0, w, 0, 0, w, h)
+    out.setPixels(pixels, 0, small.width, 0, 0, small.width, small.height)
     if (small !== source) small.recycle()
     return out
 }
