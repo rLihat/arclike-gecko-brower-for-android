@@ -39,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -89,11 +90,27 @@ fun TabSwitcher(
     var grid by remember { mutableStateOf(false) }
     var selecting by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(emptySet<Long>()) }
+    // Focused-card resize + slide-down transition on view switches.
+    var animKey by remember { mutableIntStateOf(0) }
+    val focusAnim = remember { Animatable(0f) }
+    LaunchedEffect(animKey) {
+        if (animKey == 0) return@LaunchedEffect
+        focusAnim.snapTo(0f)
+        focusAnim.animateTo(
+            1f,
+            tween(620, easing = androidx.compose.animation.core.CubicBezierEasing(0.25f, 0.8f, 0.25f, 1f)),
+        )
+    }
     // The view switcher belongs to real pages only, never an empty tab.
     val activeEmpty = vm.activeTab?.isHome != false
 
     LaunchedEffect(vm.overlay) {
         if (vm.overlay == com.example.geckobrowser.Overlay.Tabs) state.scrollToItem(activeIndex)
+    }
+    LaunchedEffect(grid) {
+        // Returning to the carousel must bring the focused tab straight back
+        // into view, without an animated scroll jump.
+        if (!grid) state.scrollToItem(activeIndex)
     }
 
     BoxWithConstraints(
@@ -118,8 +135,19 @@ fun TabSwitcher(
 
         val cardWidth = if (grid) (maxWidth - 48.dp) / 2f else maxWidth * 0.88f
         if (grid) {
-            val normal = tabs.filter { !vm.isPrivateTab(it.id) }
-            val private = tabs.filter { vm.isPrivateTab(it.id) }
+            // Focused tab always leads; a PRIVATE separator is inserted before
+            // the first private tab that isn't the focused one.
+            val ordered = tabs.sortedByDescending { it.id == vm.activeId }
+            var labelAdded = false
+            val entries = buildList {
+                ordered.forEachIndexed { index, tab ->
+                    if (vm.isPrivateTab(tab.id) && index > 0 && !labelAdded) {
+                        add(null)
+                        labelAdded = true
+                    }
+                    add(tab)
+                }
+            }
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 modifier = Modifier.fillMaxSize().padding(top = 56.dp, bottom = 76.dp),
@@ -129,28 +157,8 @@ fun TabSwitcher(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                gridItems(normal, key = { it.id }) { tab ->
-                    TabCard(
-                        vm = vm,
-                        tab = tab, active = tab.id == vm.activeId, width = cardWidth,
-                        grid = true, selecting = selecting, selected = tab.id in selected,
-                        onSelect = {
-                            if (selecting) {
-                                selected = if (tab.id in selected) selected - tab.id else selected + tab.id
-                            } else if (tab.id == vm.activeId) vm.closeOverlay() else vm.selectTab(tab.id)
-                        },
-                        onClose = { vm.closeTab(tab.id) },
-                        onToggleSelect = {
-                            selecting = true
-                            selected = if (tab.id in selected) selected - tab.id else selected + tab.id
-                        },
-                        onSwipeStart = {
-                            vm.showClearAllPrompt()
-                        },
-                    )
-                }
-                if (private.isNotEmpty()) {
-                    item(span = { GridItemSpan(2) }) {
+                gridItems(entries, key = { it?.id ?: -1L }) { entry ->
+                    if (entry == null) {
                         Text(
                             "PRIVATE",
                             color = Color(0xFF9059FF),
@@ -159,12 +167,17 @@ fun TabSwitcher(
                             letterSpacing = 1.sp,
                             modifier = Modifier.padding(start = 4.dp, top = 8.dp),
                         )
-                    }
-                    gridItems(private, key = { it.id }) { tab ->
+                    } else {
+                        val tab = entry
                         TabCard(
                             vm = vm,
                             tab = tab, active = tab.id == vm.activeId, width = cardWidth,
                             grid = true, selecting = selecting, selected = tab.id in selected,
+                            focusProgress = if (tab.id == vm.activeId && animKey > 0) {
+                                focusAnim.value
+                            } else {
+                                1f
+                            },
                             onSelect = {
                                 if (selecting) {
                                     selected = if (tab.id in selected) selected - tab.id else selected + tab.id
@@ -175,9 +188,7 @@ fun TabSwitcher(
                                 selecting = true
                                 selected = if (tab.id in selected) selected - tab.id else selected + tab.id
                             },
-                            onSwipeStart = {
-                                vm.showClearAllPrompt()
-                            },
+                            onSwipeStart = { vm.showClearAllPrompt() },
                         )
                     }
                 }
@@ -200,6 +211,11 @@ fun TabSwitcher(
                         vm = vm,
                         tab = tab, active = tab.id == vm.activeId, width = cardWidth,
                         grid = false, selecting = selecting, selected = tab.id in selected,
+                        focusProgress = if (tab.id == vm.activeId && animKey > 0) {
+                            focusAnim.value
+                        } else {
+                            1f
+                        },
                         onSelect = {
                             if (selecting) {
                                 selected = if (tab.id in selected) selected - tab.id else selected + tab.id
@@ -227,6 +243,7 @@ fun TabSwitcher(
                     .size(46.dp)
                     .clickable {
                         grid = !grid
+                        animKey++
                         if (vm.hapticFeedback) {
                             haptics.performHapticFeedback(
                                 androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress,
@@ -276,6 +293,8 @@ private fun TabCard(
     grid: Boolean = false,
     selecting: Boolean = false,
     selected: Boolean = false,
+    /** 0..1 progress of the focused card's resize + slide-down on view change. */
+    focusProgress: Float = 1f,
     onSelect: () -> Unit,
     onClose: () -> Unit,
     onToggleSelect: () -> Unit,
@@ -295,6 +314,21 @@ private fun TabCard(
     val dismiss = remember { Animatable(0f) }
     val threshold = with(density) { 26.dp.toPx() }
     val lift = with(density) { 64.dp.toPx() }
+    // Resize + slide down: start above and small, grow through the middle,
+    // then settle exactly on the card's resting transform.
+    val fp = focusProgress.coerceIn(0f, 1f)
+    val focusScale: Float
+    val focusY: Float
+    if (fp < 0.58f) {
+        val t = (fp / 0.58f).coerceIn(0f, 1f)
+        focusScale = 0.82f + 0.26f * t
+        focusY = -44f + 32f * t
+    } else {
+        val t = ((fp - 0.58f) / 0.42f).coerceIn(0f, 1f)
+        focusScale = 1.08f - 0.08f * t
+        focusY = -12f + 12f * t
+    }
+    val focusYpx = with(density) { focusY.dp.toPx() }
 
     Column(
         Modifier
@@ -309,9 +343,12 @@ private fun TabCard(
                     onToggleSelect()
                 })
             }
-            .scale(scale)
-            .alpha(baseAlpha * (1f - dismiss.value))
-            .graphicsLayer { translationY = drag - lift * dismiss.value }
+            .graphicsLayer {
+                scaleX = scale * focusScale
+                scaleY = scale * focusScale
+                alpha = baseAlpha * (1f - dismiss.value)
+                translationY = drag - lift * dismiss.value + focusYpx
+            }
             .padding(vertical = 2.dp)
             .pointerInput(tab.id) {
                 detectVerticalDragGestures(
