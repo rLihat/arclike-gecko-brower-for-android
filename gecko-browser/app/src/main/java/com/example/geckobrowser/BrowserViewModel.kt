@@ -2696,8 +2696,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         dismissContextMenu()
         val url = toUrl(text)
         clearTemporaryEngine()
-        // Every search completes into a new tab; there is no home tab to reuse.
-        val id = addTab(url = url)
+        // Every search completes into a new tab; carry the privacy choice made
+        // in the sheet into that tab, then reset for the next search.
+        val privateSearch = pendingPrivateSearch
+        val id = addTab(url = url, privateTab = privateSearch)
+        pendingPrivateSearch = false
         closeOverlay()
         expandPill()
         syncZoomForActive()
@@ -3581,7 +3584,15 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         openNewTabSearch()
     }
 
-    val activeTabIsPrivate: Boolean get() = activeTab?.isPrivate == true
+    val activeTabIsPrivate: Boolean get() = isPrivateTab(activeId)
+
+    /** Privacy choice made in the search sheet, applied to the next search tab. */
+    var pendingPrivateSearch by mutableStateOf(false)
+        private set
+
+    fun updatePendingPrivateSearch(value: Boolean) {
+        pendingPrivateSearch = value
+    }
 
     /** Makes the current tab private (or normal again) from the search sheet. */
     fun setActiveTabPrivate(private: Boolean) {
@@ -3601,8 +3612,21 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         syncZoomForActive()
     }
 
+    /** Clear-all confirmation owned by the VM so it can float above the pill. */
+    var clearAllPrompt by mutableStateOf(false)
+        private set
+
+    fun showClearAllPrompt() {
+        if (tabs.size > 2) clearAllPrompt = true
+    }
+
+    fun dismissClearAllPrompt() {
+        clearAllPrompt = false
+    }
+
     /** Closes every open tab and returns to the empty page. */
     fun clearAllTabs() {
+        clearAllPrompt = false
         val ids = tabs.map { it.id }
         if (ids.isEmpty()) return
         ids.forEach { id ->
@@ -3790,6 +3814,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         searchText = prefill.orEmpty()
         suggestions = emptyList()
         historySuggestions = historyStore.suggest(searchText, 4)
+        pendingPrivateSearch = activeTabIsPrivate
         overlay = Overlay.Search
         compactPill = false
         requestSuggestions(searchText)

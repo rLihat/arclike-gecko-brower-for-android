@@ -89,7 +89,6 @@ fun TabSwitcher(
     var grid by remember { mutableStateOf(false) }
     var selecting by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf(emptySet<Long>()) }
-    var showClearAll by remember { mutableStateOf(false) }
     // The view switcher belongs to real pages only, never an empty tab.
     val activeEmpty = vm.activeTab?.isHome != false
 
@@ -119,8 +118,8 @@ fun TabSwitcher(
 
         val cardWidth = if (grid) (maxWidth - 48.dp) / 2f else maxWidth * 0.88f
         if (grid) {
-            val normal = tabs.filter { !it.isPrivate }
-            val private = tabs.filter { it.isPrivate }
+            val normal = tabs.filter { !vm.isPrivateTab(it.id) }
+            val private = tabs.filter { vm.isPrivateTab(it.id) }
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 modifier = Modifier.fillMaxSize().padding(top = 56.dp, bottom = 76.dp),
@@ -146,7 +145,7 @@ fun TabSwitcher(
                             selected = if (tab.id in selected) selected - tab.id else selected + tab.id
                         },
                         onSwipeStart = {
-                            if (tabs.size > 2 && !showClearAll) showClearAll = true
+                            vm.showClearAllPrompt()
                         },
                     )
                 }
@@ -177,7 +176,7 @@ fun TabSwitcher(
                                 selected = if (tab.id in selected) selected - tab.id else selected + tab.id
                             },
                             onSwipeStart = {
-                                if (tabs.size > 2 && !showClearAll) showClearAll = true
+                                vm.showClearAllPrompt()
                             },
                         )
                     }
@@ -212,7 +211,7 @@ fun TabSwitcher(
                             selected = if (tab.id in selected) selected - tab.id else selected + tab.id
                         },
                         onSwipeStart = {
-                            if (tabs.size > 2 && !showClearAll) showClearAll = true
+                            vm.showClearAllPrompt()
                         },
                     )
                 }
@@ -263,63 +262,8 @@ fun TabSwitcher(
             }
         }
 
-        // Same capsule treatment as the immersive/download banners.
-        val clearBannerAlpha by animateFloatAsState(
-            if (showClearAll) 1f else 0f,
-            tween(260),
-            label = "clearAllBanner",
-        )
-        if (clearBannerAlpha > 0.01f) {
-            Row(
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 52.dp)
-                    .fillMaxWidth(0.7f)
-                    .height(58.dp)
-                    .graphicsLayer {
-                        alpha = clearBannerAlpha
-                        val s = 0.96f + 0.04f * clearBannerAlpha
-                        scaleX = s
-                        scaleY = s
-                        translationY = (1f - clearBannerAlpha) * -14.dp.toPx()
-                    }
-                    .clip(RoundedCornerShape(29.dp))
-                    .background(c.navSoft)
-                    .border(1.dp, c.stroke, RoundedCornerShape(29.dp))
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Box(
-                    Modifier.size(26.dp).clip(RoundedCornerShape(9.dp)).background(c.chip),
-                    contentAlignment = Alignment.Center,
-                ) { Glyph(Ico.trash, c.accent, size = 15.dp, strokeWidth = 2f) }
-                Spacer(Modifier.width(9.dp))
-                Text(
-                    "Clear all tabs?",
-                    color = c.text,
-                    fontSize = 12.5.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    "Clear",
-                    color = c.accent,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clickable {
-                        vm.clearAllTabs()
-                        showClearAll = false
-                    },
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    "Dismiss",
-                    color = c.muted,
-                    fontSize = 12.sp,
-                    modifier = Modifier.clickable { showClearAll = false },
-                )
-            }
-        }
+        // The clear-all confirmation is drawn by ChromeOverlay so it floats
+        // above the nav pill, exactly like the immersive banner.
     }
 }
 
@@ -341,6 +285,7 @@ private fun TabCard(
     val density = LocalDensity.current
     val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
+    val tabPrivate = vm.isPrivateTab(tab.id)
     var longPressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (active) 1f else 0.93f, tween(220), label = "cardScale")
     val baseAlpha by animateFloatAsState(if (active) 1f else 0.68f, tween(220), label = "cardAlpha")
@@ -365,10 +310,10 @@ private fun TabCard(
                 })
             }
             .border(
-                if (selected || tab.isPrivate) 2.dp else 0.dp,
+                if (selected || tabPrivate) 2.dp else 0.dp,
                 when {
                     selected -> c.accent
-                    tab.isPrivate -> Color(0xFF9059FF)
+                    tabPrivate -> Color(0xFF9059FF)
                     else -> Color.Transparent
                 },
                 RoundedCornerShape(22.dp),
@@ -434,8 +379,8 @@ private fun TabCard(
                 .clip(RoundedCornerShape(20.dp))
                 .background(if (tab.isHome) (if (c.dark) Color.Black else c.siteBg) else Color.White)
                 .border(
-                    if (tab.isPrivate) 2.dp else 1.dp,
-                    if (tab.isPrivate) Color(0xFF9059FF) else c.hairline,
+                    if (tabPrivate) 2.dp else 1.dp,
+                    if (tabPrivate) Color(0xFF9059FF) else c.hairline,
                     RoundedCornerShape(20.dp),
                 )
                 .clickable { if (longPressed) longPressed = false else onSelect() },

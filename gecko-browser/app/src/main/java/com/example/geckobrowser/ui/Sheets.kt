@@ -270,7 +270,7 @@ fun SearchSheet(
                 ) {
                     if (showPrivate) {
                         val haptics = LocalHapticFeedback.current
-                        val private = vm.activeTabIsPrivate
+                        val private = vm.pendingPrivateSearch
                         Box(
                             Modifier
                                 .size(32.dp)
@@ -279,7 +279,7 @@ fun SearchSheet(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
                                 ) {
-                                    vm.setActiveTabPrivate(!private)
+                                    vm.updatePendingPrivateSearch(!private)
                                     if (vm.hapticFeedback) {
                                         haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     }

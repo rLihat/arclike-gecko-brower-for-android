@@ -890,6 +890,48 @@ private fun ChromeOverlay(
         ContextMenuHost(vm, screenW, screenH)
         ToastHost(vm, raised = pillVisible)
         DownloadFlightLayer(vm, screenW, screenH)
+
+        // Clear-all confirmation floats above the pill in its own footprint,
+        // exactly like the immersive banner. Owned by the VM so the tab grid
+        // can trigger it while this layer draws it on top.
+        AnimatedVisibility(
+            visible = vm.clearAllPrompt && overlay == Overlay.Tabs,
+            enter = popupEnter(rememberReduceMotion()),
+            exit = popupExit(rememberReduceMotion()),
+            modifier = Modifier.align(Alignment.BottomCenter),
+        ) {
+            Row(
+                Modifier
+                    .padding(bottom = 18.dp)
+                    .fillMaxWidth(0.7f)
+                    .height(58.dp)
+                    .clip(RoundedCornerShape(29.dp))
+                    .background(c.navSoft)
+                    .border(1.dp, c.stroke, RoundedCornerShape(29.dp))
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier.size(26.dp).clip(RoundedCornerShape(9.dp)).background(c.chip),
+                    contentAlignment = Alignment.Center,
+                ) { Glyph(Ico.trash, c.accent, size = 15.dp, strokeWidth = 2f) }
+                Spacer(Modifier.width(9.dp))
+                Text(
+                    "Clear all tabs?", color = c.text, fontSize = 12.5.sp,
+                    fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "Clear", color = c.accent, fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { vm.clearAllTabs() },
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "Dismiss", color = c.muted, fontSize = 12.sp,
+                    modifier = Modifier.clickable { vm.dismissClearAllPrompt() },
+                )
+            }
+        }
     }
 }
 
@@ -2556,7 +2598,7 @@ private fun BoxScope.NavPill(
                     ) {
                         Glyph(
                             Ico.mask,
-                            if (vm.activeTabIsPrivate) privatePurple else c.text,
+                            if (vm.pendingPrivateSearch) privatePurple else c.text,
                             size = 24.dp,
                             strokeWidth = 2.2f,
                         )

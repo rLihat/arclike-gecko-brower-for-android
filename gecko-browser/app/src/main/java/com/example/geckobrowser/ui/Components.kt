@@ -40,6 +40,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -652,14 +653,18 @@ fun PillButton(
     content: @Composable () -> Unit,
 ) {
     val c = LocalArc.current
+    // A fresh lambda is created on every recomposition; keying the detector on
+    // it restarted the gesture mid-hold, so long press never completed. Keep
+    // the key stable and read the current callback through state instead.
+    val longClickState = rememberUpdatedState(onLongClick)
     Box(
         Modifier
             .size(46.dp)
             .clip(CircleShape)
-            // Long press must be seen before swipeActions' drag detector,
-            // otherwise the drag consumes the pointer and it never fires.
-            .pointerInput(onLongClick) {
-                if (onLongClick != null) detectTapGestures(onLongPress = { onLongClick() })
+            .pointerInput(Unit) {
+                if (longClickState.value != null) {
+                    detectTapGestures(onLongPress = { longClickState.value?.invoke() })
+                }
             }
             .swipeActions(
                 onUp = onSwipeUp,
