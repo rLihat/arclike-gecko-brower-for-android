@@ -897,15 +897,15 @@
     /* Focused tab transposition: list slot -> first grid slot with a short turn
        and a grow-through. Vars are set on the card just before the class lands. */
     @keyframes focus-grid-move {
-      0%   { transform: translate(var(--fx), var(--fy)) scale(.72) rotateY(-16deg) rotateX(8deg); opacity: .5; }
-      58%  { transform: translate(var(--mx), var(--my)) scale(1.09) rotateY(0deg) rotateX(0deg); opacity: 1; }
+      0%   { transform: translate(var(--fx), var(--fy)) scale(.82) rotateY(-8deg) rotateX(4deg); opacity: .62; }
+      58%  { transform: translate(var(--mx), var(--my)) scale(1.08) rotateY(0deg) rotateX(0deg); opacity: 1; }
       100% { transform: translate(0, 0) scale(1) rotateY(0deg) rotateX(0deg); opacity: 1; }
     }
     .tab-preview.focus-move { animation: focus-grid-move .68s cubic-bezier(.25,.8,.25,1) both !important; }
     /* Reverse direction: the focused card shrinks back into its list slot. */
     @keyframes focus-grid-to-list {
       0%   { transform: translate(var(--fx), var(--fy)) scale(1) rotateY(0deg) rotateX(0deg); opacity: 1; }
-      58%  { transform: translate(var(--mx), var(--my)) scale(.86) rotateY(9deg) rotateX(4deg); opacity: .86; }
+      58%  { transform: translate(var(--mx), var(--my)) scale(.84) rotateY(6deg) rotateX(3deg); opacity: .88; }
       100% { transform: translate(0, 0) scale(1) rotateY(0deg) rotateX(0deg); opacity: 1; }
     }
     .tab-preview.list-move { animation: focus-grid-to-list .62s cubic-bezier(.25,.8,.25,1) both !important; }
@@ -3028,9 +3028,11 @@
           el.classList.add('flipping');
           if (isFocus) {
             el.style.setProperty('--fx', `${dx}px`);
-            el.style.setProperty('--fy', toCarousel ? `${dy - 26}px` : `${dy + 46}px`);
+            // Start above the destination so the card resizes and slides DOWN
+            // into its slot in both directions.
+            el.style.setProperty('--fy', `${dy - 44}px`);
             el.style.setProperty('--mx', `${dx * .42}px`);
-            el.style.setProperty('--my', toCarousel ? `${dy * .42 - 22}px` : `${dy * .42 - 14}px`);
+            el.style.setProperty('--my', `${dy * .42 - 12}px`);
             el.style.setProperty('--fs', from.scale);
             const moveClass = toCarousel ? 'list-move' : 'focus-move';
             el.classList.add(moveClass);
