@@ -38,12 +38,13 @@ import com.example.geckobrowser.ExtensionItem
 @Composable
 fun ExtensionMenuSheet(vm: BrowserViewModel) {
     val c = LocalArc.current
+    val frostOn = LocalFrost.current
     val enabled = vm.extensions.filter { it.enabled }
 
     Column(
         Modifier
             .fillMaxSize()
-            .background(c.sheetSoft)
+            .background(if (frostOn) c.sheetFrost else c.sheetSoft)
             .padding(start = 16.dp, end = 16.dp, bottom = 92.dp),
     ) {
         Box(
@@ -121,7 +122,7 @@ private fun ExtensionMenuRow(vm: BrowserViewModel, item: ExtensionItem) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(c.chip),
+            Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(c.menuCard),
             contentAlignment = Alignment.Center,
         ) {
             if (item.icon != null) {

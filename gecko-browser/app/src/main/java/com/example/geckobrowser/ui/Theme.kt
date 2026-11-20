@@ -174,7 +174,33 @@ val DarkArc = ArcColors(
     handle = Color(0x38FFFFFF),
 )
 
+/**
+ * True-black variant for OLED screens. Everything that is a plain fill goes
+ * black; the frost tints (sheetFrost/navFrost) are deliberately inherited so
+ * frosted glass still reads as glass.
+ */
+val OledArc = DarkArc.copy(
+    pageTop = Color.Black,
+    pageBottom = Color.Black,
+    surface = Color.Black,
+    surfaceStrong = Color.Black,
+    field = Color.Black,
+    navSurface = Color.Black,
+    navSoft = Color(0xCC000000),
+    sheetSoft = Color(0xE0000000),
+    sheet = Color.Black,
+    settingsBg = Color.Black,
+    switcherBg = Color.Black,
+    siteBg = Color.Black,
+    chip = Color.Black,
+    chipStrong = Color.Black,
+    menuCard = Color.Black,
+)
+
 val LocalArc = staticCompositionLocalOf { LightArc }
+
+/** Global Frosted Glass (Experimental) switch. */
+val LocalFrost = staticCompositionLocalOf { true }
 
 /**
  * Mirrors the mockup's `prefers-reduced-motion` gate: when the system animator
@@ -198,6 +224,7 @@ fun ArcTheme(
     accentKey: String = "dynamic",
     /** Live site accent, used only by the Dynamic option. */
     liveAccent: Color? = null,
+    oled: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val chosen = accentByKey(accentKey)
@@ -215,7 +242,7 @@ fun ArcTheme(
     } else {
         chosen
     }
-    val base = if (dark) DarkArc else LightArc
+    val base = if (oled) OledArc else if (dark) DarkArc else LightArc
     val colors = base.copy(
         accent = if (dark) preset.dark else preset.light,
         iconInk = if (dark) preset.inkDark else preset.inkLight,

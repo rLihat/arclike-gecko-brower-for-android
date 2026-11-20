@@ -237,27 +237,52 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     val activeOrigin: String get() = originOf(activeTab?.url.orEmpty())
 
-    val isActiveTabSitePinned: Boolean
-        get() = activeOrigin.isNotEmpty() && pins.any { it.origin == activeOrigin }
+    /**
+     * Canonical pin key: scheme + host + path + query, no fragment. Trailing
+     * slashes are normalised so the same page cannot be pinned twice, while
+     * different paths on the same host stay distinct.
+     */
+    fun pinKeyOf(url: String): String {
+        val t = url.trim()
+        if (t.isBlank()) return ""
+        return runCatching {
+            val uri = android.net.Uri.parse(t)
+            val scheme = uri.scheme?.lowercase(Locale.US) ?: return ""
+            val host = uri.host?.lowercase(Locale.US) ?: return ""
+            if (scheme != "http" && scheme != "https") return ""
+            var path = uri.path.orEmpty()
+            if (path.length > 1 && path.endsWith("/")) path = path.dropLast(1)
+            val query = uri.query.orEmpty()
+            buildString {
+                append(scheme).append("://").append(host).append(path)
+                if (query.isNotEmpty()) append('?').append(query)
+            }
+        }.getOrDefault("")
+    }
 
-    fun togglePinForActiveSite(): Boolean {
+    val activePinKey: String get() = pinKeyOf(activeTab?.url.orEmpty())
+
+    val isActiveTabPinned: Boolean
+        get() = activePinKey.isNotEmpty() && pins.any { it.key == activePinKey }
+
+    fun togglePinForActiveUrl(): Boolean {
         val url = activeTab?.url.orEmpty()
-        val origin = originOf(url)
-        if (origin.isBlank()) return false
-        val existing = pins.firstOrNull { it.origin == origin }
+        val key = pinKeyOf(url)
+        if (key.isBlank()) return false
+        val existing = pins.firstOrNull { it.key == key }
         pins = if (existing != null) {
             pins - existing
         } else {
-            val title = activeTab?.title?.ifBlank { origin } ?: origin
-            pins + listOf(PinRecord(origin, url, title))
+            val title = activeTab?.title?.ifBlank { key } ?: key
+            pins + listOf(PinRecord(key, url, title))
         }
         persistPins()
-        return pins.any { it.origin == origin }
+        return pins.any { it.key == key }
     }
 
-    fun unpin(origin: String) {
-        if (pins.none { it.origin == origin }) return
-        pins = pins.filterNot { it.origin == origin }
+    fun unpin(key: String) {
+        if (pins.none { it.key == key }) return
+        pins = pins.filterNot { it.key == key }
         persistPins()
     }
 
@@ -271,13 +296,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Switches to the pinned tab if one is already open on that origin; otherwise opens a new tab. */
+    /** Switches to the pinned tab if that URL is already open; otherwise opens a new tab. */
     fun openPin(pin: PinRecord) {
-        val origin = pin.origin
+        val key = pin.key
         val currentId = activeId
-        // Prefer the already-active tab if it's the pinned site; otherwise pick the most relevant match.
-        val target = tabs.firstOrNull { it.id == currentId && originOf(it.url) == origin }
-            ?: tabs.firstOrNull { it.id != currentId && originOf(it.url) == origin }
+        val target = tabs.firstOrNull { it.id == currentId && pinKeyOf(it.url) == key }
+            ?: tabs.firstOrNull { it.id != currentId && pinKeyOf(it.url) == key }
         if (target != null) {
             selectTab(target.id)
             return
@@ -290,7 +314,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun restorePins() {
         val loaded = BrowserFiles.loadPins(application)
-        if (loaded.isNotEmpty()) pins = loaded
+        if (loaded.isEmpty()) return
+        // Promote legacy origin pins to URL keys and drop duplicates (first wins).
+        val seen = HashSet<String>()
+        pins = loaded.mapNotNull { pin ->
+            val key = pinKeyOf(pin.url).ifBlank { pin.key }
+            if (key.isBlank() || !seen.add(key)) null else pin.copy(key = key)
+        }
     }
 
     fun persistPins() {
@@ -323,10 +353,16 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var systemDark by mutableStateOf(false)
         private set
 
-    val darkMode: Boolean get() = appearanceMode == "dark" ||
+    val oledMode: Boolean get() = appearanceMode == "oled"
+
+    val darkMode: Boolean get() = appearanceMode == "dark" || oledMode ||
         (appearanceMode == "system" && systemDark)
 
     fun updateSystemDark(dark: Boolean) { systemDark = dark }
+
+    /** Experimental app-wide frosted glass / blur switch. */
+    var frostedGlass by mutableStateOf(prefs.getBoolean("frosted_glass", true))
+        private set
 
     var accentKey by mutableStateOf("dynamic")
         private set
@@ -777,6 +813,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun applySnapshot(snapshot: SettingsSnapshot) {
         appearanceMode = snapshot.appearance
+        frostedGlass = snapshot.frostedGlass
         openLinksMode = snapshot.openLinksMode
         downloadSubfolder = snapshot.downloadSubfolder
         hapticFeedback = snapshot.haptics
@@ -3937,6 +3974,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun setAccent(key: String) {
         accentKey = key
         scope.launch { withContext(Dispatchers.IO) { settingsStore.setAccent(key) } }
+    }
+
+    fun updateFrostedGlass(enabled: Boolean) {
+        frostedGlass = enabled
+        prefs.edit().putBoolean("frosted_glass", enabled).apply()
+        scope.launch { withContext(Dispatchers.IO) { settingsStore.setFrostedGlass(enabled) } }
     }
 
     /** True while an update check is in flight; used to keep the UI honest. */

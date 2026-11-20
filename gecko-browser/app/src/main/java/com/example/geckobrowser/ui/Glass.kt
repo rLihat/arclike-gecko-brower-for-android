@@ -37,12 +37,14 @@ fun rememberGlass(
     enabled: Boolean = true,
 ): Modifier {
     val context = LocalContext.current
+    val globalFrost = LocalFrost.current
+    val active = enabled && globalFrost
     val bounds = remember { mutableStateOf<Rect?>(null) }
     val frost = remember { mutableStateOf<ImageBitmap?>(null) }
     val scratch = remember { FrostScratch() }
 
-    LaunchedEffect(enabled, fps, maxEdge, radius, tintAlpha) {
-        if (!enabled) {
+    LaunchedEffect(active, fps, maxEdge, radius, tintAlpha) {
+        if (!active) {
             frost.value = null
             return@LaunchedEffect
         }

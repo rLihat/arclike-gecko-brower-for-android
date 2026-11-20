@@ -29,8 +29,10 @@ data class SettingsSnapshot(
     val trackingExceptions: Set<String> = emptySet(),
     /** Accent preset key (see AccentPresets). Defaults to Dynamic. */
     val accent: String = "dynamic",
-    /** "system" | "light" | "dark". Defaults to system. */
+    /** "system" | "light" | "dark" | "oled". Defaults to system. */
     val appearance: String = "system",
+    /** Experimental app-wide frosted glass and blur effects. */
+    val frostedGlass: Boolean = true,
     /** "off" | "on" | "ask". Defaults to on. */
     val openLinksMode: String = "on",
     /** Subfolder inside the Downloads collection; "" = the Download root. */
@@ -95,6 +97,7 @@ class AppSettings(context: Context) {
             trackingExceptions = trackingExceptions,
             accent = p[KEY_ACCENT] ?: "dynamic",
             appearance = p[KEY_APPEARANCE] ?: if (p[KEY_DARK] == true) "dark" else "system",
+            frostedGlass = p[KEY_FROSTED_GLASS] ?: true,
             openLinksMode = p[KEY_OPEN_LINKS_MODE] ?: "on",
             downloadSubfolder = sanitizeDownloadSubfolder(p[KEY_DOWNLOAD_SUBFOLDER].orEmpty()),
             haptics = p[KEY_HAPTICS] ?: true,
@@ -141,6 +144,8 @@ class AppSettings(context: Context) {
 
     suspend fun setAppearance(mode: String) = store.edit { it[KEY_APPEARANCE] = mode }
 
+    suspend fun setFrostedGlass(value: Boolean) = store.edit { it[KEY_FROSTED_GLASS] = value }
+
     suspend fun setOpenLinksMode(mode: String) = store.edit { it[KEY_OPEN_LINKS_MODE] = mode }
 
     suspend fun setDownloadSubfolder(value: String) =
@@ -168,6 +173,7 @@ class AppSettings(context: Context) {
         private val KEY_COOKIE_BANNER = booleanPreferencesKey("cookie_banner_handling")
     private val KEY_ACCENT = stringPreferencesKey("accent")
     private val KEY_APPEARANCE = stringPreferencesKey("appearance")
+    private val KEY_FROSTED_GLASS = booleanPreferencesKey("frosted_glass")
     private val KEY_OPEN_LINKS_MODE = stringPreferencesKey("open_links_mode")
     private val KEY_DOWNLOAD_SUBFOLDER = stringPreferencesKey("download_subfolder")
     private val KEY_HAPTICS = booleanPreferencesKey("haptics")

@@ -129,10 +129,12 @@ import kotlin.math.abs
 fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
     val liveHost = BrowserViewModel.hostOf(vm.activeTab?.url.orEmpty())
     val liveAccent = if (liveHost.isNotBlank()) faviconAccent(liveHost) else null
-    ArcTheme(vm.darkMode, vm.accentKey, liveAccent) {
+    ArcTheme(vm.darkMode, vm.accentKey, liveAccent, vm.oledMode) {
+        CompositionLocalProvider(LocalFrost provides vm.frostedGlass) {
         val systemDark = isSystemInDarkTheme()
         LaunchedEffect(systemDark) { vm.updateSystemDark(systemDark) }
         val c = LocalArc.current
+        val frostOn = LocalFrost.current
         val overlay = vm.overlay
         val tab = vm.activeTab
         val reduceMotion = rememberReduceMotion()
@@ -143,7 +145,9 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
         var pageFrost by remember { mutableStateOf<ImageBitmap?>(null) }
         LaunchedEffect(overlay) {
             val pageLive = vm.activeTab?.let { !it.isHome && it.url.isNotBlank() } == true
-            if ((overlay == Overlay.Tabs || overlay == Overlay.Settings) && pageLive) {
+            if (frostOn && (overlay == Overlay.Tabs || overlay == Overlay.Settings ||
+                overlay == Overlay.Translate) && pageLive
+            ) {
                 // Only a real website can be sampled. On the new-tab page the
                 // window capture would include the panel itself, so keep the
                 // solid background there.
@@ -243,7 +247,12 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                     background = c.siteBg,
                     zoom = vm.zoom / 100f,
                     pinchEnabled = canImmersive,
-                    onPinchIn = { vm.toggleImmersive() },
+                    onPinchIn = {
+                        vm.toggleImmersive()
+                        if (vm.hapticFeedback) {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                    },
                     onTap = { x, y -> vm.recordPageTap(x, y) },
                     onViewReady = { vm.onGeckoViewReady(it) },
                 )
@@ -355,7 +364,9 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                 // Sub-pages paint their own settingsBg roots; make them fully
                 // transparent while the frost is up. The single tint lives in
                 // SettingsScreen, so the page blur is not tinted twice.
-                val chromeColors = if (overlay == Overlay.Settings && pageFrost != null) {
+                val chromeColors = if ((overlay == Overlay.Settings ||
+                    overlay == Overlay.Translate) && pageFrost != null
+                ) {
                     c.copy(settingsBg = Color.Transparent)
                 } else {
                     c
@@ -371,6 +382,7 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                     UpdateBanner(vm)
                 }
             }
+        }
         }
     }
 }
@@ -490,6 +502,7 @@ private fun ChromeOverlay(
     pageFrost: ImageBitmap? = null,
 ) {
     val c = LocalArc.current
+    val frostOn = LocalFrost.current
     val haptics = LocalHapticFeedback.current
     LaunchedEffect(vm.downloadsDonePulse) {
         if (vm.downloadsDonePulse > 0 && vm.hapticFeedback) {
@@ -551,7 +564,7 @@ private fun ChromeOverlay(
                 return@LaunchedEffect
             }
             searchSettled = false
-            val frost = overlay in frostedSheets
+            val frost = frostOn && overlay in frostedSheets
             val stale = backdrop == null || backdropFor != overlay
             // Page-surface captures are safe even while another panel is up:
             // they read the page layer, not the window. Home uses a window
@@ -606,7 +619,9 @@ private fun ChromeOverlay(
             Overlay.Downloads -> ({ DownloadsScreen(vm) { vm.closeDownloads() } })
             Overlay.Extensions -> ({ ExtensionsScreen(vm) { vm.onBackPressed() } })
             Overlay.History -> ({ HistoryScreen(vm) { vm.closeHistory() } })
-            Overlay.Translate -> ({ TranslateScreen(vm) { vm.closeTranslate() } })
+            Overlay.Translate -> ({
+                TranslateScreen(vm, onBack = { vm.closeTranslate() }, frost = pageFrost)
+            })
             Overlay.Passwords -> ({ PasswordsScreen(vm) { vm.closePasswords() } })
             Overlay.About -> ({ AboutScreen(vm) { vm.closeAbout() } })
             Overlay.ReleaseNotes -> ({ ReleaseNotesScreen(vm) { vm.closeReleaseNotes() } })
@@ -690,7 +705,8 @@ private fun ChromeOverlay(
                     .background(
                         when {
                             closing -> Color.Transparent
-                            lastSheet in frostedSheets -> Color.Transparent
+                            lastSheet in frostedSheets && frostOn -> Color.Transparent
+                            lastSheet in frostedSheets -> c.sheetFrost
                             lastSheet == Overlay.ExtensionMenu -> c.sheetSoft
                             lastSheet == Overlay.Downloads || lastSheet == Overlay.History ||
                                 lastSheet == Overlay.Translate || lastSheet == Overlay.Passwords ||
@@ -702,7 +718,7 @@ private fun ChromeOverlay(
                 // The frosted page lives only inside the panel's rounded clip.
                 // Its translucent tint sits above the snapshot, so the rest of
                 // the window keeps the live, sharp page.
-                if (!closing && lastSheet in frostedSheets) {
+                if (!closing && frostOn && lastSheet in frostedSheets) {
                     val frozen = backdrop
                     if (frozen != null) {
                         Image(
@@ -744,7 +760,9 @@ private fun ChromeOverlay(
         val siteHost = BrowserViewModel.hostOf(vm.activeTab?.url.orEmpty())
         val siteAccent = (if (siteHost.isNotBlank()) faviconAccent(siteHost) else null) ?: c.accent
         LaunchedEffect(pillVisible, overlay, pageLive) {
-            if (!pillVisible || (overlay != Overlay.None && overlay != Overlay.Tabs) || !pageLive) {
+            if (!frostOn || !pillVisible ||
+                (overlay != Overlay.None && overlay != Overlay.Tabs) || !pageLive
+            ) {
                 pillFrost.value = null
                 return@LaunchedEffect
             }
@@ -801,7 +819,11 @@ private fun ChromeOverlay(
                 // and the pill gets out of the way.
                 visible = !(searchMode && searchSettled),
                 frost = if (overlay == Overlay.None || overlay == Overlay.Tabs) pillFrost else null,
-                glow = if (overlay == Overlay.None || overlay == Overlay.Tabs) siteAccent else null,
+                glow = if (pageLive && (overlay == Overlay.None || overlay == Overlay.Tabs)) {
+                    siteAccent
+                } else {
+                    null
+                },
                 onBounds = { pillRect = it },
             )
         }
@@ -2427,6 +2449,11 @@ private fun BoxScope.NavPill(
     val bottom by animateDpAsState(targetBottom, tween(380, easing = morphEasing), label = "pillBottom")
     val x by animateDpAsState(targetX, tween(380, easing = morphEasing), label = "pillX")
     val alpha by animateFloatAsState(if (visible) 1f else 0f, tween(160), label = "pillAlpha")
+    // Keep the last accent so the underglow fades out on an empty tab instead
+    // of snapping off.
+    var lastGlow by remember { mutableStateOf<Color?>(null) }
+    if (glow != null) lastGlow = glow
+    val glowAlpha by animateFloatAsState(if (glow != null) 1f else 0f, tween(240), label = "pillGlow")
 
     val chevronRotation by animateFloatAsState(if (menuMode) 540f else 0f, tween(380), label = "chev")
     // The + spins 315° into the × that closes the search field.
@@ -2473,8 +2500,10 @@ private fun BoxScope.NavPill(
             if (frost != null) PillFrostImage(frost, c.navFrost)
             // Very subtle site accent, pinned to the bottom edge of the glass
             // rather than blooming around the whole capsule.
-            val accentGlow = glow
-            if (accentGlow != null && mode != PillMode.Search && mode != PillMode.Menu) {
+            val accentGlow = lastGlow
+            if (accentGlow != null && glowAlpha > 0.01f &&
+                mode != PillMode.Search && mode != PillMode.Menu
+            ) {
                 Box(
                     Modifier
                         .align(Alignment.BottomCenter)
@@ -2485,7 +2514,7 @@ private fun BoxScope.NavPill(
                                 brush = Brush.verticalGradient(
                                     colors = listOf(
                                         Color.Transparent,
-                                        accentGlow.copy(alpha = 0.16f),
+                                        accentGlow.copy(alpha = 0.16f * glowAlpha),
                                     ),
                                     startY = 0f,
                                     endY = size.height,

@@ -14,9 +14,9 @@ data class TabRecord(
     val secure: Boolean = false,
 )
 
-/** One pinned site as it survives a restart. */
+/** One pinned page as it survives a restart. [key] is the canonical URL. */
 data class PinRecord(
-    val origin: String,
+    val key: String,
     val url: String,
     val title: String,
 )
@@ -66,7 +66,7 @@ object BrowserFiles {
         val arr = JSONArray()
         pins.forEach { p ->
             arr.put(JSONObject().apply {
-                put("origin", p.origin)
+                put("key", p.key)
                 put("url", p.url)
                 put("title", p.title)
             })
@@ -81,9 +81,11 @@ object BrowserFiles {
             buildList {
                 for (i in 0 until arr.length()) {
                     val o = arr.optJSONObject(i) ?: continue
-                    val origin = o.optString("origin")
-                    if (origin.isBlank()) continue
-                    add(PinRecord(origin, o.optString("url"), o.optString("title").ifBlank { origin }))
+                    // Legacy files stored an origin in "origin"; the view model
+                    // promotes those to URL keys when it restores the pins.
+                    val key = o.optString("key").ifBlank { o.optString("origin") }
+                    if (key.isBlank()) continue
+                    add(PinRecord(key, o.optString("url"), o.optString("title").ifBlank { key }))
                 }
             }
         } catch (_: Throwable) {

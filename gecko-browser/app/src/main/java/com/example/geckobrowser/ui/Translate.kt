@@ -2,6 +2,7 @@
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +31,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -47,7 +50,12 @@ private val translateRed = Color(0xFFE0453C)
  * actual translation; this screen only drives it.
  */
 @Composable
-fun TranslateScreen(vm: BrowserViewModel, onBack: () -> Unit) {
+fun TranslateScreen(
+    vm: BrowserViewModel,
+    onBack: () -> Unit,
+    /** Blurred snapshot of the page behind this overlay. */
+    frost: ImageBitmap? = null,
+) {
     val c = LocalArc.current
     var picker by remember { mutableStateOf<TranslateTarget?>(null) }
     LaunchedEffect(Unit) { vm.loadTranslateSupport() }
@@ -65,11 +73,21 @@ fun TranslateScreen(vm: BrowserViewModel, onBack: () -> Unit) {
         null
     }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(c.settingsBg),
-    ) {
+    Box(Modifier.fillMaxSize()) {
+        if (frost != null) {
+            Image(
+                bitmap = frost,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+            Box(Modifier.fillMaxSize().background(c.surface.copy(alpha = 0.74f)))
+        }
+        Column(
+            Modifier
+                .fillMaxSize()
+                .then(if (frost == null) Modifier.background(c.settingsBg) else Modifier),
+        ) {
         SettingsHeader(
             title = when (picker) {
                 TranslateTarget.From -> "Page language"
@@ -247,6 +265,7 @@ fun TranslateScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 }
             }
         }
+    }
     }
 }
 

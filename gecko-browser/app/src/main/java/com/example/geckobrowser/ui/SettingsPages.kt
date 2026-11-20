@@ -287,6 +287,7 @@ private fun SearchPill(value: String, onChange: (String) -> Unit, modifier: Modi
             .height(58.dp)
             .clip(RoundedCornerShape(29.dp))
             .background(c.navSurface)
+            .then(rememberGlass(c.navSurface, fps = 20, maxEdge = 170, radius = 6))
             .padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -362,6 +363,7 @@ private fun PageHeader(title: String, onBack: () -> Unit, icon: @Composable (() 
 private fun LookAndFeelPage(vm: BrowserViewModel) {
     val c = LocalArc.current
     var accentPicker by remember { mutableStateOf(false) }
+    var appearancePicker by remember { mutableStateOf(false) }
     PageHeader("Look and feel", { vm.updateSettingsRoute("hub") }) {
         Glyph(Ico.contrast, c.text, size = 19.dp, strokeWidth = 1.9f)
     }
@@ -378,15 +380,39 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
                 "Appearance",
                 icon = { Glyph(Ico.contrast, c.text, size = 20.dp, strokeWidth = 1.9f) },
                 value = vm.appearanceMode.replaceFirstChar { it.uppercase() },
-                onClick = {
-                    val next = when (vm.appearanceMode) {
-                        "system" -> "light"
-                        "light" -> "dark"
-                        else -> "system"
-                    }
-                    vm.updateAppearanceMode(next)
+                onClick = { appearancePicker = !appearancePicker },
+                trailing = {
+                    Glyph(
+                        Ico.chevronRight, c.muted, size = 15.dp, strokeWidth = 2f,
+                        modifier = Modifier.rotate(if (appearancePicker) 90f else 0f),
+                    )
                 },
             )
+            if (appearancePicker) {
+                Box(Modifier.fillMaxWidth().padding(horizontal = 12.dp).height(1.dp).background(c.hairline))
+                Column {
+                    listOf("system" to "System", "light" to "Light", "dark" to "Dark", "oled" to "OLED").forEach { (key, label) ->
+                        val selected = key == vm.appearanceMode
+                        Row(
+                            Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(11.dp))
+                                .background(if (selected) c.menuCard else Color.Transparent)
+                                .clickable {
+                                    vm.updateAppearanceMode(key)
+                                    appearancePicker = false
+                                }
+                                .padding(horizontal = 12.dp, vertical = 9.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(label, color = c.text, fontSize = 13.5.sp,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal)
+                            Spacer(Modifier.weight(1f))
+                            if (selected) Glyph(Ico.check, c.accent, size = 15.dp, strokeWidth = 2.2f)
+                        }
+                    }
+                }
+            }
             SettingsRow(
                 "Accent colour",
                 icon = { Glyph(Ico.grid, c.text, size = 19.dp, strokeWidth = 1.7f) },
@@ -443,6 +469,14 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
                     }
                 }
             }
+            SettingsRow(
+                "Frosted Glass (Experimental)",
+                icon = { Glyph(Ico.contrast, c.text, size = 20.dp, strokeWidth = 1.9f) },
+                trailing = {
+                    ArcSwitch(vm.frostedGlass) { vm.updateFrostedGlass(it) }
+                },
+                onClick = { vm.updateFrostedGlass(!vm.frostedGlass) },
+            )
             SettingsRow(
                 "Text size",
                 icon = { Glyph(Ico.textSize, c.text, size = 20.dp, strokeWidth = 1.9f) },

@@ -1,4 +1,4 @@
-package com.example.geckobrowser.ui
+﻿package com.example.geckobrowser.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
@@ -514,12 +514,12 @@ private fun PinnedRow(vm: BrowserViewModel) {
                     rowRightPx = rowLeftPx + coords.size.width
                 },
         ) {
-            items(pins.size, key = { i -> pins[i].origin }) { i ->
+            items(pins.size, key = { i -> pins[i].key }) { i ->
                 val pin = pins[i]
-                val origin = pin.origin
-                val host = origin.substringAfter("://")
-                val active = vm.activeOrigin == origin
-                val showUnpin = unpinMode == origin
+                val key = pin.key
+                val host = BrowserViewModel.hostOf(pin.url)
+                val active = vm.activePinKey == key
+                val showUnpin = unpinMode == key
                 val accentColor = faviconAccent(host)
                 Column(
                     Modifier
@@ -530,16 +530,16 @@ private fun PinnedRow(vm: BrowserViewModel) {
                             fadeOutSpec = null,
                         )
                         .onGloballyPositioned { coords ->
-                            if (dragOrigin == origin) {
+                            if (dragOrigin == key) {
                                 dragTileWindowX = coords.localToWindow(androidx.compose.ui.geometry.Offset.Zero).x
                             }
                         }
                         .clip(RoundedCornerShape(22.dp))
                         .background(c.menuCard)
                         .border(if (active) 2.dp else 1.dp, if (active) accentColor ?: c.accent else c.stroke, RoundedCornerShape(22.dp))
-                        .alpha(if (dragOrigin == origin) 0.6f else 1f)
+                        .alpha(if (dragOrigin == key) 0.6f else 1f)
                         .padding(vertical = 10.dp)
-                        .pointerInput(pin.origin) {
+                        .pointerInput(pin.key) {
                             awaitEachGesture {
                                 val down = awaitFirstDown()
                                 val slop = viewConfiguration.touchSlop
@@ -561,7 +561,7 @@ private fun PinnedRow(vm: BrowserViewModel) {
                                 if (phase == 1) {
                                     // Plain tap: the old onClick handoff.
                                     if (unpinMode != null) {
-                                        if (unpinMode == origin) vm.unpin(origin)
+                                        if (unpinMode == key) vm.unpin(key)
                                         unpinMode = null
                                     } else {
                                         vm.openPin(pin)
@@ -577,7 +577,7 @@ private fun PinnedRow(vm: BrowserViewModel) {
                                     return@awaitEachGesture
                                 }
                                 // Armed: the favicon swaps to the red x.
-                                unpinMode = origin
+                                unpinMode = key
                                 if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 var dragging = false
                                 var lastX = startX
@@ -590,7 +590,7 @@ private fun PinnedRow(vm: BrowserViewModel) {
                                         dragTileWindowX = Float.NaN
                                         swapLock = 0
                                         if (!dragging) {
-                                            vm.unpin(origin)
+                                            vm.unpin(key)
                                         } else {
                                             vm.persistPins()
                                         }
@@ -607,7 +607,7 @@ private fun PinnedRow(vm: BrowserViewModel) {
                                             // Drag engaged instead of unpin (horizontal only).
                                             dragging = true
                                             unpinMode = null
-                                            dragOrigin = origin
+                                            dragOrigin = key
                                             accumulatedDragPx = 0f
                                             swapLock = 0
                                             ch.consume()
@@ -626,7 +626,7 @@ private fun PinnedRow(vm: BrowserViewModel) {
                                                 // again from zero before the row swaps back.
                                                 accumulatedDragPx = 0f
                                             } else {
-                                                val from = vm.pins.indexOfFirst { it.origin == origin }
+                                                val from = vm.pins.indexOfFirst { it.key == key }
                                                 if (from >= 0) {
                                                     val to = (from + direction).coerceIn(0, vm.pins.lastIndex)
                                                     if (to != from) vm.movePin(from, to)
@@ -736,6 +736,11 @@ private fun AddressButton(
 @Composable
 fun MenuSheet(vm: BrowserViewModel) {
     val c = LocalArc.current
+    val haptics = LocalHapticFeedback.current
+    val toggleImmersive: () -> Unit = {
+        vm.toggleImmersive()
+        if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+    }
     val tab = vm.activeTab
 
     Column(
@@ -795,14 +800,17 @@ fun MenuSheet(vm: BrowserViewModel) {
             MenuAction("Translate", Ico.translate) { vm.openTranslate() }
             MenuAction("Find", Ico.find) { vm.openFind() }
             MenuAction("Share", Ico.share) { vm.shareCurrentUrl() }
-            val activeOrigin = vm.activeOrigin
-            val pinned = vm.isActiveTabSitePinned
-            if (activeOrigin.isNotEmpty()) {
+            val pinKey = vm.activePinKey
+            val pinned = vm.isActiveTabPinned
+            if (pinKey.isNotEmpty()) {
                 MenuAction(
                     if (pinned) "Unpin" else "Pin",
                     Ico.pin,
                     accent = pinned,
-                ) { vm.togglePinForActiveSite() }
+                ) {
+                    vm.togglePinForActiveUrl()
+                    if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                }
             } else {
                 MenuAction(
                     "Pin",
@@ -859,7 +867,7 @@ fun MenuSheet(vm: BrowserViewModel) {
                 Modifier
                     .fillMaxWidth()
                     .height(44.dp)
-                    .clickable { vm.toggleImmersive() }
+                    .clickable { toggleImmersive() }
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -871,7 +879,7 @@ fun MenuSheet(vm: BrowserViewModel) {
                     fontSize = 14.sp,
                     modifier = Modifier.weight(1f),
                 )
-                ArcSwitch(vm.immersiveMode) { vm.toggleImmersive() }
+                ArcSwitch(vm.immersiveMode) { toggleImmersive() }
             }
 
             Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))

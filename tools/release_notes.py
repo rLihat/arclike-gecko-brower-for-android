@@ -10,13 +10,14 @@ Usage:
 Rules
 -----
 * Commits since the last `{channel}-build-*` tag (for stable, falling back to the
-  last `beta-build-*` tag when no stable tag exists yet) are grouped into sections:
-  Features, Fixes, Performance, Other. A `BREAKING` subject goes to Highlights.
-* "Confident" means at least one user-facing change (feat/fix/perf/breaking) was
-  found in the range. With --require-confident (stable), an unsure range exits 2
-  and asks; supply --notes-override with the notes to publish instead.
+  last `beta-build-*` tag when no stable tag exists yet) are grouped into
+  balanced, emoji-headed sections. Breaking changes go to Highlights.
+* "Confident" means at least one user-facing change (anything except
+  "Other changes") was found in the range. With --require-confident (stable),
+  an unsure range exits 2 and asks; supply --notes-override with the notes to
+  publish instead.
 * Without --require-confident (beta), an unsure range still publishes, but the
-  body is marked "Auto-generated -- unreviewed" and lists the raw commits.
+  body is marked "Unreviewed" and lists the raw commits.
 * Output is written to --out (default: dist/RELEASE_NOTES_<channel>.md) and also
   printed. Exit codes: 0 ok, 2 unsure (stable only).
 """
@@ -35,6 +36,40 @@ if REPO_URL.endswith(".git"):
     REPO_URL = REPO_URL[:-4]
 if REPO_URL.startswith("git@github.com:"):
     REPO_URL = "https://github.com/" + REPO_URL[len("git@github.com:"):]
+
+# Balanced categories, shared verbatim by beta and stable.
+CATEGORIES = (
+    ("Highlights", "🚨"),
+    ("Features", "✨"),
+    ("Fixes", "🐛"),
+    ("Performance", "⚡"),
+    ("Appearance & UI", "🎨"),
+    ("Settings & Preferences", "⚙️"),
+    ("Extensions", "🧩"),
+    ("Privacy & Security", "🔐"),
+    ("Browser & Navigation", "📱"),
+    ("Other changes", "📝"),
+)
+USER_FACING = {name for name, _ in CATEGORIES} - {"Other changes", "Highlights"}
+
+AREA_RULES = (
+    ("Appearance & UI", (
+        r"\b(blur|frost|glass|accent|theme|dark|light|oled|colour|color|ui|glyph|icon|"
+        r"capsule|pill|box|boxes|opacity|underglow|haptic)\b",
+    )),
+    ("Settings & Preferences", (
+        r"\b(setting|settings|preference|preferences|toggle|search settings|appearance)\b",
+    )),
+    ("Extensions", (r"\b(extension|extensions|add-?on|addons|xpi)\b",)),
+    ("Privacy & Security", (
+        r"\b(privacy|tracking|tracker|cookie|cookies|permission|permissions|password|"
+        r"passwords|secure|security|https)\b",
+    )),
+    ("Browser & Navigation", (
+        r"\b(tab|tabs|pin|pins|pinned|navigat\w*|back|forward|history|download|downloads|"
+        r"find|translate|immersive|ota|update|search|menu|address|url|zoom)\b",
+    )),
+)
 
 
 def git(*args):
@@ -57,48 +92,51 @@ def commits_since(base):
     return rows
 
 
-
 def section_of(subject):
+    """Return (category, display text, breaking) for one commit subject."""
     s = subject.strip()
     breaking = bool(re.match(r"^\w+(\([^)]*\))?!:\s", s)) or "BREAKING CHANGE" in s.upper()
-    m = re.match(r"^(feat|feature|fix|bugfix|perf|refactor|chore|ci|docs|style|test|build)(!?\([^)]*\))?!?:\s*(.+)$", s, re.I)
-    if m:
-        kind = m.group(1).lower()
-        rest = m.group(3).strip()
+    conventional = re.match(
+        r"^(feat|feature|fix|bugfix|perf|refactor|chore|ci|docs|style|test|build)"
+        r"(!?\([^)]*\))?!?:\s*(.+)$",
+        s, re.I,
+    )
+    if conventional:
+        kind = conventional.group(1).lower()
+        rest = conventional.group(3).strip()
         if kind in ("feat", "feature"):
-            return ("Features", rest, breaking)
+            return "Features", rest, breaking
         if kind in ("fix", "bugfix"):
-            return ("Fixes", rest, breaking)
+            return "Fixes", rest, breaking
         if kind == "perf":
-            return ("Performance", rest, breaking)
-        return ("Other", rest, breaking)
+            return "Performance", rest, breaking
+        if breaking:
+            return "Highlights", rest, True
+        return "Other changes", rest, breaking
+
     sl = s.lower()
-    if re.search(r"\b(revert|fix|repair|correct|restore|mojibake|corrupt|unresolved|missing|bump)\b", sl):
-        return ("Fixes", s, breaking)
-    if re.search(r"\b(add|implement|enable|introduce|support|revamp|redesign|new)\b", sl):
-        return ("Features", s, breaking)
-    return ("Other", s, breaking)
-    s = subject.strip()
-    breaking = bool(re.match(r"^\w+(\([^)]*\))?!:\s", s)) or "BREAKING CHANGE" in s.upper()
-    m = re.match(r"^(feat|feature|fix|bugfix|perf|refactor|chore|ci|docs|style|test|build)(!?\([^)]*\))?!?:\s*(.+)$", s, re.I)
-    if m:
-        kind = m.group(1).lower()
-        rest = m.group(3).strip()
-        if kind in ("feat", "feature"):
-            return ("Features", rest, breaking)
-        if kind in ("fix", "bugfix"):
-            return ("Fixes", rest, breaking)
-        if kind == "perf":
-            return ("Performance", rest, breaking)
-        return ("Other", rest, breaking)
-    # Second chance: freeform subjects. Keyword-score them so the common
-    # "Area: thing" style of this repo lands somewhere useful.
-    sl = s.lower()
-    if re.search(r"\b(revert|fix|repair|correct|restore|mojibake|corrupt|unresolved|missing|bump)\b", sl):
-        return ("Fixes", s, breaking)
-    if re.search(r"\b(add|implement|enable|introduce|support|revamp|redesign|new)\b", sl):
-        return ("Features", s, breaking)
-    return ("Other", s, breaking)
+    if breaking:
+        return "Highlights", s, True
+    # Intent first: a fix is a fix whichever area it touches.
+    if re.search(r"\b(revert|fix(?:es|ed)?|repair|correct|restore|mojibake|corrupt|unresolved|missing|compile error)\b", sl):
+        return "Fixes", s, breaking
+    if re.search(r"\b(perf|faster|speed|lag|laggy|taxing|frame|fps|optimis|optimiz)\b", sl):
+        return "Performance", s, breaking
+    if re.search(r"\b(add|adds|added|implement|enable|introduce|support|revamp|redesign|new)\b", sl):
+        return "Features", s, breaking
+    # Then area, for the freeform "Area: thing" subjects this repo uses a lot.
+    for category, patterns in AREA_RULES:
+        if any(re.search(p, sl) for p in patterns):
+            return category, s, breaking
+    return "Other changes", s, breaking
+
+
+def tidy(text):
+    """Sentence-case a commit fragment without mangling identifiers."""
+    text = text.strip().rstrip(".")
+    if not text:
+        return text
+    return text[0].upper() + text[1:]
 
 
 def main():
@@ -133,7 +171,7 @@ def main():
         body, confident = build_generated(channel, base, rows)
         if args.require_confident and not confident:
             sys.stderr.write(
-                "unsure release notes: no user-facing (feat/fix/perf/breaking) commits found "
+                "unsure release notes: no user-facing changes found "
                 f"since {base or 'the first commit'}; refusing to guess.\n"
                 "Re-run with --notes-override to publish with notes you wrote.\n"
             )
@@ -147,59 +185,50 @@ def main():
 
 def build_body(channel, base, rows, override_text):
     header = header_of(channel, len(rows), base)
-    compare = f"\n\n**Full changelog:** {REPO_URL}/compare/{base}...HEAD" if base else ""
+    compare = f"\n\n📚 **Full changelog:** {REPO_URL}/compare/{base}...HEAD" if base else ""
     return f"{header}\n\n{override_text}{compare}"
 
 
 def header_of(channel, commit_count, base):
     date = datetime.now(timezone.utc).strftime("%d-%m-%Y")
-    kind = "Beta" if channel == "beta" else "Stable"
+    emoji, kind = ("🧪", "Beta") if channel == "beta" else ("🛡️", "Stable")
     base_line = f"since `{base}`" if base else "from the first commit"
-    return f"## {kind} - {date}\n\n_{commit_count} commits {base_line} | auto-generated {date}_"
+    return f"## {emoji} {kind} - {date}\n\n_{commit_count} commits {base_line} | auto-generated {date}_"
 
 
 def build_generated(channel, base, rows):
     if not rows:
         body = (
-            f"## {'Beta' if channel == 'beta' else 'Stable'} - {datetime.now(timezone.utc).strftime('%d-%m-%Y')}\n\n"
-            f"No commits found."
+            f"## {'🧪 Beta' if channel == 'beta' else '🛡️ Stable'} - "
+            f"{datetime.now(timezone.utc).strftime('%d-%m-%Y')}\n\n"
+            f"📝 No commits found."
         )
         return body, False
 
-    highlights, features, fixes, perf, other = [], [], [], [], []
+    grouped = {name: [] for name, _ in CATEGORIES}
     for subject, sha in rows:
-        section, text, breaking = section_of(subject)
+        category, text, breaking = section_of(subject)
+        line = f"- {tidy(text)}  `_({sha})_`"
         if breaking:
-            highlights.append(f"- {subject} ({sha})")
-        elif section == "Features":
-            features.append(f"- {text} ({sha})")
-        elif section == "Fixes":
-            fixes.append(f"- {text} ({sha})")
-        elif section == "Performance":
-            perf.append(f"- {text} ({sha})")
-        else:
-            other.append(f"- {subject} ({sha})")
+            grouped["Highlights"].append(line)
+        grouped[category].append(line)
 
-    user_facing = bool(highlights or features or fixes or perf)
+    confident = any(grouped[name] for name in USER_FACING)
     header = header_of(channel, len(rows), base)
 
-    def block(title, items):
+    def block(name):
+        items = grouped[name]
         if not items:
             return ""
-        return f"### {title}\n" + "\n".join(items) + "\n\n"
+        emoji = next(e for n, e in CATEGORIES if n == name)
+        return f"### {emoji} {name}\n" + "\n".join(items) + "\n\n"
 
-    compare = f"\n**Full changelog:** {REPO_URL}/compare/{base}...HEAD\n" if base else "\n"
-    sections = (
-        block("Highlights", highlights)
-        + block("Features", features)
-        + block("Fixes", fixes)
-        + block("Performance", perf)
-        + block("Other changes", other)
-    )
-    if not user_facing:
+    sections = "".join(block(name) for name, _ in CATEGORIES)
+    compare = f"\n📚 **Full changelog:** {REPO_URL}/compare/{base}...HEAD\n" if base else "\n"
+    if not confident:
         note = (
-            "> [!] Auto-generated, unreviewed - no user-facing (feat/fix/perf/breaking) commits found; "
-            "the raw commit list is reproduced above.\n\n"
+            "> ⚠️ **Unreviewed** — no user-facing changes were detected; the raw "
+            "commit list is reproduced above.\n\n"
         )
         return header + "\n\n" + note + sections + compare, False
     return header + "\n\n" + sections + compare, True
