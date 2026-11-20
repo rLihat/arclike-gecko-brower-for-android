@@ -902,6 +902,13 @@
       100% { transform: translate(0, 0) scale(1) rotateY(0deg) rotateX(0deg); opacity: 1; }
     }
     .tab-preview.focus-move { animation: focus-grid-move .68s cubic-bezier(.25,.8,.25,1) both !important; }
+    /* Reverse direction: the focused card shrinks back into its list slot. */
+    @keyframes focus-grid-to-list {
+      0%   { transform: translate(var(--fx), var(--fy)) scale(1) rotateY(0deg) rotateX(0deg); opacity: 1; }
+      58%  { transform: translate(var(--mx), var(--my)) scale(.86) rotateY(9deg) rotateX(4deg); opacity: .86; }
+      100% { transform: translate(0, 0) scale(1) rotateY(0deg) rotateX(0deg); opacity: 1; }
+    }
+    .tab-preview.list-move { animation: focus-grid-to-list .62s cubic-bezier(.25,.8,.25,1) both !important; }
     .tab-preview.active { outline: none; }
     .tab-preview.active .tp-page { box-shadow: inset 0 0 0 1px var(--stroke), 0 16px 40px rgba(20,30,35,0.22); }
     .tab-preview.new-tab-card {
@@ -2942,7 +2949,7 @@
         shot.style.transform = `scale(${Math.max(pw / w, ph / h)})`;
       });
     }
-    function renderTabStack(previousRects) {
+    function renderTabStack(previousRects, toCarousel = false) {
       const stack = document.getElementById('tab-stack');
       const grid = stack.classList.contains('grid-view');
       // FLIP: either reuse rects captured before a layout switch (carousel <->
@@ -3013,20 +3020,22 @@
           const dy = first.top - last.top;
           const toScale = grid ? 1 : (el.classList.contains('active') ? 1 : .93);
           if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && from.scale === toScale) return;
+          const isFocus = el.classList.contains('active');
+          // Going back to the carousel, only the focused card animates. Moving
+          // every unfocused card from its grid slot into a far-off list slot is
+          // what made the reverse switch look jarring.
+          if (toCarousel && !isFocus) return;
           el.classList.add('flipping');
-          if (el.classList.contains('active')) {
-            // Focused card: an explicit CSS keyframe animation, driven by the
-            // measured old/new positions. This is the visible list -> grid move.
+          if (isFocus) {
             el.style.setProperty('--fx', `${dx}px`);
-            // Start deliberately low and small so the focused card visibly
-            // lifts, turns and grows into the first grid slot.
-            el.style.setProperty('--fy', `${dy + 46}px`);
+            el.style.setProperty('--fy', toCarousel ? `${dy - 26}px` : `${dy + 46}px`);
             el.style.setProperty('--mx', `${dx * .42}px`);
-            el.style.setProperty('--my', `${dy * .42 - 14}px`);
+            el.style.setProperty('--my', toCarousel ? `${dy * .42 - 22}px` : `${dy * .42 - 14}px`);
             el.style.setProperty('--fs', from.scale);
-            el.classList.add('focus-move');
+            const moveClass = toCarousel ? 'list-move' : 'focus-move';
+            el.classList.add(moveClass);
             setTimeout(() => {
-              el.classList.remove('focus-move', 'flipping');
+              el.classList.remove(moveClass, 'flipping');
               ['--fx', '--fy', '--mx', '--my', '--fs'].forEach(v => el.style.removeProperty(v));
             }, 720);
           } else {
@@ -3047,7 +3056,7 @@
         setTimeout(() => {
           const active = stack.querySelector('.tab-preview.active');
           if (active) active.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        }, 0);
+        }, toCarousel ? 700 : 0);
       }
       layoutTabThumbs();
     }
@@ -4711,7 +4720,7 @@
       });
       stack.classList.toggle('grid-view');
       log(stack.classList.contains('grid-view') ? 'Tab view: grid' : 'Tab view: carousel');
-      renderTabStack(before);
+      renderTabStack(before, wasGrid);
     }
     let tabSelecting = false;
     const tabSelected = new Set();
