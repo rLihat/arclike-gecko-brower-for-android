@@ -512,6 +512,7 @@ private fun DownloadRow(
     onRequestDelete: () -> Unit,
 ) {
     val c = LocalArc.current
+    val haptics = LocalHapticFeedback.current
     val density = androidx.compose.ui.platform.LocalDensity.current
     var drag by remember(d.id) { androidx.compose.runtime.mutableFloatStateOf(0f) }
     val deleteWidth = with(density) { 88.dp.toPx() }
@@ -565,7 +566,6 @@ private fun DownloadRow(
                 .pointerInput(d.id) {
                     detectTapGestures(
                         onLongPress = {
-                            val haptics = LocalHapticFeedback.current
                             if (vm.hapticFeedback) {
                                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             }
