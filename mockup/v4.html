@@ -897,8 +897,8 @@
     /* Focused tab transposition: list slot -> first grid slot with a short turn
        and a grow-through. Vars are set on the card just before the class lands. */
     @keyframes focus-grid-move {
-      0%   { transform: translate(var(--fx), var(--fy)) scale(var(--fs)) rotateY(-12deg) rotateX(5deg); opacity: .68; }
-      58%  { transform: translate(var(--mx), var(--my)) scale(1.07) rotateY(0deg) rotateX(0deg); opacity: 1; }
+      0%   { transform: translate(var(--fx), var(--fy)) scale(.72) rotateY(-16deg) rotateX(8deg); opacity: .5; }
+      58%  { transform: translate(var(--mx), var(--my)) scale(1.09) rotateY(0deg) rotateX(0deg); opacity: 1; }
       100% { transform: translate(0, 0) scale(1) rotateY(0deg) rotateX(0deg); opacity: 1; }
     }
     .tab-preview.focus-move { animation: focus-grid-move .68s cubic-bezier(.25,.8,.25,1) both !important; }
@@ -3018,9 +3018,11 @@
             // Focused card: an explicit CSS keyframe animation, driven by the
             // measured old/new positions. This is the visible list -> grid move.
             el.style.setProperty('--fx', `${dx}px`);
-            el.style.setProperty('--fy', `${dy}px`);
+            // Start deliberately low and small so the focused card visibly
+            // lifts, turns and grows into the first grid slot.
+            el.style.setProperty('--fy', `${dy + 46}px`);
             el.style.setProperty('--mx', `${dx * .42}px`);
-            el.style.setProperty('--my', `${dy * .42 - 12}px`);
+            el.style.setProperty('--my', `${dy * .42 - 14}px`);
             el.style.setProperty('--fs', from.scale);
             el.classList.add('focus-move');
             setTimeout(() => {
