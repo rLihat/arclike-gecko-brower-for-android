@@ -2933,12 +2933,15 @@
         shot.style.transform = `scale(${Math.max(pw / w, ph / h)})`;
       });
     }
-    function renderTabStack() {
+    function renderTabStack(previousRects) {
       const stack = document.getElementById('tab-stack');
       const grid = stack.classList.contains('grid-view');
-      // FLIP: remember where each card sat before we reorder it.
+      // FLIP: either reuse rects captured before a layout switch (carousel <->
+      // grid), or snapshot the current grid before the active tab is reordered.
       const before = new Map();
-      if (grid) {
+      if (previousRects) {
+        previousRects.forEach((rect, index) => before.set(index, rect));
+      } else if (grid) {
         [...stack.children].forEach((el) => {
           if (el.dataset.index) before.set(el.dataset.index, el.getBoundingClientRect());
         });
@@ -2985,7 +2988,7 @@
         });
         bindTabLongPress(card, i);
       });
-      if (grid) {
+      if (before.size) {
         [...stack.children].forEach((el) => {
           if (!el.dataset.index) return;
           const first = before.get(el.dataset.index);
@@ -2995,8 +2998,11 @@
           const dy = first.top - last.top;
           if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
           el.animate(
-            [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }],
-            { duration: 420, easing: 'cubic-bezier(.32,.72,0,1)' },
+            [
+              { transform: `translate(${dx}px, ${dy}px)`, opacity: .72 },
+              { transform: 'translate(0, 0)', opacity: 1 },
+            ],
+            { duration: 460, easing: 'cubic-bezier(.32,.72,0,1)' },
           );
         });
       }
@@ -4654,9 +4660,15 @@
     }
     function toggleTabView() {
       const stack = document.getElementById('tab-stack');
+      // Capture the current layout before flipping classes, so cards morph
+      // from their list slots into their grid slots (and back).
+      const before = new Map();
+      [...stack.children].forEach((el) => {
+        if (el.dataset.index) before.set(el.dataset.index, el.getBoundingClientRect());
+      });
       stack.classList.toggle('grid-view');
       log(stack.classList.contains('grid-view') ? 'Tab view: grid' : 'Tab view: carousel');
-      renderTabStack();
+      renderTabStack(before);
     }
     let tabSelecting = false;
     const tabSelected = new Set();
