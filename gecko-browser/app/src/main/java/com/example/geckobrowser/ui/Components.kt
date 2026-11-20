@@ -821,7 +821,7 @@ fun prewarmFaviconCache(hosts: List<String>) {
 
 private object FaviconCache {
     private val lock = Any()
-    private val icons = HashMap<String, Pair<Bitmap?, Color?>>()
+    private val icons = HashMap<String, Pair<Bitmap?, Color?>?>()
     private val inflight = HashMap<String, CompletableDeferred<Pair<Bitmap?, Color?>?>>()
     /** At most four concurrent icon requests, so long history lists stay light. */
     private val network = Semaphore(4)

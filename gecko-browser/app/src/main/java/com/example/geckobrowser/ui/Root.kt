@@ -979,7 +979,7 @@ private fun ChromeOverlay(
         if (vm.privateNotice && vm.privateTabCount > 0 && !vm.fullscreen) {
             val count = vm.privateTabCount
             val closePrivate = { vm.dismissPrivateNotice() }
-            Box(
+            Row(
                 Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = 18.dp)
