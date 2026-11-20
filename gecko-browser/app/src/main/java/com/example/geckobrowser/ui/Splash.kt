@@ -307,7 +307,11 @@ private val splashEasing = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)
  * seen). Hand-over shrinks the logo while the browser rises into place.
  */
 @Composable
-fun BrowserRoot(vm: BrowserViewModel, onPickAddon: () -> Unit) {
+fun BrowserRoot(
+    vm: BrowserViewModel,
+    onPickAddon: () -> Unit,
+    onExit: () -> Unit,
+) {
     val reduceMotion = rememberReduceMotion()
     var splashVisible by remember { mutableStateOf(true) }
     val progress = remember { Animatable(0f) }
@@ -345,7 +349,7 @@ fun BrowserRoot(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                     transformOrigin = TransformOrigin(0.5f, 0.42f)
                 },
         ) {
-            BrowserApp(vm, onPickAddon)
+            BrowserApp(vm, onPickAddon, onExit)
         }
         if (splashVisible) {
             HorizenSplash(

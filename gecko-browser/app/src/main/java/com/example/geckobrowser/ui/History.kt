@@ -77,7 +77,7 @@ fun HistoryScreen(vm: BrowserViewModel, onBack: () -> Unit) {
     // Warm icons once in the background instead of one network request per
     // row as the list scrolls.
     LaunchedEffect(rows) {
-        prewarmFaviconCache(rows.map { it.host }.distinct().take(80))
+        prewarmFaviconCache(rows.map { it.host }.distinct().take(40))
     }
 
     Column(

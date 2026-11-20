@@ -126,7 +126,11 @@ import kotlin.math.abs
 
 
 @Composable
-fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
+fun BrowserApp(
+    vm: BrowserViewModel,
+    onPickAddon: () -> Unit,
+    onExit: () -> Unit,
+) {
     val liveHost = BrowserViewModel.hostOf(vm.activeTab?.url.orEmpty())
     val liveAccent = if (liveHost.isNotBlank()) faviconAccent(liveHost) else null
     ArcTheme(vm.darkMode, vm.accentKey, liveAccent, vm.oledMode) {
@@ -380,6 +384,43 @@ fun BrowserApp(vm: BrowserViewModel, onPickAddon: () -> Unit) {
                         .padding(top = 18.dp),
                 ) {
                     UpdateBanner(vm)
+                }
+            }
+        }
+        if (vm.exitConfirm) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.42f))
+                    .clickable(enabled = false) {},
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    Modifier
+                        .fillMaxWidth(0.78f)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(c.surface)
+                        .padding(18.dp),
+                ) {
+                    Text("Close private tabs?", color = c.text, fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Private tabs are open. Close them before exiting, or keep them restored as private.",
+                        color = c.muted, fontSize = 12.5.sp,
+                    )
+                    Spacer(Modifier.height(16.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        Text("Keep", color = c.text, fontSize = 13.sp,
+                            modifier = Modifier.clickable { vm.cancelExit() })
+                        Spacer(Modifier.width(16.dp))
+                        Text("Close & exit", color = Color(0xFFE0453C), fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable {
+                                vm.confirmExitClosePrivate()
+                                onExit()
+                            })
+                    }
                 }
             }
         }
@@ -930,6 +971,75 @@ private fun ChromeOverlay(
                     "Dismiss", color = c.muted, fontSize = 12.sp,
                     modifier = Modifier.clickable { vm.dismissClearAllPrompt() },
                 )
+            }
+        }
+
+        // Firefox-style private notice. Swiping it in any direction closes the
+        // private tabs (matching the mockup); the button asks for confirmation.
+        if (vm.privateNotice && vm.privateTabCount > 0 && !vm.fullscreen) {
+            val count = vm.privateTabCount
+            val closePrivate = { vm.dismissPrivateNotice() }
+            Box(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 18.dp)
+                    .fillMaxWidth(0.7f)
+                    .height(52.dp)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(c.navSoft)
+                    .border(1.dp, c.stroke, RoundedCornerShape(26.dp))
+                    .swipeActions(
+                        onLeft = closePrivate, onRight = closePrivate,
+                        onUp = closePrivate, onDown = closePrivate,
+                    )
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Glyph(Ico.mask, Color(0xFF9059FF), size = 19.dp, strokeWidth = 1.9f)
+                Spacer(Modifier.width(9.dp))
+                Text(
+                    if (count == 1) "1 private tab open" else "$count private tabs open",
+                    color = c.text, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "Close private", color = Color(0xFF9059FF), fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { vm.requestClosePrivateTabs() },
+                )
+            }
+        }
+
+        if (vm.closePrivateConfirm) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.42f))
+                    .clickable(enabled = false) {},
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    Modifier
+                        .fillMaxWidth(0.78f)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(c.surface)
+                        .padding(18.dp),
+                ) {
+                    Text("Close private tabs?", color = c.text, fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(8.dp))
+                    Text("All open private tabs will be closed. This can't be undone.",
+                        color = c.muted, fontSize = 12.5.sp)
+                    Spacer(Modifier.height(16.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        Text("Cancel", color = c.text, fontSize = 13.sp,
+                            modifier = Modifier.clickable { vm.cancelClosePrivateTabs() })
+                        Spacer(Modifier.width(16.dp))
+                        Text("Close", color = Color(0xFFE0453C), fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable { vm.confirmClosePrivateTabs() })
+                    }
+                }
             }
         }
     }

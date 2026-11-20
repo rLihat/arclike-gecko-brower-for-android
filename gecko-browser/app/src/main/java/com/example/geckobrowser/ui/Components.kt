@@ -68,13 +68,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.geckobrowser.downExt
 import com.example.geckobrowser.downKindLabel
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
+import java.io.FileOutputStream
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -797,10 +801,20 @@ fun faviconAccent(host: String): Color? {
     return color
 }
 
-/** Preloads favicons for the given hosts so the UI never has to wait on the network. */
+/** Initialise the persistent favicon cache once, at app start. */
+fun initFaviconCache(context: android.content.Context) {
+    FaviconCache.init(context)
+}
+
+/**
+ * Preloads favicons without flooding the network: hosts are de-duplicated,
+ * capped, and the actual fetches are bounded by a semaphore inside the cache.
+ */
 fun prewarmFaviconCache(hosts: List<String>) {
+    val keys = hosts.map { FaviconCache.keyOf(it) }.filter { it.isNotBlank() }.distinct().take(40)
+    if (keys.isEmpty()) return
     val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-    hosts.forEach { host ->
+    keys.forEach { host ->
         scope.launch { FaviconCache.load(host) }
     }
 }
@@ -808,9 +822,19 @@ fun prewarmFaviconCache(hosts: List<String>) {
 private object FaviconCache {
     private val lock = Any()
     private val icons = HashMap<String, Pair<Bitmap?, Color?>>()
+    private val inflight = HashMap<String, CompletableDeferred<Pair<Bitmap?, Color?>?>>()
+    /** At most four concurrent icon requests, so long history lists stay light. */
+    private val network = Semaphore(4)
+    private var appContext: android.content.Context? = null
 
-    private fun key(host: String): String =
+    fun init(context: android.content.Context) {
+        appContext = context.applicationContext
+    }
+
+    internal fun keyOf(host: String): String =
         host.trim().lowercase().removePrefix("www.")
+
+    private fun key(host: String): String = keyOf(host)
 
     fun peek(host: String): Bitmap? = synchronized(lock) { icons[key(host)]?.first }
 
@@ -828,25 +852,67 @@ private object FaviconCache {
             return entry
         }
         synchronized(lock) {
-            if (icons.containsKey(key)) return icons[key]
+            icons[key]?.let { return it }
         }
-        val bitmap = withContext(Dispatchers.IO) {
-            try {
-                val conn = URL("https://icons.duckduckgo.com/ip3/$key.ico")
-                    .openConnection() as HttpURLConnection
-                conn.connectTimeout = 4000
-                conn.readTimeout = 4000
-                conn.instanceFollowRedirects = true
-                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) horiZen")
-                conn.inputStream.use { BitmapFactory.decodeStream(it) }
-            } catch (_: Throwable) {
-                null
+        // One fetch per host, even when many rows ask at the same time.
+        val deferred: CompletableDeferred<Pair<Bitmap?, Color?>?>
+        val owner: Boolean
+        synchronized(lock) {
+            val existing = inflight[key]
+            if (existing != null) {
+                deferred = existing
+                owner = false
+            } else {
+                deferred = CompletableDeferred()
+                inflight[key] = deferred
+                owner = true
             }
         }
-        val color = bitmap?.let { dominantSaturatedColor(it) }
-        val entry = Pair(bitmap, color)
-        synchronized(lock) { icons[key] = entry }
-        return entry
+        if (!owner) return deferred.await()
+        val result = try {
+            loadFromDiskOrNetwork(key)
+        } finally {
+            synchronized(lock) { inflight.remove(key) }
+        }
+        synchronized(lock) { icons[key] = result }
+        deferred.complete(result)
+        return result
+    }
+
+    private suspend fun loadFromDiskOrNetwork(key: String): Pair<Bitmap?, Color?>? {
+        val ctx = appContext
+        if (ctx != null) {
+            val file = com.example.geckobrowser.BrowserFiles.faviconFile(ctx, key)
+            val disk = withContext(Dispatchers.IO) {
+                if (file.exists()) runCatching { BitmapFactory.decodeFile(file.path) }.getOrNull() else null
+            }
+            if (disk != null) return Pair(disk, dominantSaturatedColor(disk))
+        }
+        val bitmap = network.withPermit {
+            withContext(Dispatchers.IO) {
+                try {
+                    val conn = URL("https://icons.duckduckgo.com/ip3/$key.ico")
+                        .openConnection() as HttpURLConnection
+                    conn.connectTimeout = 2500
+                    conn.readTimeout = 2500
+                    conn.instanceFollowRedirects = true
+                    conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Android) horiZen")
+                    conn.inputStream.use { BitmapFactory.decodeStream(it) }
+                } catch (_: Throwable) {
+                    null
+                }
+            }
+        }
+        if (bitmap != null && ctx != null) {
+            withContext(Dispatchers.IO) {
+                runCatching {
+                    FileOutputStream(com.example.geckobrowser.BrowserFiles.faviconFile(ctx, key)).use {
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)
+                    }
+                }
+            }
+        }
+        return Pair(bitmap, bitmap?.let { dominantSaturatedColor(it) })
     }
 
     /** Mean saturation-filtered color of the icon, or null when too pale/desaturated. */

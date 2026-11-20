@@ -754,6 +754,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
 
     init {
+        com.example.geckobrowser.ui.initFaviconCache(application)
         scope.launch {
             var previousDownloads = emptyList<com.example.geckobrowser.DownloadItem>()
             DownloadCenter.items.collect { list ->
@@ -886,6 +887,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             if (state != null) stateBlobs[record.id] = blob
             val id = tabsManager.createWithId(record.id, state, ::attachDelegates)
             if (record.desktopMode) applyDesktop(id, true)
+            if (record.private) privateTabs.add(id)
             val tab = TabInfo(
                 id = id,
                 title = record.title,
@@ -893,6 +895,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 isHome = record.url.isBlank(),
                 secure = record.secure,
                 desktopMode = record.desktopMode,
+                isPrivate = record.private,
             )
             restored += tab
             histories[id] = History().apply {
@@ -914,7 +917,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun persistTabs() {
         val records = tabs.map {
-            TabRecord(it.id, it.url, it.title, it.desktopMode, it.secure)
+            TabRecord(it.id, it.url, it.title, it.desktopMode, it.secure, it.isPrivate)
         }
         val active = activeId
         scope.launch {
@@ -3586,6 +3589,59 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     val activeTabIsPrivate: Boolean get() = isPrivateTab(activeId)
 
+    val privateTabCount: Int get() = tabs.count { isPrivateTab(it.id) }
+
+    /** Firefox-style private notice; swipe-to-dismiss also closes private tabs. */
+    var privateNotice by mutableStateOf(true)
+        private set
+
+    fun showPrivateNotice() {
+        privateNotice = true
+    }
+
+    fun dismissPrivateNotice() {
+        privateNotice = false
+        closePrivateTabs()
+    }
+
+    var closePrivateConfirm by mutableStateOf(false)
+        private set
+
+    fun requestClosePrivateTabs() {
+        closePrivateConfirm = true
+    }
+
+    fun cancelClosePrivateTabs() {
+        closePrivateConfirm = false
+    }
+
+    fun confirmClosePrivateTabs() {
+        closePrivateConfirm = false
+        privateNotice = false
+        closePrivateTabs()
+    }
+
+    private fun closePrivateTabs() {
+        val ids = tabs.filter { isPrivateTab(it.id) }.map { it.id }
+        ids.forEach { closeTab(it) }
+    }
+
+    var exitConfirm by mutableStateOf(false)
+        private set
+
+    fun requestExitWithPrivateTabs() {
+        if (privateTabCount > 0) exitConfirm = true
+    }
+
+    fun cancelExit() {
+        exitConfirm = false
+    }
+
+    fun confirmExitClosePrivate() {
+        exitConfirm = false
+        closePrivateTabs()
+    }
+
     /** Privacy choice made in the search sheet, applied to the next search tab. */
     var pendingPrivateSearch by mutableStateOf(false)
         private set
@@ -3606,6 +3662,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     /** Creates a real new tab, optionally private, and selects it. */
     fun createTab(privateTab: Boolean) {
         val id = addTab(privateTab = privateTab)
+        if (privateTab) privateNotice = true
         selectTab(id)
         closeOverlay()
         expandPill()

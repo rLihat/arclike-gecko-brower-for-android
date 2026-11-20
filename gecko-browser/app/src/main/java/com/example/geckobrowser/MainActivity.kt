@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            BrowserRoot(vm) {
+            BrowserRoot(vm, onPickAddon = {
                 addonPicker.launch(
                     arrayOf(
                         "application/x-xpinstall",
@@ -94,13 +94,18 @@ class MainActivity : ComponentActivity() {
                         "*/*"
                     )
                 )
-            }
+            }, onExit = { finish() })
 
             BackHandler {
                 val consumed = vm.onBackPressed()
                 if (!consumed) {
                     val tab = vm.activeTab
-                    if (tab != null && tab.canGoBack) vm.goBack() else finish()
+                    if (tab != null && tab.canGoBack) {
+                        vm.goBack()
+                    } else {
+                        vm.requestExitWithPrivateTabs()
+                        if (!vm.exitConfirm) finish()
+                    }
                 }
             }
         }

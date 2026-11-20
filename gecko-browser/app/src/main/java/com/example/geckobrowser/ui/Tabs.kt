@@ -135,17 +135,35 @@ fun TabSwitcher(
 
         val cardWidth = if (grid) (maxWidth - 48.dp) / 2f else maxWidth * 0.88f
         if (grid) {
-            // Focused tab always leads; a PRIVATE separator is inserted before
-            // the first private tab that isn't the focused one.
-            val ordered = tabs.sortedByDescending { it.id == vm.activeId }
-            var labelAdded = false
-            val entries = buildList {
-                ordered.forEachIndexed { index, tab ->
-                    if (vm.isPrivateTab(tab.id) && index > 0 && !labelAdded) {
+            // Keep private tabs contiguous. The focused tab leads its group;
+            // if it is private, the whole PRIVATE group leads the grid.
+            val focused = tabs.firstOrNull { it.id == vm.activeId }
+            val others = tabs.filter { it.id != vm.activeId }
+            val privates = others.filter { vm.isPrivateTab(it.id) }
+            val normals = others.filter { !vm.isPrivateTab(it.id) }
+            val entries = buildList<TabInfo?> {
+                when {
+                    focused != null && vm.isPrivateTab(focused.id) -> {
                         add(null)
-                        labelAdded = true
+                        add(focused)
+                        addAll(privates)
+                        addAll(normals)
                     }
-                    add(tab)
+                    focused != null -> {
+                        add(focused)
+                        addAll(normals)
+                        if (privates.isNotEmpty()) {
+                            add(null)
+                            addAll(privates)
+                        }
+                    }
+                    else -> {
+                        addAll(normals)
+                        if (privates.isNotEmpty()) {
+                            add(null)
+                            addAll(privates)
+                        }
+                    }
                 }
             }
             LazyVerticalGrid(
@@ -407,11 +425,11 @@ private fun TabCard(
                 .clip(RoundedCornerShape(20.dp))
                 .background(if (tab.isHome) (if (c.dark) Color.Black else c.siteBg) else Color.White)
                 .border(
-                    if (selected || tabPrivate) 2.dp else 1.dp,
+                    if (selected || tabPrivate) 2.dp else 0.dp,
                     when {
                         selected -> c.accent
                         tabPrivate -> Color(0xFF9059FF)
-                        else -> c.hairline
+                        else -> Color.Transparent
                     },
                     RoundedCornerShape(20.dp),
                 ),

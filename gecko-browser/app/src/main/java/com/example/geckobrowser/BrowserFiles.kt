@@ -12,6 +12,7 @@ data class TabRecord(
     val title: String,
     val desktopMode: Boolean = false,
     val secure: Boolean = false,
+    val private: Boolean = false,
 )
 
 /** One pinned page as it survives a restart. [key] is the canonical URL. */
@@ -43,6 +44,10 @@ object BrowserFiles {
 
     fun pinsFile(context: Context): File = File(browserDir(context), "pins.json")
 
+    /** Persistent favicon cache, keyed by the normalised host. */
+    fun faviconFile(context: Context, key: String): File =
+        File(browserDir(context), "favicon-${key.hashCode()}.png")
+
     fun saveTabList(context: Context, tabs: List<TabRecord>, activeId: Long) {
         val root = JSONObject().apply {
             put("version", LIST_VERSION)
@@ -55,6 +60,7 @@ object BrowserFiles {
                         put("title", t.title)
                         put("desktop", t.desktopMode)
                         put("secure", t.secure)
+                        put("private", t.private)
                     })
                 }
             })
@@ -111,6 +117,7 @@ object BrowserFiles {
                             title = o.optString("title").ifBlank { "New tab" },
                             desktopMode = o.optBoolean("desktop", false),
                             secure = o.optBoolean("secure", false),
+                            private = o.optBoolean("private", false),
                         )
                     )
                 }
