@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -540,7 +541,7 @@ private fun DownloadRow(
         Row(
             Modifier
                 .fillMaxWidth()
-                .offset(x = drag)
+                .graphicsLayer { translationX = drag }
                 .background(if (selected) c.menuCard else c.field)
                 .border(1.dp, c.stroke, RoundedCornerShape(16.dp))
                 .alpha(if (canceled || failed) 0.72f else 1f)
