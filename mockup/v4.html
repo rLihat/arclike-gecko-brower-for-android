@@ -893,6 +893,7 @@
       transform-origin: top left; pointer-events: none;
       background: radial-gradient(120% 80% at 10% 0%, var(--page-top) 0%, var(--bg1) 40%, var(--bg2) 100%);
     }
+    .tab-preview.flipping { transition: none !important; will-change: transform, opacity; }
     .tab-preview.active { outline: none; }
     .tab-preview.active .tp-page { box-shadow: inset 0 0 0 1px var(--stroke), 0 16px 40px rgba(20,30,35,0.22); }
     .tab-preview.new-tab-card {
@@ -2940,10 +2941,15 @@
       // grid), or snapshot the current grid before the active tab is reordered.
       const before = new Map();
       if (previousRects) {
-        previousRects.forEach((rect, index) => before.set(index, rect));
+        previousRects.forEach((entry, index) => before.set(index, entry));
       } else if (grid) {
         [...stack.children].forEach((el) => {
-          if (el.dataset.index) before.set(el.dataset.index, el.getBoundingClientRect());
+          if (el.dataset.index) {
+            before.set(el.dataset.index, {
+              rect: el.getBoundingClientRect(),
+              scale: el.classList.contains('active') ? 1 : .93,
+            });
+          }
         });
       }
       // In grid view the focused tab always leads; everything else keeps order.
@@ -2991,27 +2997,35 @@
       if (before.size) {
         [...stack.children].forEach((el) => {
           if (!el.dataset.index) return;
-          const first = before.get(el.dataset.index);
-          if (!first) return;
+          const from = before.get(el.dataset.index);
+          if (!from) return;
+          const first = from.rect;
           const last = el.getBoundingClientRect();
           const dx = first.left - last.left;
           const dy = first.top - last.top;
-          if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
-          el.animate(
+          const toScale = grid ? 1 : (el.classList.contains('active') ? 1 : .93);
+          if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && from.scale === toScale) return;
+          // Match the cards' own scale in both keyframes; otherwise the CSS
+          // transform snaps back at the end and the move looks jagged.
+          el.classList.add('flipping');
+          const anim = el.animate(
             [
-              { transform: `translate(${dx}px, ${dy}px)`, opacity: .72 },
-              { transform: 'translate(0, 0)', opacity: 1 },
+              { transform: `translate(${dx}px, ${dy}px) scale(${from.scale})`, opacity: .82 },
+              { transform: `translate(0, 0) scale(${toScale})`, opacity: 1 },
             ],
-            { duration: 460, easing: 'cubic-bezier(.32,.72,0,1)' },
+            { duration: 540, easing: 'cubic-bezier(.22,.61,.36,1)' },
           );
+          anim.onfinish = () => el.classList.remove('flipping');
         });
       }
       document.getElementById('tab-overlay').classList.toggle('empty',
         !tabs.length || tabs[currentTab]?.url === 'home');
-      setTimeout(() => {
-        const active = stack.querySelector('.tab-preview.active');
-        if (active) active.scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' });
-      }, 0);
+      if (!grid) {
+        setTimeout(() => {
+          const active = stack.querySelector('.tab-preview.active');
+          if (active) active.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        }, 0);
+      }
       layoutTabThumbs();
     }
     function syncTabsButton() {
@@ -4663,8 +4677,14 @@
       // Capture the current layout before flipping classes, so cards morph
       // from their list slots into their grid slots (and back).
       const before = new Map();
+      const wasGrid = stack.classList.contains('grid-view');
       [...stack.children].forEach((el) => {
-        if (el.dataset.index) before.set(el.dataset.index, el.getBoundingClientRect());
+        if (el.dataset.index) {
+          before.set(el.dataset.index, {
+            rect: el.getBoundingClientRect(),
+            scale: wasGrid || el.classList.contains('active') ? 1 : .93,
+          });
+        }
       });
       stack.classList.toggle('grid-view');
       log(stack.classList.contains('grid-view') ? 'Tab view: grid' : 'Tab view: carousel');
