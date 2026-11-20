@@ -407,11 +407,9 @@ fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
     if (ids != null) {
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
-            colors = androidx.compose.material3.AlertDialogDefaults.colors(
-                containerColor = c.surface,
-                titleContentColor = c.text,
-                textContentColor = c.text,
-            ),
+            containerColor = c.surface,
+            titleContentColor = c.text,
+            textContentColor = c.text,
             title = { Text("Delete ${ids.size} download${if (ids.size == 1) "" else "s"}?") },
             text = {
                 Column {
