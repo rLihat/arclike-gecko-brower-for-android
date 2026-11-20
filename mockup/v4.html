@@ -2013,7 +2013,7 @@
        <div class="note"><b>Pinned sites:</b> the Essentials row sits under the search field - three equal favicon thirds per row, scrollable, order persists. The site you are on is outlined in its favicon's dominant colour. Hold a tile until the x replaces the favicon, then release to unpin it; keep holding and drag sideways to reorder - neighbours slide into place and the row closes the gap after an unpin.</div>
       <div class="note"><b>Popups:</b> the download question and small messages like “Canceled” or “Opening” use the pill’s own footprint, and the pill steps aside while they show. Finished downloads don’t pop anything — the live chip already says it.</div>
       <div class="note"><b>Gestures:</b> swipe ↑ from the plus or menu arrow for the menu · ↓ from the plus, search ×, menu arrow or a sheet handle dismisses what’s open · ←/→ from the plus slides between tabs · ↑ from the tab icon opens previews (↓ closes them) · ←/→ from the tab icon goes back/forward · ← from the menu arrow goes back · ↑ from the live download chip cancels it and clears the row. Back and forward flash the same pill-sized notice as immersive mode.</div>
-      <div class="note"><b>Private &amp; selection:</b> press and hold the plus for New tab / Private tab; the search field's trailing mask toggles privacy for the next search and the search pill shows the same mask. Private tabs are ringed in purple around the live preview only. Long-press a tab preview to multi-select (top-corner Cancel/Delete), and the bottom-left switcher flips between carousel and grid, with private tabs grouped under a label. Swiping a card up with more than two tabs open surfaces a Clear-all banner over the pill.</div>
+      <div class="note"><b>Private &amp; selection:</b> press and hold the plus for New tab / Private tab; the search field's trailing mask toggles privacy for the next search and the search pill shows the same mask. Private tabs are ringed in purple around the live preview only. Long-press a tab preview to multi-select (top-corner Cancel/Delete), and the bottom-left switcher flips between carousel and grid, where the current tab slides into the first slot and private tabs group under a label. Swiping a card up with more than two tabs open surfaces a Clear-all banner over the pill.</div>
       <div class="section-title">Debug</div>
       <div class="debug-row">
         <span>Dark mode</span>
@@ -2935,8 +2935,30 @@
     }
     function renderTabStack() {
       const stack = document.getElementById('tab-stack');
+      const grid = stack.classList.contains('grid-view');
+      // FLIP: remember where each card sat before we reorder it.
+      const before = new Map();
+      if (grid) {
+        [...stack.children].forEach((el) => {
+          if (el.dataset.index) before.set(el.dataset.index, el.getBoundingClientRect());
+        });
+      }
+      // In grid view the focused tab always leads; everything else keeps order.
+      const order = tabs.map((_, i) => i);
+      if (grid && order.length > 1) {
+        order.sort((a, b) => (a === currentTab ? -1 : b === currentTab ? 1 : a - b));
+      }
       stack.innerHTML = '';
-      tabs.forEach((t, i) => {
+      let privateLabelAdded = false;
+      order.forEach((i) => {
+        const t = tabs[i];
+        if (grid && t.private && !privateLabelAdded && i !== currentTab) {
+          const label = document.createElement('div');
+          label.className = 'tab-private-label';
+          label.textContent = 'PRIVATE';
+          stack.appendChild(label);
+          privateLabelAdded = true;
+        }
         const card = document.createElement('div');
         card.className = 'tab-preview glass' + (i === currentTab ? ' active' : '') +
           (t.private ? ' private' : '') + (tabSelected.has(i) ? ' selected' : '');
@@ -2963,6 +2985,21 @@
         });
         bindTabLongPress(card, i);
       });
+      if (grid) {
+        [...stack.children].forEach((el) => {
+          if (!el.dataset.index) return;
+          const first = before.get(el.dataset.index);
+          if (!first) return;
+          const last = el.getBoundingClientRect();
+          const dx = first.left - last.left;
+          const dy = first.top - last.top;
+          if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+          el.animate(
+            [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'translate(0, 0)' }],
+            { duration: 420, easing: 'cubic-bezier(.32,.72,0,1)' },
+          );
+        });
+      }
       document.getElementById('tab-overlay').classList.toggle('empty',
         !tabs.length || tabs[currentTab]?.url === 'home');
       setTimeout(() => {
