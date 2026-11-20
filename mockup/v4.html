@@ -3052,11 +3052,25 @@
       }
       document.getElementById('tab-overlay').classList.toggle('empty',
         !tabs.length || tabs[currentTab]?.url === 'home');
-      if (!grid) {
-        setTimeout(() => {
-          const active = stack.querySelector('.tab-preview.active');
-          if (active) active.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        }, toCarousel ? 700 : 0);
+      // Keep the focused card in view without an animated scrollIntoView jump.
+      // offsetLeft/offsetWidth are layout values, so the FLIP transform on the
+      // card can't skew the centring while the transition is still running.
+      const activeCard = stack.querySelector('.tab-preview.active');
+      if (activeCard) {
+        // Mandatory snapping would yank the row to a neighbour mid-transition;
+        // hold it off for one frame while we set the exact scroll position.
+        const snap = stack.style.scrollSnapType;
+        stack.style.scrollSnapType = 'none';
+        if (grid) {
+          stack.scrollLeft = 0;
+          stack.scrollTop = 0;
+        } else {
+          const target = activeCard.offsetLeft -
+            (stack.clientWidth - activeCard.offsetWidth) / 2;
+          stack.scrollLeft = Math.max(0, target);
+          stack.scrollTop = 0;
+        }
+        requestAnimationFrame(() => { stack.style.scrollSnapType = snap; });
       }
       layoutTabThumbs();
     }
