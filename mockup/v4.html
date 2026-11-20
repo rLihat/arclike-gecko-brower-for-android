@@ -886,7 +886,7 @@
     }
     .tab-preview .tp-top { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom: 10px; font-size: 14px; color: var(--muted); font-weight: 600; }
     /* A real miniature of the tab's webview, cropped to the card */
-    .tab-preview .tp-page { position: relative; overflow: hidden; border-radius: 20px; height: calc(100% - 34px); background: var(--bg1); box-shadow: inset 0 0 0 1px var(--stroke); }
+    .tab-preview .tp-page { position: relative; overflow: hidden; border-radius: 20px; height: calc(100% - 34px); background: var(--bg1); box-shadow: none; }
     .tp-shot { position: absolute; inset: 0; overflow: hidden; background: var(--bg1); }
     .tp-shot .screen {
       position: absolute; top: 0; left: 0; display: flex;
@@ -963,6 +963,31 @@
     .clear-all-banner .ca-label { flex: 1; font-size: 12.5px; font-weight: 600; color: var(--text); }
     .clear-all-banner button { border: 0; background: transparent; font: inherit; font-size: 12px; cursor: pointer; color: var(--accent); font-weight: 600; }
     .clear-all-banner button.dismiss { color: var(--muted); font-weight: 400; }
+    /* Firefox-style private browsing notice. */
+    .private-notice {
+      position: absolute; left: 15%; width: 70%; top: 18px; z-index: 65;
+      display: none; align-items: center; gap: 9px; padding: 0 12px; height: 52px;
+      border-radius: 26px; background: var(--nav-soft); border: 1px solid var(--stroke);
+      backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur));
+      color: var(--text);
+    }
+    .private-notice.open { display: flex; }
+    .private-notice svg { width: 19px; height: 19px; stroke: var(--private); stroke-width: 1.9; fill: none; }
+    .private-notice .pn-label { flex: 1; font-size: 12.5px; font-weight: 600; }
+    .private-notice button { border: 0; background: transparent; color: var(--private); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .private-confirm {
+      position: absolute; inset: 0; z-index: 80; display: none;
+      align-items: center; justify-content: center; background: rgba(0,0,0,.42);
+    }
+    .private-confirm.open { display: flex; }
+    .private-confirm .pc-card {
+      width: 78%; padding: 18px; border-radius: 20px; background: var(--surface);
+      color: var(--text); box-shadow: var(--shadow); font-size: 13px;
+    }
+    .private-confirm .pc-card b { display: block; margin-bottom: 8px; font-size: 14px; }
+    .private-confirm .pc-actions { display: flex; justify-content: flex-end; gap: 16px; margin-top: 16px; }
+    .private-confirm button { border: 0; background: transparent; color: var(--accent); font: inherit; font-size: 13px; cursor: pointer; }
+    .private-confirm button.danger { color: #e0453c; font-weight: 600; }
     /* Private tabs: the ring wraps the live preview, never the title strip. */
     .tab-preview.private .tp-page { box-shadow: inset 0 0 0 2px var(--private), 0 16px 40px rgba(20,30,35,.22); }
     .tab-preview.selected .tp-page { box-shadow: inset 0 0 0 2px var(--accent), 0 16px 40px rgba(20,30,35,.22); }
@@ -1492,6 +1517,22 @@
           <span class="ca-label">Clear all tabs?</span>
           <button type="button" onclick="confirmClearAll()">Clear</button>
           <button class="dismiss" type="button" onclick="hideClearAll()">Dismiss</button>
+        </div>
+
+        <div class="private-notice" id="private-notice" role="status" aria-label="Private tabs open">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 11C2.5 7.5 6.5 5 12 5s9.5 2.5 9.5 6c0 5.5-4 9-9.5 9s-9.5-3.5-9.5-9z"/><circle cx="8.5" cy="12" r="1.5"/><circle cx="15.5" cy="12" r="1.5"/><path d="M9.5 16h5"/></svg>
+          <span class="pn-label" id="private-count">Private tabs open</span>
+          <button type="button" onclick="requestClosePrivate()">Close private</button>
+        </div>
+        <div class="private-confirm" id="private-confirm" role="dialog" aria-label="Close private tabs">
+          <div class="pc-card">
+            <b>Close private tabs?</b>
+            <span>All open private tabs will be closed. This can't be undone.</span>
+            <div class="pc-actions">
+              <button type="button" onclick="cancelClosePrivate()">Cancel</button>
+              <button class="danger" type="button" onclick="confirmClosePrivate()">Close</button>
+            </div>
+          </div>
         </div>
 
         <button class="dl-chip" id="dl-chip" onclick="openDownloads('chip')" title="Downloads" aria-label="Downloads">
@@ -2967,21 +3008,25 @@
           }
         });
       }
-      // In grid view the focused tab always leads; everything else keeps order.
-      const order = tabs.map((_, i) => i);
+      // Grid keeps all private tabs contiguous. The focused tab leads its
+      // group; if it is private, the whole PRIVATE group leads the grid.
+      let order = tabs.map((_, i) => i);
       if (grid && order.length > 1) {
-        order.sort((a, b) => (a === currentTab ? -1 : b === currentTab ? 1 : a - b));
+        const others = order.filter(i => i !== currentTab);
+        const privates = others.filter(i => tabs[i].private);
+        const normals = others.filter(i => !tabs[i].private);
+        order = tabs[currentTab] && tabs[currentTab].private
+          ? [currentTab, ...privates, ...normals]
+          : [currentTab, ...normals, ...privates];
       }
       stack.innerHTML = '';
-      let privateLabelAdded = false;
-      order.forEach((i) => {
+      order.forEach((i, pos) => {
         const t = tabs[i];
-        if (grid && t.private && !privateLabelAdded && i !== currentTab) {
+        if (grid && t.private && (pos === 0 || !tabs[order[pos - 1]].private)) {
           const label = document.createElement('div');
           label.className = 'tab-private-label';
           label.textContent = 'PRIVATE';
           stack.appendChild(label);
-          privateLabelAdded = true;
         }
         const card = document.createElement('div');
         card.className = 'tab-preview glass' + (i === currentTab ? ' active' : '') +
@@ -3074,6 +3119,7 @@
         }
         requestAnimationFrame(() => { stack.style.scrollSnapType = snap; });
       }
+      updatePrivateNotice();
       layoutTabThumbs();
     }
     function syncTabsButton() {
@@ -4711,6 +4757,29 @@
     function hideClearAll() {
       document.getElementById('clear-all-banner').classList.remove('open');
     }
+    function updatePrivateNotice() {
+      const count = tabs.filter(t => t.private).length;
+      const notice = document.getElementById('private-notice');
+      notice.classList.toggle('open', count > 0);
+      document.getElementById('private-count').textContent = count === 1
+        ? '1 private tab open' : count + ' private tabs open';
+    }
+    function requestClosePrivate() {
+      document.getElementById('private-confirm').classList.add('open');
+    }
+    function cancelClosePrivate() {
+      document.getElementById('private-confirm').classList.remove('open');
+    }
+    function confirmClosePrivate() {
+      const keep = tabs.filter(t => !t.private);
+      tabs.splice(0, tabs.length, ...(keep.length ? keep : [{ title: 'New Tab', url: 'home', favicon: 'N', color: '#7aa2b8' }]));
+      currentTab = 0;
+      cancelClosePrivate();
+      updatePrivateNotice();
+      renderTabStack();
+      syncTabsButton();
+      log('Closed all private tabs');
+    }
     function confirmClearAll() {
       tabs.splice(0, tabs.length, { title: 'New Tab', url: 'home', favicon: 'N', color: '#7aa2b8' });
       currentTab = 0;
@@ -4882,6 +4951,10 @@
 
     bindNavGestures();
     bindPlusLongPress();
+    attachSwipe(document.getElementById('private-notice'), {
+      left: confirmClosePrivate, right: confirmClosePrivate,
+      up: confirmClosePrivate, down: confirmClosePrivate,
+    });
     updateChrome();
     renderEngineBadge();
     syncThemeToggles();
