@@ -38,6 +38,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -657,13 +658,17 @@ fun PillButton(
     // it restarted the gesture mid-hold, so long press never completed. Keep
     // the key stable and read the current callback through state instead.
     val longClickState = rememberUpdatedState(onLongClick)
+    var longFired by remember { mutableStateOf(false) }
     Box(
         Modifier
             .size(46.dp)
             .clip(CircleShape)
             .pointerInput(Unit) {
                 if (longClickState.value != null) {
-                    detectTapGestures(onLongPress = { longClickState.value?.invoke() })
+                    detectTapGestures(onLongPress = {
+                        longFired = true
+                        longClickState.value?.invoke()
+                    })
                 }
             }
             .swipeActions(
@@ -676,7 +681,11 @@ fun PillButton(
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = onClick
+                onClick = {
+                    // The release after a long press also looks like a click;
+                    // swallow it so the chooser isn't replaced by a search.
+                    if (longFired) longFired = false else onClick()
+                },
             ),
         contentAlignment = Alignment.Center,
     ) { content() }

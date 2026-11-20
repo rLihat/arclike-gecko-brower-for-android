@@ -309,15 +309,6 @@ private fun TabCard(
                     onToggleSelect()
                 })
             }
-            .border(
-                if (selected || tabPrivate) 2.dp else 0.dp,
-                when {
-                    selected -> c.accent
-                    tabPrivate -> Color(0xFF9059FF)
-                    else -> Color.Transparent
-                },
-                RoundedCornerShape(22.dp),
-            )
             .scale(scale)
             .alpha(baseAlpha * (1f - dismiss.value))
             .graphicsLayer { translationY = drag - lift * dismiss.value }
@@ -379,11 +370,14 @@ private fun TabCard(
                 .clip(RoundedCornerShape(20.dp))
                 .background(if (tab.isHome) (if (c.dark) Color.Black else c.siteBg) else Color.White)
                 .border(
-                    if (tabPrivate) 2.dp else 1.dp,
-                    if (tabPrivate) Color(0xFF9059FF) else c.hairline,
+                    if (selected || tabPrivate) 2.dp else 1.dp,
+                    when {
+                        selected -> c.accent
+                        tabPrivate -> Color(0xFF9059FF)
+                        else -> c.hairline
+                    },
                     RoundedCornerShape(20.dp),
-                )
-                .clickable { if (longPressed) longPressed = false else onSelect() },
+                ),
         ) {
             TabMiniature(tab)
         }
