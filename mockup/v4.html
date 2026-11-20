@@ -39,6 +39,7 @@
       --switch-off: #dcdcd9;
       --knob: #ffffff;
       --accent: #2f5c69;
+      --private: #9059ff;
       --menu-ico: #5d5d59;
       --row-ico: #8b8b86;
       --handle: rgba(0,0,0,0.18);
@@ -83,6 +84,7 @@
       --switch-off: #394248;
       --knob: #eef3f2;
       --accent: #4f93a8;
+      --private: #b18cff;
       --menu-ico: #aeb7b6;
       --row-ico: #8b9593;
       --handle: rgba(255,255,255,0.22);
@@ -897,6 +899,77 @@
       flex: 0 0 88%; display:flex; align-items:center; justify-content:center; font-size: 34px; color: var(--muted);
       background: var(--surface); border: 1px solid var(--stroke); box-shadow: var(--shadow);
     }
+    /* ================= Latest app-mirror states ================= */
+    /* Private search toggle in the search field's trailing badge slot. */
+    .private-toggle {
+      position: absolute; right: 14px; top: 50%; transform: translateY(-50%); z-index: 3;
+      width: 28px; height: 28px; padding: 0; border: 0; border-radius: 9px;
+      background: transparent; color: var(--muted); cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .private-toggle svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .private-toggle.active { color: var(--private); }
+    /* The search pill shows the private mask instead of a rotated plus/X. */
+    #nav-search .mask-glyph { display: none; }
+    .bottom-bar.search-open #nav-search .plus-glyph { display: none; }
+    .bottom-bar.search-open #nav-search .mask-glyph { display: block; color: var(--muted); }
+    .bottom-bar.search-open.private #nav-search .mask-glyph { color: var(--private); }
+    /* Long-press chooser for new tab / private tab. */
+    .plus-chooser {
+      position: absolute; left: 50%; bottom: 86px; z-index: 66;
+      transform: translateX(-50%) translateY(8px) scale(.94);
+      display: flex; align-items: center; gap: 0;
+      border-radius: 18px; background: var(--nav-soft); color: var(--text);
+      border: 1px solid var(--stroke); backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transition: opacity .18s ease, transform .26s cubic-bezier(.32,.72,0,1), visibility .18s;
+    }
+    .plus-chooser.open { opacity: 1; visibility: visible; pointer-events: auto; transform: translateX(-50%) translateY(0) scale(1); }
+    .plus-chooser button {
+      border: 0; background: transparent; color: inherit; font: inherit; font-size: 12.5px;
+      padding: 11px 14px; cursor: pointer; white-space: nowrap;
+    }
+    .plus-chooser button.private-choice { color: var(--private); font-weight: 600; }
+    .plus-chooser i { width: 1px; height: 20px; background: var(--stroke); }
+    /* Clear-all confirmation: immersive-banner capsule, above the nav pill. */
+    .clear-all-banner {
+      position: absolute; left: 15%; width: 70%; bottom: 18px; height: 58px; z-index: 70;
+      display: flex; align-items: center; gap: 9px; padding: 0 12px;
+      border-radius: 29px; background: var(--nav-soft); border: 1px solid var(--stroke);
+      backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur));
+      opacity: 0; visibility: hidden; transform: translateY(14px) scale(.96);
+      transition: opacity .2s ease, transform .26s cubic-bezier(.32,.72,0,1), visibility .2s;
+    }
+    .clear-all-banner.open { opacity: 1; visibility: visible; transform: none; }
+    .clear-all-banner .ca-ico { width: 26px; height: 26px; border-radius: 9px; background: var(--chip); color: var(--accent); display:flex; align-items:center; justify-content:center; flex:0 0 26px; }
+    .clear-all-banner .ca-ico svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 2; fill: none; }
+    .clear-all-banner .ca-label { flex: 1; font-size: 12.5px; font-weight: 600; color: var(--text); }
+    .clear-all-banner button { border: 0; background: transparent; font: inherit; font-size: 12px; cursor: pointer; color: var(--accent); font-weight: 600; }
+    .clear-all-banner button.dismiss { color: var(--muted); font-weight: 400; }
+    /* Private tabs: the ring wraps the live preview, never the title strip. */
+    .tab-preview.private .tp-page { box-shadow: inset 0 0 0 2px var(--private), 0 16px 40px rgba(20,30,35,.22); }
+    .tab-preview.selected .tp-page { box-shadow: inset 0 0 0 2px var(--accent), 0 16px 40px rgba(20,30,35,.22); }
+    /* Long-press multi-select controls at the screen's top corners. */
+    .tab-select-bar { position: absolute; top: 8px; left: 16px; right: 16px; z-index: 61; display: none; justify-content: space-between; }
+    .tab-select-bar.open { display: flex; }
+    .tab-select-bar button { border: 0; background: transparent; font: inherit; font-size: 13px; color: var(--text); cursor: pointer; padding: 8px; }
+    .tab-select-bar button.delete { color: #e0453c; font-weight: 600; }
+    /* View switcher lives bottom-left, the Extensions-chip position, and only
+       for real pages (never an empty tab). */
+    .tab-view-toggle {
+      position: absolute; left: 6px; bottom: 24px; z-index: 60;
+      width: 46px; height: 46px; border: 0; background: transparent; color: var(--text);
+      display: none; align-items: center; justify-content: center; cursor: pointer;
+    }
+    #tab-overlay.open .tab-view-toggle { display: flex; }
+    #tab-overlay.empty .tab-view-toggle { display: none; }
+    .tab-view-toggle svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    /* Grid preview: two columns, private tabs separated under a label. */
+    .stack.grid-view { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; overflow-y: auto; padding: 8px 16px 76px; align-content: start; }
+    .stack.grid-view .tab-preview { flex: none; width: 100%; height: 210px; transform: none; opacity: 1; }
+    .stack.grid-view .tab-preview .tp-page { height: calc(100% - 34px); }
+    .tab-private-label { grid-column: 1 / -1; color: var(--private); font-size: 11px; font-weight: 700; letter-spacing: 1px; padding: 8px 4px 0; }
     /* ================= Extensions (mirror of the downloads chip) ================= */
     /* Icon-only, bottom-left, visible only while the menu sheet is open. */
     .menu-ext {
@@ -1372,8 +1445,9 @@
             <button class="nav-btn" id="nav-tabs" onclick="toggleTabs()" title="Tabs" aria-label="Tabs">
               <div class="tabs-icon-wrap"><div class="fav-in-nav" id="nav-favicon">E</div></div>
             </button>
-            <button class="nav-btn" id="nav-search" onclick="toggleSearch()" title="Search" aria-label="Search">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            <button class="nav-btn" id="nav-search" onclick="if(!plusChooserShown) toggleSearch()" title="Search" aria-label="Search">
+              <svg class="plus-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+              <svg class="mask-glyph" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 11C2.5 7.5 6.5 5 12 5s9.5 2.5 9.5 6c0 5.5-4 9-9.5 9s-9.5-3.5-9.5-9z"/><circle cx="8.5" cy="12" r="1.5"/><circle cx="15.5" cy="12" r="1.5"/><path d="M9.5 16h5"/></svg>
             </button>
             <button class="nav-btn nav-menu-btn" onclick="toggleMenu()" title="Menu" aria-label="Menu">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg>
@@ -1390,6 +1464,18 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 14l6-6 6 6"/></svg>
             </button>
           </div>
+        </div>
+
+        <div class="plus-chooser" id="plus-chooser" role="menu" aria-label="New tab options">
+          <button type="button" onclick="pickPlusChoice(false)">New tab</button>
+          <i aria-hidden="true"></i>
+          <button class="private-choice" type="button" onclick="pickPlusChoice(true)">Private tab</button>
+        </div>
+        <div class="clear-all-banner" id="clear-all-banner" role="status" aria-label="Clear all tabs">
+          <span class="ca-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13"/></svg></span>
+          <span class="ca-label">Clear all tabs?</span>
+          <button type="button" onclick="confirmClearAll()">Clear</button>
+          <button class="dismiss" type="button" onclick="hideClearAll()">Dismiss</button>
         </div>
 
         <button class="dl-chip" id="dl-chip" onclick="openDownloads('chip')" title="Downloads" aria-label="Downloads">
@@ -1450,7 +1536,14 @@
 
         <div class="overlay" id="tab-overlay">
           <div class="sheet tab-switcher" onclick="if(event.target===this || event.target.id==='tab-stack') closeOverlays()">
+            <div class="tab-select-bar" id="tab-select-bar">
+              <button type="button" onclick="cancelTabSelection()">Cancel</button>
+              <button class="delete" type="button" onclick="deleteSelectedTabs()">Delete</button>
+            </div>
             <div class="stack" id="tab-stack"></div>
+            <button class="tab-view-toggle" id="tab-view-toggle" onclick="toggleTabView()" title="Toggle tab view" aria-label="Toggle tab view">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
+            </button>
           </div>
         </div>
 
@@ -1463,6 +1556,9 @@
                 aria-haspopup="menu" aria-expanded="false" onclick="toggleEngineMenu(event)"></button>
               <input id="search-input" class="input" type="text" placeholder="Search or enter a site" autocomplete="off" spellcheck="false"
                 oninput="renderSuggestions()" onkeydown="if(event.key==='Enter'){event.preventDefault();runSearch(this.value);}" />
+              <button class="private-toggle" id="private-toggle" type="button" title="Private search" aria-label="Toggle private search" onclick="toggleMockPrivate()">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 11C2.5 7.5 6.5 5 12 5s9.5 2.5 9.5 6c0 5.5-4 9-9.5 9s-9.5-3.5-9.5-9z"/><circle cx="8.5" cy="12" r="1.5"/><circle cx="15.5" cy="12" r="1.5"/><path d="M9.5 16h5"/></svg>
+              </button>
               <div class="engine-menu" id="engine-menu" role="menu" aria-label="Search engines">
                 <div id="engine-list"></div>
                 <div class="engine-add">
@@ -1917,6 +2013,7 @@
        <div class="note"><b>Pinned sites:</b> the Essentials row sits under the search field - three equal favicon thirds per row, scrollable, order persists. The site you are on is outlined in its favicon's dominant colour. Hold a tile until the x replaces the favicon, then release to unpin it; keep holding and drag sideways to reorder - neighbours slide into place and the row closes the gap after an unpin.</div>
       <div class="note"><b>Popups:</b> the download question and small messages like “Canceled” or “Opening” use the pill’s own footprint, and the pill steps aside while they show. Finished downloads don’t pop anything — the live chip already says it.</div>
       <div class="note"><b>Gestures:</b> swipe ↑ from the plus or menu arrow for the menu · ↓ from the plus, search ×, menu arrow or a sheet handle dismisses what’s open · ←/→ from the plus slides between tabs · ↑ from the tab icon opens previews (↓ closes them) · ←/→ from the tab icon goes back/forward · ← from the menu arrow goes back · ↑ from the live download chip cancels it and clears the row. Back and forward flash the same pill-sized notice as immersive mode.</div>
+      <div class="note"><b>Private &amp; selection:</b> press and hold the plus for New tab / Private tab; the search field's trailing mask toggles privacy for the next search and the search pill shows the same mask. Private tabs are ringed in purple around the live preview only. Long-press a tab preview to multi-select (top-corner Cancel/Delete), and the bottom-left switcher flips between carousel and grid, with private tabs grouped under a label. Swiping a card up with more than two tabs open surfaces a Clear-all banner over the pill.</div>
       <div class="section-title">Debug</div>
       <div class="debug-row">
         <span>Dark mode</span>
@@ -1962,7 +2059,7 @@
       
       { title: 'YouTube', url: 'youtube.com', favicon: '▶', color: '#ff0033' },
       { title: 'GitHub', url: 'github.com', favicon: 'G', color: '#24292f' },
-      { title: 'Gmail', url: 'mail.google.com', favicon: 'M', color: '#d93b30' },
+      { title: 'Gmail', url: 'mail.google.com', favicon: 'M', color: '#d93b30', private: true },
       { title: 'Example', url: 'example.com', favicon: 'E', color: '#7aa2b8' },
       { title: 'Add-ons', url: 'addons.mozilla.org', favicon: 'A', color: '#ff7a59' }
     ];
@@ -2841,7 +2938,8 @@
       stack.innerHTML = '';
       tabs.forEach((t, i) => {
         const card = document.createElement('div');
-        card.className = 'tab-preview glass' + (i === currentTab ? ' active' : '');
+        card.className = 'tab-preview glass' + (i === currentTab ? ' active' : '') +
+          (t.private ? ' private' : '') + (tabSelected.has(i) ? ' selected' : '');
         card.dataset.index = i;
         card.onclick = () => openTab(i);
         const top = document.createElement('div');
@@ -2857,10 +2955,16 @@
         // downward swipe focuses the tab (like a tap), an upward swipe dismisses
         // it. Horizontal drags fall through and keep scrolling the row.
         attachSwipe(card, {
-          up: () => dismissTabCard(i, card),
+          up: () => {
+            if (tabs.length > 2) showClearAll();
+            else dismissTabCard(i, card);
+          },
           down: () => openTab(i),
         });
+        bindTabLongPress(card, i);
       });
+      document.getElementById('tab-overlay').classList.toggle('empty',
+        !tabs.length || tabs[currentTab]?.url === 'home');
       setTimeout(() => {
         const active = stack.querySelector('.tab-preview.active');
         if (active) active.scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' });
@@ -4454,6 +4558,112 @@
         }
       }, true);
     }
+    /* ---------- Latest app-mirror interactions ---------- */
+    let plusChooserShown = false;
+    let mockPrivate = false;
+    let plusHoldTimer = null;
+    function toggleMockPrivate() {
+      mockPrivate = !mockPrivate;
+      document.getElementById('private-toggle').classList.toggle('active', mockPrivate);
+      document.getElementById('bottom-bar').classList.toggle('private', mockPrivate);
+      log(mockPrivate ? 'Private search on for the next search' : 'Private search off');
+    }
+    function showPlusChooser() {
+      plusChooserShown = true;
+      document.getElementById('plus-chooser').classList.add('open');
+    }
+    function hidePlusChooser() {
+      plusChooserShown = false;
+      document.getElementById('plus-chooser').classList.remove('open');
+    }
+    function pickPlusChoice(isPrivate) {
+      hidePlusChooser();
+      const tab = { title: isPrivate ? 'Private tab' : 'New tab', url: 'home', favicon: isPrivate ? 'P' : 'N', color: isPrivate ? '#9059ff' : '#7aa2b8', private: isPrivate };
+      tabs.push(tab);
+      currentTab = tabs.length - 1;
+      renderTabStack();
+      syncTabsButton();
+      log(isPrivate ? 'Created a private tab' : 'Created a new tab');
+    }
+    function bindPlusLongPress() {
+      const btn = document.getElementById('nav-search');
+      if (!btn) return;
+      btn.addEventListener('pointerdown', () => {
+        if (document.getElementById('search-overlay').classList.contains('open')) return;
+        plusHoldTimer = setTimeout(() => { plusHoldTimer = null; showPlusChooser(); }, 500);
+      });
+      const cancel = () => { if (plusHoldTimer) { clearTimeout(plusHoldTimer); plusHoldTimer = null; } };
+      btn.addEventListener('pointerup', cancel);
+      btn.addEventListener('pointerleave', cancel);
+      btn.addEventListener('pointercancel', cancel);
+      document.addEventListener('pointerdown', (e) => {
+        if (plusChooserShown && !e.target.closest('#plus-chooser') && !e.target.closest('#nav-search')) hidePlusChooser();
+      }, true);
+    }
+    function showClearAll() {
+      document.getElementById('clear-all-banner').classList.add('open');
+    }
+    function hideClearAll() {
+      document.getElementById('clear-all-banner').classList.remove('open');
+    }
+    function confirmClearAll() {
+      tabs.splice(0, tabs.length, { title: 'New Tab', url: 'home', favicon: 'N', color: '#7aa2b8' });
+      currentTab = 0;
+      hideClearAll();
+      closeOverlays();
+      renderTabStack();
+      syncTabsButton();
+      log('Cleared all tabs');
+    }
+    function toggleTabView() {
+      const stack = document.getElementById('tab-stack');
+      stack.classList.toggle('grid-view');
+      log(stack.classList.contains('grid-view') ? 'Tab view: grid' : 'Tab view: carousel');
+      renderTabStack();
+    }
+    let tabSelecting = false;
+    const tabSelected = new Set();
+    function enterTabSelection(index) {
+      tabSelecting = true;
+      tabSelected.add(index);
+      document.getElementById('tab-select-bar').classList.add('open');
+      renderTabStack();
+      log('Tab multi-select on');
+    }
+    function toggleTabSelected(index) {
+      if (tabSelected.has(index)) tabSelected.delete(index); else tabSelected.add(index);
+      renderTabStack();
+    }
+    function cancelTabSelection() {
+      tabSelecting = false;
+      tabSelected.clear();
+      document.getElementById('tab-select-bar').classList.remove('open');
+      renderTabStack();
+    }
+    function deleteSelectedTabs() {
+      const keep = tabs.filter((_, i) => !tabSelected.has(i));
+      if (!keep.length) keep.push({ title: 'New Tab', url: 'home', favicon: 'N', color: '#7aa2b8' });
+      tabs.splice(0, tabs.length, ...keep);
+      currentTab = 0;
+      cancelTabSelection();
+      log('Closed selected tabs');
+    }
+    function bindTabLongPress(card, index) {
+      let timer = null;
+      let fired = false;
+      card.addEventListener('pointerdown', () => {
+        fired = false;
+        timer = setTimeout(() => { fired = true; enterTabSelection(index); }, 550);
+      });
+      const clear = () => { if (timer) { clearTimeout(timer); timer = null; } };
+      card.addEventListener('pointerup', clear);
+      card.addEventListener('pointerleave', clear);
+      card.addEventListener('pointercancel', clear);
+      card.addEventListener('click', (e) => {
+        if (fired) { e.stopImmediatePropagation(); fired = false; return; }
+        if (tabSelecting) { e.stopImmediatePropagation(); toggleTabSelected(index); }
+      }, true);
+    }
     function bindNavGestures() {
       attachSwipe(document.getElementById('nav-search'), {
         up: () => { if (isTabsOrEmpty()) openSearch(); else openMenu(); },
@@ -4554,6 +4764,7 @@
     }
 
     bindNavGestures();
+    bindPlusLongPress();
     updateChrome();
     renderEngineBadge();
     syncThemeToggles();
