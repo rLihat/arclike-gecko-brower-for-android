@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -25,6 +26,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -74,9 +79,16 @@ fun TabSwitcher(
     frost: ImageBitmap? = null,
 ) {
     val c = LocalArc.current
+    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     val tabs = vm.tabs
     val state = rememberLazyListState()
     val activeIndex = tabs.indexOfFirst { it.id == vm.activeId }.coerceAtLeast(0)
+    var grid by remember { mutableStateOf(false) }
+    var selecting by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf(emptySet<Long>()) }
+    var showClearAll by remember { mutableStateOf(false) }
+    // The view switcher belongs to real pages only, never an empty tab.
+    val activeEmpty = vm.activeTab?.isHome != false
 
     LaunchedEffect(vm.overlay) {
         if (vm.overlay == com.example.geckobrowser.Overlay.Tabs) state.scrollToItem(activeIndex)
@@ -86,19 +98,13 @@ fun TabSwitcher(
         modifier
             .fillMaxSize()
             .then(if (frost == null) Modifier.background(c.switcherBg) else Modifier)
-            // Empty space around the row closes the carousel; the cards
-            // themselves consume their own taps and swipes.
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
             ) { vm.closeOverlay() }
-            // A deliberate downward pull closes the carousel; the taller
-            // threshold keeps it out of the way of the horizontal paging.
             .swipeActions(threshold = 70.dp, onDown = { vm.closeOverlay() })
     ) {
         if (frost != null) {
-            // Full-screen softened page under the carousel, tinted so the
-            // titles and cards stay legible on any website.
             Image(
                 bitmap = frost,
                 contentDescription = null,
@@ -107,27 +113,168 @@ fun TabSwitcher(
             )
             Box(Modifier.fillMaxSize().background(c.switcherBg.copy(alpha = 0.72f)))
         }
-        val cardWidth = maxWidth * 0.88f
-        LazyRow(
-            state = state,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                start = maxWidth * 0.06f,
-                end = maxWidth * 0.06f,
-                top = 26.dp,
-                bottom = 26.dp,
-            ),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            items(tabs, key = { it.id }) { tab ->
-                TabCard(
-                    tab = tab,
-                    active = tab.id == vm.activeId,
-                    width = cardWidth,
-                    onSelect = { if (tab.id == vm.activeId) vm.closeOverlay() else vm.selectTab(tab.id) },
-                    onClose = { vm.closeTab(tab.id) },
-                )
+
+        val cardWidth = if (grid) (maxWidth - 48.dp) / 2f else maxWidth * 0.88f
+        if (grid) {
+            val normal = tabs.filter { !it.isPrivate }
+            val private = tabs.filter { it.isPrivate }
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(2),
+                modifier = Modifier.fillMaxSize().padding(top = 56.dp, bottom = 76.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp,
+                ),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                gridItems(normal, key = { it.id }) { tab ->
+                    TabCard(
+                        tab = tab, active = tab.id == vm.activeId, width = cardWidth,
+                        grid = true, selecting = selecting, selected = tab.id in selected,
+                        onSelect = {
+                            if (selecting) {
+                                selected = if (tab.id in selected) selected - tab.id else selected + tab.id
+                            } else if (tab.id == vm.activeId) vm.closeOverlay() else vm.selectTab(tab.id)
+                        },
+                        onClose = { vm.closeTab(tab.id) },
+                        onToggleSelect = {
+                            selecting = true
+                            selected = if (tab.id in selected) selected - tab.id else selected + tab.id
+                        },
+                        onSwipeStart = {
+                            if (tabs.size > 2 && !showClearAll) showClearAll = true
+                        },
+                    )
+                }
+                if (private.isNotEmpty()) {
+                    item(span = { GridItemSpan(2) }) {
+                        Text(
+                            "PRIVATE",
+                            color = Color(0xFF9059FF),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp,
+                            modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+                        )
+                    }
+                    gridItems(private, key = { it.id }) { tab ->
+                        TabCard(
+                            tab = tab, active = tab.id == vm.activeId, width = cardWidth,
+                            grid = true, selecting = selecting, selected = tab.id in selected,
+                            onSelect = {
+                                if (selecting) {
+                                    selected = if (tab.id in selected) selected - tab.id else selected + tab.id
+                                } else if (tab.id == vm.activeId) vm.closeOverlay() else vm.selectTab(tab.id)
+                            },
+                            onClose = { vm.closeTab(tab.id) },
+                            onToggleSelect = {
+                                selecting = true
+                                selected = if (tab.id in selected) selected - tab.id else selected + tab.id
+                            },
+                            onSwipeStart = {
+                                if (tabs.size > 2 && !showClearAll) showClearAll = true
+                            },
+                        )
+                    }
+                }
+            }
+        } else {
+            LazyRow(
+                state = state,
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(
+                    start = maxWidth * 0.06f,
+                    end = maxWidth * 0.06f,
+                    top = 26.dp,
+                    bottom = 76.dp,
+                ),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                items(tabs, key = { it.id }) { tab ->
+                    TabCard(
+                        tab = tab, active = tab.id == vm.activeId, width = cardWidth,
+                        grid = false, selecting = selecting, selected = tab.id in selected,
+                        onSelect = {
+                            if (selecting) {
+                                selected = if (tab.id in selected) selected - tab.id else selected + tab.id
+                            } else if (tab.id == vm.activeId) vm.closeOverlay() else vm.selectTab(tab.id)
+                        },
+                        onClose = { vm.closeTab(tab.id) },
+                        onToggleSelect = {
+                            selecting = true
+                            selected = if (tab.id in selected) selected - tab.id else selected + tab.id
+                        },
+                        onSwipeStart = {
+                            if (tabs.size > 2 && !showClearAll) showClearAll = true
+                        },
+                    )
+                }
+            }
+        }
+
+        // View switcher sits where the Extensions chip lives in the menu.
+        if (!activeEmpty && !selecting) {
+            Box(
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 6.dp, bottom = 24.dp)
+                    .size(46.dp)
+                    .clickable {
+                        grid = !grid
+                        if (vm.hapticFeedback) {
+                            haptics.performHapticFeedback(
+                                androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress,
+                            )
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Glyph(if (grid) Ico.tabs else Ico.grid, c.text, size = 22.dp, strokeWidth = 1.9f)
+            }
+        }
+
+        if (selecting) {
+            Row(
+                Modifier
+                    .align(Alignment.TopStart)
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("Cancel", color = c.text, fontSize = 13.sp,
+                    modifier = Modifier.clickable {
+                        selecting = false
+                        selected = emptySet()
+                    })
+                Text("Delete", color = Color(0xFFE0453C), fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable {
+                        selected.forEach { vm.closeTab(it) }
+                        selecting = false
+                        selected = emptySet()
+                    })
+            }
+        }
+
+        if (showClearAll) {
+            Row(
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 52.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(c.menuCard)
+                    .border(1.dp, c.stroke, RoundedCornerShape(16.dp)),
+            ) {
+                Text("Clear all tabs", color = c.text, fontSize = 13.sp,
+                    modifier = Modifier
+                        .clickable { vm.clearAllTabs(); showClearAll = false }
+                        .padding(horizontal = 14.dp, vertical = 10.dp))
+                Box(Modifier.width(1.dp).height(22.dp).background(c.hairline))
+                Text("Dismiss", color = c.muted, fontSize = 13.sp,
+                    modifier = Modifier
+                        .clickable { showClearAll = false }
+                        .padding(horizontal = 14.dp, vertical = 10.dp))
             }
         }
     }
@@ -138,8 +285,13 @@ private fun TabCard(
     tab: TabInfo,
     active: Boolean,
     width: androidx.compose.ui.unit.Dp,
+    grid: Boolean = false,
+    selecting: Boolean = false,
+    selected: Boolean = false,
     onSelect: () -> Unit,
     onClose: () -> Unit,
+    onToggleSelect: () -> Unit,
+    onSwipeStart: () -> Unit,
 ) {
     val c = LocalArc.current
     val density = LocalDensity.current
@@ -156,7 +308,17 @@ private fun TabCard(
     Column(
         Modifier
             .width(width)
-            .fillMaxHeight()
+            .then(if (grid) Modifier.height(210.dp) else Modifier.fillMaxHeight())
+            .pointerInput(tab.id) { detectTapGestures(onLongPress = { onToggleSelect() }) }
+            .border(
+                if (selected || tab.isPrivate) 2.dp else 0.dp,
+                when {
+                    selected -> c.accent
+                    tab.isPrivate -> Color(0xFF9059FF)
+                    else -> Color.Transparent
+                },
+                RoundedCornerShape(22.dp),
+            )
             .scale(scale)
             .alpha(baseAlpha * (1f - dismiss.value))
             .graphicsLayer { translationY = drag - lift * dismiss.value }
@@ -166,6 +328,7 @@ private fun TabCard(
                     onVerticalDrag = { change, amount ->
                         change.consume()
                         if (dismiss.value == 0f) {
+                            if (amount < 0f) onSwipeStart()
                             drag = (drag + amount).coerceIn(-160f, 90f)
                         }
                     },
@@ -215,8 +378,12 @@ private fun TabCard(
                 .fillMaxWidth()
                 .weight(1f)
                 .clip(RoundedCornerShape(20.dp))
-                .background(if (tab.isHome) c.siteBg else Color.White)
-                .border(1.dp, c.hairline, RoundedCornerShape(20.dp))
+                .background(if (tab.isHome) (if (c.dark) Color.Black else c.siteBg) else Color.White)
+                .border(
+                    if (tab.isPrivate) 2.dp else 1.dp,
+                    if (tab.isPrivate) Color(0xFF9059FF) else c.hairline,
+                    RoundedCornerShape(20.dp),
+                )
                 .clickable { onSelect() },
         ) {
             TabMiniature(tab)

@@ -115,9 +115,8 @@ private data class SearchRow(
 @Composable
 fun SearchSheet(
     vm: BrowserViewModel,
-    // Once the sheet has settled the X is drawn here, in the row itself: the
-    // pill hands over to it at the same coordinates, so it can never drift.
-    showClose: Boolean = false,
+    // Private-search toggle in the field's trailing badge slot, replacing X.
+    showPrivate: Boolean = true,
     // The X pill is drawn by the chrome overlay, outside this sheet. Reporting
     // the trailing badge's bounds lets the pill land exactly in that slot (the
     // mirror of the engine badge) instead of guessing dp offsets.
@@ -269,35 +268,29 @@ fun SearchSheet(
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    // Plain alpha/scale instead of AnimatedVisibility: inside
-                    // this Row the scoped overload wins resolution and does not
-                    // accept the nested Box as a receiver.
-                    val closeAlpha by animateFloatAsState(
-                        if (showClose) 1f else 0f,
-                        tween(if (showClose) 180 else 110),
-                        label = "searchCloseAlpha",
-                    )
-                    val closeScale by animateFloatAsState(
-                        if (showClose) 1f else 0.78f,
-                        tween(if (showClose) 220 else 140),
-                        label = "searchCloseScale",
-                    )
-                    if (closeAlpha > 0.01f || showClose) {
+                    if (showPrivate) {
+                        val haptics = LocalHapticFeedback.current
+                        val private = vm.activeTabIsPrivate
                         Box(
                             Modifier
                                 .size(32.dp)
-                                .alpha(closeAlpha)
-                                .scale(closeScale)
                                 .clip(CircleShape)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
-                                ) { vm.closeOverlay() },
+                                ) {
+                                    vm.setActiveTabPrivate(!private)
+                                    if (vm.hapticFeedback) {
+                                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    }
+                                },
                             contentAlignment = Alignment.Center,
                         ) {
                             Glyph(
-                                Ico.plus, c.text, size = 22.dp, strokeWidth = 2.2f,
-                                modifier = Modifier.rotate(315f),
+                                Ico.mask,
+                                if (private) Color(0xFF9059FF) else c.muted,
+                                size = 22.dp,
+                                strokeWidth = 2.2f,
                             )
                         }
                     }

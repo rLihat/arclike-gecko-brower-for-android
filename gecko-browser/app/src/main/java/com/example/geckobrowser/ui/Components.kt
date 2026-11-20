@@ -19,6 +19,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -345,6 +346,20 @@ private val IcoPlay: List<Path> = listOf(
         moveTo(7f, 5f); lineTo(18f, 12f); lineTo(7f, 19f); close()
     }
 )
+/** Firefox-style private browsing mask. */
+private val IcoPrivate: List<Path> = listOf(
+    p {
+        moveTo(2.5f, 11f)
+        cubicTo(2.5f, 7.5f, 6.5f, 5f, 12f, 5f)
+        cubicTo(17.5f, 5f, 21.5f, 7.5f, 21.5f, 11f)
+        cubicTo(21.5f, 16.5f, 17.5f, 20f, 12f, 20f)
+        cubicTo(6.5f, 20f, 2.5f, 16.5f, 2.5f, 11f)
+        close()
+        addOval(Rect(7f, 10.5f, 10f, 13.5f))
+        addOval(Rect(14f, 10.5f, 17f, 13.5f))
+        moveTo(9.5f, 16f); lineTo(14.5f, 16f)
+    }
+)
 private val IcoImage: List<Path> = listOf(
     p {
         moveTo(3f, 4f); lineTo(21f, 4f); lineTo(21f, 20f); lineTo(3f, 20f); close()
@@ -408,6 +423,7 @@ object Ico {
     val pin = IcoPin
     val open = IcoOpen
     val image = IcoImage
+    val mask = IcoPrivate
     val pause = IcoPause
     val play = IcoPlay
 }
@@ -627,6 +643,7 @@ fun Modifier.swipeActions(
 @Composable
 fun PillButton(
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     onSwipeUp: (() -> Unit)? = null,
     onSwipeDown: (() -> Unit)? = null,
     onSwipeLeft: (() -> Unit)? = null,
@@ -646,6 +663,9 @@ fun PillButton(
                 onRight = onSwipeRight,
                 strictHorizontal = strictHorizontal,
             )
+            .pointerInput(onLongClick) {
+                if (onLongClick != null) detectTapGestures(onLongPress = { onLongClick() })
+            }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -723,6 +743,27 @@ fun SiteFavicon(host: String, letter: String, size: Dp = 22.dp) {
     ) {
         Image(
             bitmap = bmp.asImageBitmap(),
+            contentDescription = null,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
+}
+
+/** Favicon tile that only uses the in-memory cache — no per-row network work. */
+@Composable
+fun CachedFavicon(host: String, letter: String, size: Dp = 22.dp) {
+    val bitmap = FaviconCache.peek(host)
+    if (bitmap == null) {
+        FaviconTile(letter, size)
+        return
+    }
+    Box(
+        Modifier.size(size).clip(RoundedCornerShape(size / 3)),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            bitmap = bitmap.asImageBitmap(),
             contentDescription = null,
             contentScale = ContentScale.Fit,
             modifier = Modifier.fillMaxSize(),

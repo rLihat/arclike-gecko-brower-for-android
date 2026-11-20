@@ -604,7 +604,7 @@ private fun ChromeOverlay(
         val closing = !open && panelVisible
         val content: @Composable () -> Unit = when (lastSheet) {
             Overlay.Search -> ({
-                SearchSheet(vm, showClose = searchSettled) { rect ->
+                SearchSheet(vm) { rect ->
                     // Ignore measurements taken while the sheet is closing (it is
                     // still the last content when the overlay has already gone).
                     if (overlay == Overlay.Search) searchAnchor = rect
@@ -2416,6 +2416,8 @@ private fun BoxScope.NavPill(
     val haptics = LocalHapticFeedback.current
     val tab = vm.activeTab
     val compact = vm.compactPill && !menuMode && !searchMode
+    var showNewTabChooser by remember { mutableStateOf(false) }
+    val privatePurple = Color(0xFF9059FF)
 
     val mode = when {
         searchMode -> PillMode.Search
@@ -2538,8 +2540,10 @@ private fun BoxScope.NavPill(
                         contentAlignment = Alignment.Center,
                     ) {
                         Glyph(
-                            Ico.plus, c.text, size = 24.dp, strokeWidth = 2.2f,
-                            modifier = Modifier.rotate(searchRotation),
+                            Ico.mask,
+                            if (vm.activeTabIsPrivate) privatePurple else c.text,
+                            size = 24.dp,
+                            strokeWidth = 2.2f,
                         )
                     }
 
@@ -2605,6 +2609,12 @@ private fun BoxScope.NavPill(
                         }
                         PillButton(
                             onClick = { vm.openSearch() },
+                            onLongClick = {
+                                showNewTabChooser = true
+                                if (vm.hapticFeedback) {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                }
+                            },
                             onSwipeUp = {
                                 if (vm.overlay == Overlay.Tabs || vm.tabs.isEmpty()) vm.openNewTabSearch()
                                 else vm.openMenu()
@@ -2626,6 +2636,8 @@ private fun BoxScope.NavPill(
                                         )
                                     }
                                 }
+                            } else if (vm.activeTabIsPrivate) {
+                                Glyph(Ico.mask, privatePurple, size = 24.dp, strokeWidth = 2.2f)
                             } else {
                                 Glyph(Ico.plus, c.text, size = 24.dp, strokeWidth = 2.2f)
                             }
@@ -2643,6 +2655,34 @@ private fun BoxScope.NavPill(
                     }
                 }
             }
+        if (showNewTabChooser) {
+            Row(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 86.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(c.menuCard)
+                    .border(1.dp, c.stroke, RoundedCornerShape(18.dp)),
+            ) {
+                Text(
+                    "New tab",
+                    color = c.text,
+                    fontSize = 13.sp,
+                    modifier = Modifier
+                        .clickable { vm.createTab(false); showNewTabChooser = false }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                )
+                Box(Modifier.width(1.dp).height(22.dp).background(c.hairline))
+                Text(
+                    "Private tab",
+                    color = privatePurple,
+                    fontSize = 13.sp,
+                    modifier = Modifier
+                        .clickable { vm.createTab(true); showNewTabChooser = false }
+                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                )
+            }
+        }
         }
     }
 }

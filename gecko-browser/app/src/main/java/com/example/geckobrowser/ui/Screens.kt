@@ -9,6 +9,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -44,6 +46,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -302,6 +305,10 @@ private fun PermissionRow(
 @Composable
 fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
     val c = LocalArc.current
+    var selecting by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf(emptySet<Long>()) }
+    var pendingDelete by remember { mutableStateOf<Set<Long>?>(null) }
+    var alsoDeleteFile by remember { mutableStateOf(true) }
     val active = vm.downloads.filter { it.status == DownloadStatus.Downloading }
     val paused = vm.downloads.filter { it.status == DownloadStatus.Paused }
     val finished = vm.downloads.filter {
@@ -325,7 +332,24 @@ fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
             },
             icon = { Glyph(Ico.download, c.text, size = 19.dp, strokeWidth = 1.9f) },
             trailing = {
-                if (vm.downloads.isNotEmpty()) {
+                if (selecting) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Text(
+                            "Cancel", color = c.text, fontSize = 13.sp,
+                            modifier = Modifier.clickable {
+                                selecting = false
+                                selected = emptySet()
+                            },
+                        )
+                        Text(
+                            "Delete", color = Color(0xFFE0453C), fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable {
+                                if (selected.isNotEmpty()) pendingDelete = selected
+                            },
+                        )
+                    }
+                } else if (vm.downloads.isNotEmpty()) {
                     Box(
                         Modifier
                             .clip(RoundedCornerShape(9.dp))
@@ -361,20 +385,51 @@ fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
             } else {
                 if (active.isNotEmpty()) {
                     DownloadGroupLabel("Downloading")
-                    active.forEach { DownloadRow(vm, it) }
+                    active.forEach { DownloadRow(vm, it, selecting, it.id in selected, { selecting = true; selected = if (it.id in selected) selected - it.id else selected + it.id }, { pendingDelete = setOf(it.id) }) }
                 }
                 if (paused.isNotEmpty()) {
                     DownloadGroupLabel("Paused")
-                    paused.forEach { DownloadRow(vm, it) }
+                    paused.forEach { DownloadRow(vm, it, selecting, it.id in selected, { selecting = true; selected = if (it.id in selected) selected - it.id else selected + it.id }, { pendingDelete = setOf(it.id) }) }
                 }
                 if (finished.isNotEmpty()) {
                     DownloadGroupLabel(
                         if (active.isNotEmpty() || paused.isNotEmpty()) "Earlier" else "Downloads"
                     )
-                    finished.forEach { DownloadRow(vm, it) }
+                    finished.forEach { DownloadRow(vm, it, selecting, it.id in selected, { selecting = true; selected = if (it.id in selected) selected - it.id else selected + it.id }, { pendingDelete = setOf(it.id) }) }
                 }
             }
         }
+    }
+    val ids = pendingDelete
+    if (ids != null) {
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Delete ${ids.size} download${if (ids.size == 1) "" else "s"}?") },
+            text = {
+                Column {
+                    Text("The download will be removed from the list.", fontSize = 13.sp)
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        if (alsoDeleteFile) "☑ Also delete downloaded files"
+                        else "☐ Also delete downloaded files",
+                        color = c.text,
+                        fontSize = 13.sp,
+                        modifier = Modifier.clickable { alsoDeleteFile = !alsoDeleteFile },
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.removeDownloads(ids, alsoDeleteFile)
+                    pendingDelete = null
+                    selecting = false
+                    selected = emptySet()
+                }) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
+            },
+        )
     }
 }
 
@@ -442,8 +497,18 @@ private fun EmptyDownloads(vm: BrowserViewModel, modifier: Modifier = Modifier) 
 }
 
 @Composable
-private fun DownloadRow(vm: BrowserViewModel, d: DownloadItem) {
+private fun DownloadRow(
+    vm: BrowserViewModel,
+    d: DownloadItem,
+    selecting: Boolean,
+    selected: Boolean,
+    onToggleSelect: () -> Unit,
+    onRequestDelete: () -> Unit,
+) {
     val c = LocalArc.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    var drag by remember(d.id) { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    val deleteWidth = with(density) { 88.dp.toPx() }
     val downloading = d.status == DownloadStatus.Downloading
     val paused = d.status == DownloadStatus.Paused
     val failed = d.status == DownloadStatus.Failed
@@ -464,17 +529,42 @@ private fun DownloadRow(vm: BrowserViewModel, d: DownloadItem) {
         else -> "Downloaded · ${formatBytes(d.size)} · ${formatWhen(d.ended)}"
     }
 
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(bottom = 9.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(c.field)
-            .border(1.dp, c.stroke, RoundedCornerShape(16.dp))
-            .alpha(if (canceled || failed) 0.72f else 1f)
-            .padding(11.dp),
-        verticalAlignment = Alignment.Top,
-    ) {
+    Box(Modifier.fillMaxWidth().padding(bottom = 9.dp).clip(RoundedCornerShape(16.dp))) {
+        Box(
+            Modifier.matchParentSize().background(Color(0xFFE0453C)),
+            contentAlignment = Alignment.CenterEnd,
+        ) {
+            Glyph(Ico.trash, Color.White, size = 22.dp, strokeWidth = 1.9f,
+                modifier = Modifier.padding(end = 22.dp))
+        }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .offset(x = drag)
+                .background(if (selected) c.menuCard else c.field)
+                .border(1.dp, c.stroke, RoundedCornerShape(16.dp))
+                .alpha(if (canceled || failed) 0.72f else 1f)
+                .pointerInput(d.id) {
+                    detectHorizontalDragGestures(
+                        onHorizontalDrag = { change, amount ->
+                            change.consume()
+                            drag = (drag + amount).coerceIn(-deleteWidth, 0f)
+                        },
+                        onDragEnd = {
+                            if (drag <= -deleteWidth * 0.6f) onRequestDelete() else drag = 0f
+                        },
+                        onDragCancel = { drag = 0f },
+                    )
+                }
+                .pointerInput(d.id) {
+                    detectTapGestures(
+                        onLongPress = { onToggleSelect() },
+                        onTap = { if (selecting) onToggleSelect() else vm.openDownload(d.id) },
+                    )
+                }
+                .padding(11.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
         DownloadFileTile(d.name)
         Spacer(Modifier.width(11.dp))
         Column(Modifier.weight(1f)) {
@@ -517,25 +607,6 @@ private fun DownloadRow(vm: BrowserViewModel, d: DownloadItem) {
                 }
             }
         }
-        Row(Modifier.padding(top = 2.dp)) {
-            when {
-                downloading -> {
-                    DlAction(Ico.pause) { vm.pauseDownload(d.id) }
-                    DlAction(Ico.close) { vm.cancelDownload(d.id) }
-                }
-                paused -> {
-                    DlAction(Ico.play) { vm.resumeDownload(d.id) }
-                    DlAction(Ico.trash) { vm.removeDownload(d.id) }
-                }
-                failed || canceled -> {
-                    DlAction(Ico.refresh) { vm.retryDownload(d.id) }
-                    DlAction(Ico.trash) { vm.removeDownload(d.id) }
-                }
-                else -> {
-                    DlAction(Ico.open) { vm.openDownload(d.id) }
-                    DlAction(Ico.trash) { vm.removeDownload(d.id) }
-                }
-            }
         }
     }
 }

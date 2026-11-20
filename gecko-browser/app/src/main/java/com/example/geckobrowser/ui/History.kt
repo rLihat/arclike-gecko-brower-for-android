@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -67,6 +68,11 @@ fun HistoryScreen(vm: BrowserViewModel, onBack: () -> Unit) {
     val rows = remember(query, version) { vm.historyItems(query) }
     val groups = remember(rows) { groupByDay(rows) }
     val hasHistory = remember(version) { vm.historyCount > 0 }
+    // Warm icons once in the background instead of one network request per
+    // row as the list scrolls.
+    LaunchedEffect(rows) {
+        prewarmFaviconCache(rows.map { it.host }.distinct().take(80))
+    }
 
     Column(
         Modifier
@@ -325,7 +331,7 @@ private fun HistoryRow(vm: BrowserViewModel, visit: Visit, showTime: Boolean) {
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SiteFavicon(visit.host, visit.label.take(1), 24.dp)
+            CachedFavicon(visit.host, visit.label.take(1), 24.dp)
             Spacer(Modifier.width(11.dp))
             Column(Modifier.weight(1f)) {
                 Text(

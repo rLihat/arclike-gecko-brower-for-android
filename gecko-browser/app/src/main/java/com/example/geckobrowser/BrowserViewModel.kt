@@ -65,6 +65,7 @@ data class TabInfo(
     val canGoForward: Boolean = false,
     val secure: Boolean = false,
     val desktopMode: Boolean = false,
+    val isPrivate: Boolean = false,
     val thumbnail: Bitmap? = null,
 )
 
@@ -959,6 +960,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         desktop: Boolean = false,
         makeActive: Boolean = true,
         forcedId: Long? = null,
+        privateTab: Boolean = false,
     ): Long {
         val id = if (forcedId == null) {
             tabsManager.create(restored, ::attachDelegates)
@@ -966,6 +968,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             tabsManager.createWithId(forcedId, restored, ::attachDelegates)
         }
         if (desktop) applyDesktop(id, true)
+        if (privateTab) privateTabs.add(id)
         histories[id] = History().apply {
             if (!url.isNullOrBlank()) {
                 urls.add(url)
@@ -978,6 +981,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             url = url.orEmpty(),
             isHome = url.isNullOrBlank(),
             desktopMode = desktop,
+            isPrivate = privateTab,
         )
         if (!url.isNullOrBlank() && restored == null) tabsManager.load(id, url)
         if (makeActive) activeId = id
@@ -3477,15 +3481,18 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
-    fun removeDownload(id: Long) {
+    fun removeDownload(id: Long, deleteFile: Boolean = true) {
         val item = downloads.firstOrNull { it.id == id }
         DownloadService.cancel(application, id)
         DownloadService.forget(id)
         DownloadCenter.remove(id)
         DownloadCenter.persistAsync(application)
         DownloadCenter.partFile(application, id).delete()
-        // The row is gone; the bytes must go with it.
-        deleteStoredDownload(application, item?.localUri)
+        if (deleteFile) deleteStoredDownload(application, item?.localUri)
+    }
+
+    fun removeDownloads(ids: Set<Long>, deleteFile: Boolean) {
+        ids.forEach { removeDownload(it, deleteFile) }
     }
 
     fun clearDownloads() {
@@ -3574,6 +3581,44 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         openNewTabSearch()
     }
 
+    val activeTabIsPrivate: Boolean get() = activeTab?.isPrivate == true
+
+    /** Makes the current tab private (or normal again) from the search sheet. */
+    fun setActiveTabPrivate(private: Boolean) {
+        val id = activeId
+        if (id == 0L) return
+        setPrivateTab(id, private)
+        tabs = tabs.map { if (it.id == id) it.copy(isPrivate = private) else it }
+        persistTabs()
+    }
+
+    /** Creates a real new tab, optionally private, and selects it. */
+    fun createTab(privateTab: Boolean) {
+        val id = addTab(privateTab = privateTab)
+        selectTab(id)
+        closeOverlay()
+        expandPill()
+        syncZoomForActive()
+    }
+
+    /** Closes every open tab and returns to the empty page. */
+    fun clearAllTabs() {
+        val ids = tabs.map { it.id }
+        if (ids.isEmpty()) return
+        ids.forEach { id ->
+            dismissPromptsForTab(id)
+            tabsManager.close(id)
+        }
+        privateTabs.clear()
+        histories.clear()
+        stateBlobs.clear()
+        tabs = emptyList()
+        activeId = 0
+        closeOverlay()
+        expandPill()
+        persistTabs()
+    }
+
     fun openNewTabSearch() {
         newTabPending = true
         openSearch()
@@ -3617,6 +3662,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         cancelDownloadPrompt()
         dismissContextMenu()
         tabsManager.close(id)
+        privateTabs.remove(id)
         histories.remove(id)
         stateBlobs.remove(id)
         loadingJobs.remove(id)?.cancel()
