@@ -1,4 +1,4 @@
-package com.example.geckobrowser.ui
+﻿package com.example.geckobrowser.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -26,6 +26,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -130,6 +132,7 @@ fun TabSwitcher(
             ) {
                 gridItems(normal, key = { it.id }) { tab ->
                     TabCard(
+                        vm = vm,
                         tab = tab, active = tab.id == vm.activeId, width = cardWidth,
                         grid = true, selecting = selecting, selected = tab.id in selected,
                         onSelect = {
@@ -160,6 +163,7 @@ fun TabSwitcher(
                     }
                     gridItems(private, key = { it.id }) { tab ->
                         TabCard(
+                            vm = vm,
                             tab = tab, active = tab.id == vm.activeId, width = cardWidth,
                             grid = true, selecting = selecting, selected = tab.id in selected,
                             onSelect = {
@@ -194,6 +198,7 @@ fun TabSwitcher(
             ) {
                 items(tabs, key = { it.id }) { tab ->
                     TabCard(
+                        vm = vm,
                         tab = tab, active = tab.id == vm.activeId, width = cardWidth,
                         grid = false, selecting = selecting, selected = tab.id in selected,
                         onSelect = {
@@ -258,24 +263,61 @@ fun TabSwitcher(
             }
         }
 
-        if (showClearAll) {
+        // Same capsule treatment as the immersive/download banners.
+        val clearBannerAlpha by animateFloatAsState(
+            if (showClearAll) 1f else 0f,
+            tween(260),
+            label = "clearAllBanner",
+        )
+        if (clearBannerAlpha > 0.01f) {
             Row(
                 Modifier
                     .align(Alignment.TopCenter)
                     .padding(top = 52.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(c.menuCard)
-                    .border(1.dp, c.stroke, RoundedCornerShape(16.dp)),
+                    .fillMaxWidth(0.7f)
+                    .height(58.dp)
+                    .graphicsLayer {
+                        alpha = clearBannerAlpha
+                        val s = 0.96f + 0.04f * clearBannerAlpha
+                        scaleX = s
+                        scaleY = s
+                        translationY = (1f - clearBannerAlpha) * -14.dp.toPx()
+                    }
+                    .clip(RoundedCornerShape(29.dp))
+                    .background(c.navSoft)
+                    .border(1.dp, c.stroke, RoundedCornerShape(29.dp))
+                    .padding(horizontal = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("Clear all tabs", color = c.text, fontSize = 13.sp,
-                    modifier = Modifier
-                        .clickable { vm.clearAllTabs(); showClearAll = false }
-                        .padding(horizontal = 14.dp, vertical = 10.dp))
-                Box(Modifier.width(1.dp).height(22.dp).background(c.hairline))
-                Text("Dismiss", color = c.muted, fontSize = 13.sp,
-                    modifier = Modifier
-                        .clickable { showClearAll = false }
-                        .padding(horizontal = 14.dp, vertical = 10.dp))
+                Box(
+                    Modifier.size(26.dp).clip(RoundedCornerShape(9.dp)).background(c.chip),
+                    contentAlignment = Alignment.Center,
+                ) { Glyph(Ico.trash, c.accent, size = 15.dp, strokeWidth = 2f) }
+                Spacer(Modifier.width(9.dp))
+                Text(
+                    "Clear all tabs?",
+                    color = c.text,
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    "Clear",
+                    color = c.accent,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable {
+                        vm.clearAllTabs()
+                        showClearAll = false
+                    },
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    "Dismiss",
+                    color = c.muted,
+                    fontSize = 12.sp,
+                    modifier = Modifier.clickable { showClearAll = false },
+                )
             }
         }
     }
@@ -283,6 +325,7 @@ fun TabSwitcher(
 
 @Composable
 private fun TabCard(
+    vm: BrowserViewModel,
     tab: TabInfo,
     active: Boolean,
     width: androidx.compose.ui.unit.Dp,
@@ -296,7 +339,9 @@ private fun TabCard(
 ) {
     val c = LocalArc.current
     val density = LocalDensity.current
+    val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
+    var longPressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(if (active) 1f else 0.93f, tween(220), label = "cardScale")
     val baseAlpha by animateFloatAsState(if (active) 1f else 0.68f, tween(220), label = "cardAlpha")
     // Drag tracking for the two vertical card gestures: up dismisses, down
@@ -310,7 +355,15 @@ private fun TabCard(
         Modifier
             .width(width)
             .then(if (grid) Modifier.height(210.dp) else Modifier.fillMaxHeight())
-            .pointerInput(tab.id) { detectTapGestures(onLongPress = { onToggleSelect() }) }
+            .pointerInput(tab.id) {
+                detectTapGestures(onLongPress = {
+                    longPressed = true
+                    if (vm.hapticFeedback) {
+                        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    }
+                    onToggleSelect()
+                })
+            }
             .border(
                 if (selected || tab.isPrivate) 2.dp else 0.dp,
                 when {
@@ -351,7 +404,7 @@ private fun TabCard(
                     onDragCancel = { drag = 0f },
                 )
             }
-            .clickable { onSelect() },
+            .clickable { if (longPressed) longPressed = false else onSelect() },
     ) {
         Row(
             Modifier.fillMaxWidth().padding(bottom = 10.dp),
@@ -385,7 +438,7 @@ private fun TabCard(
                     if (tab.isPrivate) Color(0xFF9059FF) else c.hairline,
                     RoundedCornerShape(20.dp),
                 )
-                .clickable { onSelect() },
+                .clickable { if (longPressed) longPressed = false else onSelect() },
         ) {
             TabMiniature(tab)
         }

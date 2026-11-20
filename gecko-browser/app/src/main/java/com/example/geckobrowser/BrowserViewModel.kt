@@ -3742,6 +3742,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         historyVersionState++
     }
 
+    fun deleteVisits(ids: Set<Long>) {
+        if (ids.isEmpty()) return
+        ids.forEach { historyStore.remove(it) }
+        historyVersionState++
+    }
+
     /** Clears visits newer than [since]; `0` wipes the table. */
     fun clearHistory(since: Long) {
         historyStore.clear(since)

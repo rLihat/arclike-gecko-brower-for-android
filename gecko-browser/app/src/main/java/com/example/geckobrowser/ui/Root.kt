@@ -2532,11 +2532,26 @@ private fun BoxScope.NavPill(
                         Modifier
                             .fillMaxSize()
                             .clip(CircleShape)
-                            .swipeActions(onDown = { vm.closeOverlay() })
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                            ) { vm.closeOverlay() },
+                            // Once the sheet has settled this pill is invisible;
+                            // it must not swallow taps meant for the sheet's
+                            // private toggle underneath it.
+                            .then(
+                                if (visible) {
+                                    Modifier.swipeActions(onDown = { vm.closeOverlay() })
+                                } else {
+                                    Modifier
+                                },
+                            )
+                            .then(
+                                if (visible) {
+                                    Modifier.clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                    ) { vm.setActiveTabPrivate(!vm.activeTabIsPrivate) }
+                                } else {
+                                    Modifier
+                                },
+                            ),
                         contentAlignment = Alignment.Center,
                     ) {
                         Glyph(

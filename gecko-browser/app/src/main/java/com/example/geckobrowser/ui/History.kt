@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -38,6 +39,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -63,6 +66,8 @@ fun HistoryScreen(vm: BrowserViewModel, onBack: () -> Unit) {
     val c = LocalArc.current
     var query by remember { mutableStateOf("") }
     var clearing by remember { mutableStateOf(false) }
+    var selecting by remember { mutableStateOf(false) }
+    var selected by remember { mutableStateOf(emptySet<Long>()) }
     // Read the revision so a visit recorded while the page is open refreshes it.
     val version = vm.historyVersion
     val rows = remember(query, version) { vm.historyItems(query) }
@@ -89,7 +94,26 @@ fun HistoryScreen(vm: BrowserViewModel, onBack: () -> Unit) {
             },
             icon = { Glyph(Ico.clock, c.text, size = 19.dp, strokeWidth = 1.9f) },
             trailing = {
-                if (hasHistory) {
+                if (selecting) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                        Text(
+                            "Cancel", color = c.text, fontSize = 13.sp,
+                            modifier = Modifier.clickable {
+                                selecting = false
+                                selected = emptySet()
+                            },
+                        )
+                        Text(
+                            "Delete", color = Color(0xFFE0453C), fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable {
+                                vm.deleteVisits(selected)
+                                selecting = false
+                                selected = emptySet()
+                            },
+                        )
+                    }
+                } else if (hasHistory) {
                     Box(
                         Modifier
                             .clip(RoundedCornerShape(9.dp))
@@ -210,6 +234,16 @@ fun HistoryScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                             vm = vm,
                             visit = visit,
                             showTime = label == "Today" || label == "Yesterday",
+                            selecting = selecting,
+                            selected = visit.id in selected,
+                            onToggleSelect = {
+                                selecting = true
+                                selected = if (visit.id in selected) {
+                                    selected - visit.id
+                                } else {
+                                    selected + visit.id
+                                }
+                            },
                         )
                     }
                 }
@@ -272,9 +306,18 @@ private fun EmptyHistory(filtered: Boolean) {
 }
 
 @Composable
-private fun HistoryRow(vm: BrowserViewModel, visit: Visit, showTime: Boolean) {
+private fun HistoryRow(
+    vm: BrowserViewModel,
+    visit: Visit,
+    showTime: Boolean,
+    selecting: Boolean,
+    selected: Boolean,
+    onToggleSelect: () -> Unit,
+) {
     val c = LocalArc.current
     val density = LocalDensity.current
+    val haptics = LocalHapticFeedback.current
+    var longPressed by remember { mutableStateOf(false) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     // Track drag width so the red delete area shows only how far the finger has actually moved.
     var drag by remember(visit.id) { mutableFloatStateOf(0f) }
@@ -307,7 +350,19 @@ private fun HistoryRow(vm: BrowserViewModel, visit: Visit, showTime: Boolean) {
                 .fillMaxWidth()
                 .graphicsLayer { translationX = drag - size.width * dismiss.value }
                 .clip(RoundedCornerShape(14.dp))
-                .background(if (c.dark) c.surfaceStrong else Color.White)
+                .background(
+                    if (selected) c.menuCard
+                    else if (c.dark) c.surfaceStrong else Color.White,
+                )
+                .pointerInput(visit.id) {
+                    detectTapGestures(onLongPress = {
+                        longPressed = true
+                        if (vm.hapticFeedback) {
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        }
+                        onToggleSelect()
+                    })
+                }
                 .pointerInput(visit.id) {
                     detectHorizontalDragGestures(
                         onHorizontalDrag = { change, amount ->
@@ -327,7 +382,13 @@ private fun HistoryRow(vm: BrowserViewModel, visit: Visit, showTime: Boolean) {
                         onDragCancel = { drag = 0f },
                     )
                 }
-                .clickable { if (drag > -4f) vm.openHistoryUrl(visit.url) }
+                .clickable {
+                    if (longPressed) {
+                        longPressed = false
+                    } else if (drag > -4f) {
+                        if (selecting) onToggleSelect() else vm.openHistoryUrl(visit.url)
+                    }
+                }
                 .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {

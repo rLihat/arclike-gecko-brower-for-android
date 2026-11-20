@@ -656,6 +656,11 @@ fun PillButton(
         Modifier
             .size(46.dp)
             .clip(CircleShape)
+            // Long press must be seen before swipeActions' drag detector,
+            // otherwise the drag consumes the pointer and it never fires.
+            .pointerInput(onLongClick) {
+                if (onLongClick != null) detectTapGestures(onLongPress = { onLongClick() })
+            }
             .swipeActions(
                 onUp = onSwipeUp,
                 onDown = onSwipeDown,
@@ -663,9 +668,6 @@ fun PillButton(
                 onRight = onSwipeRight,
                 strictHorizontal = strictHorizontal,
             )
-            .pointerInput(onLongClick) {
-                if (onLongClick != null) detectTapGestures(onLongPress = { onLongClick() })
-            }
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,

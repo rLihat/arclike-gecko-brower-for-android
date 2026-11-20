@@ -49,6 +49,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -405,6 +407,11 @@ fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
     if (ids != null) {
         AlertDialog(
             onDismissRequest = { pendingDelete = null },
+            colors = androidx.compose.material3.AlertDialogDefaults.colors(
+                containerColor = c.surface,
+                titleContentColor = c.text,
+                textContentColor = c.text,
+            ),
             title = { Text("Delete ${ids.size} download${if (ids.size == 1) "" else "s"}?") },
             text = {
                 Column {
@@ -559,7 +566,13 @@ private fun DownloadRow(
                 }
                 .pointerInput(d.id) {
                     detectTapGestures(
-                        onLongPress = { onToggleSelect() },
+                        onLongPress = {
+                            val haptics = LocalHapticFeedback.current
+                            if (vm.hapticFeedback) {
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            }
+                            onToggleSelect()
+                        },
                         onTap = { if (selecting) onToggleSelect() else vm.openDownload(d.id) },
                     )
                 }
