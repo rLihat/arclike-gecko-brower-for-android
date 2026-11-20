@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.text.font.FontWeight
@@ -44,7 +45,11 @@ fun ExtensionMenuSheet(vm: BrowserViewModel) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(if (frostOn) c.sheetFrost else c.sheetSoft)
+            .background(
+                if (frostOn) c.sheetFrost
+                else if (c.oled) Color.Black
+                else c.sheetSoft,
+            )
             .padding(start = 16.dp, end = 16.dp, bottom = 92.dp),
     ) {
         Box(

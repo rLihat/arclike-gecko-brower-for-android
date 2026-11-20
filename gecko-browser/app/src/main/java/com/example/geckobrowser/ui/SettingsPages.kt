@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -139,7 +140,9 @@ private fun SettingsHub(vm: BrowserViewModel, onBack: () -> Unit) {
             Glyph(Ico.gear, c.text, size = 19.dp, strokeWidth = 1.8f)
         })
 
-        Box(Modifier.weight(1f).fillMaxWidth()) {
+        // Shrink the list + pill above the IME so the search field is never
+        // covered by the keyboard.
+        Box(Modifier.weight(1f).fillMaxWidth().imePadding()) {
             Column(
                 Modifier
                     .fillMaxSize()

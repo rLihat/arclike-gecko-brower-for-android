@@ -705,6 +705,7 @@ private fun ChromeOverlay(
                     .background(
                         when {
                             closing -> Color.Transparent
+                            c.oled && !frostOn && !fullHeight -> Color.Black
                             lastSheet in frostedSheets && frostOn -> Color.Transparent
                             lastSheet in frostedSheets -> c.sheetFrost
                             lastSheet == Overlay.ExtensionMenu -> c.sheetSoft

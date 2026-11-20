@@ -72,6 +72,8 @@ private fun readableAccent(color: Color, dark: Boolean): Color {
 /** The mockup's design tokens, transcribed for native Compose. */
 data class ArcColors(
     val dark: Boolean,
+    /** True-black OLED palette. */
+    val oled: Boolean = false,
     val pageTop: Color,
     val pageBottom: Color,
     val text: Color,
@@ -180,6 +182,7 @@ val DarkArc = ArcColors(
  * frosted glass still reads as glass.
  */
 val OledArc = DarkArc.copy(
+    oled = true,
     pageTop = Color.Black,
     pageBottom = Color.Black,
     surface = Color.Black,
