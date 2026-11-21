@@ -361,9 +361,44 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun updateSystemDark(dark: Boolean) { systemDark = dark }
 
-    /** Experimental app-wide frosted glass / blur switch. */
-    var frostedGlass by mutableStateOf(prefs.getBoolean("frosted_glass", true))
+    /** Frosted glass mode: auto | on | off | v1 (previous design). */
+    var frostedGlassMode by mutableStateOf(
+        prefs.getString("frosted_glass_mode", "auto") ?: "auto"
+    )
         private set
+
+    /** True when any frost/glass effects should run. */
+    val frostedGlass: Boolean get() = frostedGlassMode != "off"
+
+    /** True for the previous (v1) snapshot-era glass look. */
+    val glassV1: Boolean get() = frostedGlassMode == "v1"
+
+    var reduceTransparency by mutableStateOf(prefs.getBoolean("reduce_transparency", false))
+        private set
+
+    fun updateReduceTransparency(value: Boolean) {
+        reduceTransparency = value
+        prefs.edit().putBoolean("reduce_transparency", value).apply()
+        scope.launch {
+            withContext(Dispatchers.IO) { settingsStore.setReduceTransparency(value) }
+        }
+    }
+
+    val crossWindowBlurSupported: Boolean get() =
+        android.os.Build.VERSION.SDK_INT >= 31 && isCrossWindowBlurEnabled()
+
+    private fun isCrossWindowBlurEnabled(): Boolean = runCatching {
+        val wm = getSystemService(android.content.Context.WINDOW_SERVICE) as? android.view.WindowManager
+        wm?.isCrossWindowBlurEnabled ?: false
+    }.getOrDefault(false)
+
+    fun updateFrostedGlassMode(mode: String) {
+        frostedGlassMode = mode
+        prefs.edit().putString("frosted_glass_mode", mode).apply()
+        scope.launch {
+            withContext(Dispatchers.IO) { settingsStore.setFrostedGlassMode(mode) }
+        }
+    }
 
     var accentKey by mutableStateOf("dynamic")
         private set
@@ -815,7 +850,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun applySnapshot(snapshot: SettingsSnapshot) {
         appearanceMode = snapshot.appearance
-        frostedGlass = snapshot.frostedGlass
+        frostedGlassMode = snapshot.frostedGlassMode
+        reduceTransparency = snapshot.reduceTransparency
         openLinksMode = snapshot.openLinksMode
         downloadSubfolder = snapshot.downloadSubfolder
         hapticFeedback = snapshot.haptics
@@ -4110,11 +4146,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         scope.launch { withContext(Dispatchers.IO) { settingsStore.setAccent(key) } }
     }
 
-    fun updateFrostedGlass(enabled: Boolean) {
-        frostedGlass = enabled
-        prefs.edit().putBoolean("frosted_glass", enabled).apply()
-        scope.launch { withContext(Dispatchers.IO) { settingsStore.setFrostedGlass(enabled) } }
-    }
+
 
     /** True while an update check is in flight; used to keep the UI honest. */
     var updateChecking by mutableStateOf(false)

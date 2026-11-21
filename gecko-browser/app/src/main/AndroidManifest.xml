@@ -24,6 +24,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.horiZen">
 
+        <receiver
+            android:name=".PrivateTabReceiver"
+            android:exported="false" />
+
         <activity
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density"

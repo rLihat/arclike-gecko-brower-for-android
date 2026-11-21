@@ -113,6 +113,7 @@ import com.example.geckobrowser.ChoiceOption
 import com.example.geckobrowser.ContextMenuState
 import com.example.geckobrowser.NavNotice
 import com.example.geckobrowser.Overlay
+import com.example.geckobrowser.PrivateTabNotifier
 import com.example.geckobrowser.PendingDownload
 import com.example.geckobrowser.PermissionPromptState
 import com.example.geckobrowser.PopupNotice
@@ -134,7 +135,7 @@ fun BrowserApp(
     val liveHost = BrowserViewModel.hostOf(vm.activeTab?.url.orEmpty())
     val liveAccent = if (liveHost.isNotBlank()) faviconAccent(liveHost) else null
     ArcTheme(vm.darkMode, vm.accentKey, liveAccent, vm.oledMode) {
-        CompositionLocalProvider(LocalFrost provides vm.frostedGlass) {
+        CompositionLocalProvider(LocalFrost provides (vm.frostedGlass && !vm.reduceTransparency)) {
         val systemDark = isSystemInDarkTheme()
         LaunchedEffect(systemDark) { vm.updateSystemDark(systemDark) }
         val c = LocalArc.current
@@ -144,6 +145,9 @@ fun BrowserApp(
         val reduceMotion = rememberReduceMotion()
         val haptics = LocalHapticFeedback.current
         val appContext = LocalContext.current
+        LaunchedEffect(vm.privateTabCount) {
+            PrivateTabNotifier.sync(appContext, vm.privateTabCount)
+        }
         // The tab carousel and Settings sit on a blurred copy of the current
         // page. One capture when they open is enough; held through the close.
         var pageFrost by remember { mutableStateOf<ImageBitmap?>(null) }
@@ -794,7 +798,7 @@ private fun ChromeOverlay(
         val pillVisible = (overlay == Overlay.None || overlay == Overlay.Menu ||
             overlay == Overlay.Search || overlay == Overlay.Tabs) && !immersive &&
             vm.pendingDownload == null && !popupPill && !vm.findOpen &&
-            !(overlay == Overlay.None && vm.toastMessage != null)
+            !(overlay == Overlay.None && vm.toastMessage != null) && !vm.clearAllPrompt
         // The pill frosts the page under it in real time: a frame-paced 30fps
         // refresh of just the capsule's rect, with a reused readback buffer and
         // a tiny blur. Only on a live page with no sheet over it — any overlay
@@ -932,81 +936,38 @@ private fun ChromeOverlay(
         ToastHost(vm, raised = pillVisible)
         DownloadFlightLayer(vm, screenW, screenH)
 
-        // Clear-all confirmation floats above the pill in its own footprint,
-        // exactly like the immersive banner. Owned by the VM so the tab grid
-        // can trigger it while this layer draws it on top.
-        AnimatedVisibility(
-            visible = vm.clearAllPrompt && overlay == Overlay.Tabs,
-            enter = popupEnter(rememberReduceMotion()),
-            exit = popupExit(rememberReduceMotion()),
-            modifier = Modifier.align(Alignment.BottomCenter),
-        ) {
-            Row(
+        // Clear-all confirmation is a centred modal, identical in shape to the
+        // download confirmation prompt. The pill is hidden while it is up.
+        if (vm.clearAllPrompt && overlay == Overlay.Tabs) {
+            Box(
                 Modifier
-                    .padding(bottom = 18.dp)
-                    .fillMaxWidth(0.7f)
-                    .height(58.dp)
-                    .clip(RoundedCornerShape(29.dp))
-                    .background(c.navSoft)
-                    .border(1.dp, c.stroke, RoundedCornerShape(29.dp))
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.42f))
+                    .clickable(enabled = false) {},
+                contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    Modifier.size(26.dp).clip(RoundedCornerShape(9.dp)).background(c.chip),
-                    contentAlignment = Alignment.Center,
-                ) { Glyph(Ico.trash, c.accent, size = 15.dp, strokeWidth = 2f) }
-                Spacer(Modifier.width(9.dp))
-                Text(
-                    "Clear all tabs?", color = c.text, fontSize = 12.5.sp,
-                    fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
-                )
-                Text(
-                    "Clear", color = c.accent, fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clickable { vm.clearAllTabs() },
-                )
-                Spacer(Modifier.width(10.dp))
-                Text(
-                    "Dismiss", color = c.muted, fontSize = 12.sp,
-                    modifier = Modifier.clickable { vm.dismissClearAllPrompt() },
-                )
-            }
-        }
-
-        // Firefox-style private notice. Swiping it in any direction closes the
-        // private tabs (matching the mockup); the button asks for confirmation.
-        if (vm.privateNotice && vm.privateTabCount > 0 && !vm.fullscreen) {
-            val count = vm.privateTabCount
-            val closePrivate = { vm.dismissPrivateNotice() }
-            Row(
-                Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 18.dp)
-                    .fillMaxWidth(0.7f)
-                    .height(52.dp)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(c.navSoft)
-                    .border(1.dp, c.stroke, RoundedCornerShape(26.dp))
-                    .swipeActions(
-                        onLeft = closePrivate, onRight = closePrivate,
-                        onUp = closePrivate, onDown = closePrivate,
-                    )
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Glyph(Ico.mask, Color(0xFF9059FF), size = 19.dp, strokeWidth = 1.9f)
-                Spacer(Modifier.width(9.dp))
-                Text(
-                    if (count == 1) "1 private tab open" else "$count private tabs open",
-                    color = c.text, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    "Close private", color = Color(0xFF9059FF), fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clickable { vm.requestClosePrivateTabs() },
-                )
+                Column(
+                    Modifier
+                        .fillMaxWidth(0.78f)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(c.surface)
+                        .padding(18.dp),
+                ) {
+                    Text("Clear all tabs?", color = c.text, fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(8.dp))
+                    Text("All open tabs will be closed. This can't be undone.",
+                        color = c.muted, fontSize = 12.5.sp)
+                    Spacer(Modifier.height(16.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        Text("Cancel", color = c.text, fontSize = 13.sp,
+                            modifier = Modifier.clickable { vm.dismissClearAllPrompt() })
+                        Spacer(Modifier.width(16.dp))
+                        Text("Clear all", color = Color(0xFFE0453C), fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable { vm.clearAllTabs() })
+                    }
+                }
             }
         }
 

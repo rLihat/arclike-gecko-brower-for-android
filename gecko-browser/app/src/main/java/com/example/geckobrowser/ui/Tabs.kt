@@ -206,7 +206,7 @@ fun TabSwitcher(
                                 selecting = true
                                 selected = if (tab.id in selected) selected - tab.id else selected + tab.id
                             },
-                            onSwipeStart = { vm.showClearAllPrompt() },
+                            onSwipeStart = {},
                         )
                     }
                 }
@@ -244,9 +244,7 @@ fun TabSwitcher(
                             selecting = true
                             selected = if (tab.id in selected) selected - tab.id else selected + tab.id
                         },
-                        onSwipeStart = {
-                            vm.showClearAllPrompt()
-                        },
+                        onSwipeStart = {},
                     )
                 }
             }
@@ -373,7 +371,6 @@ private fun TabCard(
                     onVerticalDrag = { change, amount ->
                         change.consume()
                         if (dismiss.value == 0f) {
-                            if (amount < 0f) onSwipeStart()
                             drag = (drag + amount).coerceIn(-160f, 90f)
                         }
                     },
@@ -384,6 +381,8 @@ private fun TabCard(
                                 // the gap by removing the tab.
                                 dismiss.animateTo(1f, tween(260))
                                 onClose()
+                                // Only after the card is actually gone.
+                                vm.showClearAllPrompt()
                             }
                             drag >= threshold -> {
                                 drag = 0f

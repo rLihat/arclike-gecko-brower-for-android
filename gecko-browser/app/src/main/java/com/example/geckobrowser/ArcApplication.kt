@@ -11,6 +11,9 @@ import org.mozilla.geckoview.GeckoRuntimeSettings
  */
 class ArcApplication : Application() {
 
+    /** Set by MainActivity so notification actions can reach the live VM. */
+    var browserVm: BrowserViewModel? = null
+
     val runtime: GeckoRuntime by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         GeckoRuntime.create(
             this,

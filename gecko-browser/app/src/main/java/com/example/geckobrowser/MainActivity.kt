@@ -26,12 +26,23 @@ class MainActivity : ComponentActivity() {
 
     private val vm: BrowserViewModel by viewModels()
 
+    private val notificationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { /* granted or not; notifier simply skips when denied */ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // The system splash holds the first frame; keep it only long enough for
         // the restored tab list to exist, then hand over to the Compose splash.
         val splash = installSplashScreen()
         val splashStartedAt = SystemClock.uptimeMillis()
         super.onCreate(savedInstanceState)
+        (application as ArcApplication).browserVm = vm
+        if (android.os.Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
+            android.content.pm.PackageManager.PERMISSION_GRANTED
+        ) {
+            notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
         splash.setKeepOnScreenCondition {
             !vm.ready && SystemClock.uptimeMillis() - splashStartedAt < 900
         }

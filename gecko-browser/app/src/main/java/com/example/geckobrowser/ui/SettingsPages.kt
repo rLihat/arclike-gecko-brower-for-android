@@ -472,13 +472,38 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
                     }
                 }
             }
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.menuCard).padding(horizontal = 12.dp, vertical = 10.dp)) {
+                Text("Frosted glass", color = c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("auto" to "Auto", "on" to "On", "off" to "Off", "v1" to "V1").forEach { (key, label) ->
+                        val selected = key == vm.frostedGlassMode
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(9.dp))
+                                .background(if (selected) c.accent else c.surface)
+                                .clickable { vm.updateFrostedGlassMode(key) }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                if (key == "v1") "V1 ●" else label,
+                                color = if (selected) Color.White else c.text,
+                                fontSize = 12.sp,
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                            )
+                        }
+                    }
+                }
+            }
             SettingsRow(
-                "Frosted Glass (Experimental)",
+                "Reduce transparency",
                 icon = { Glyph(Ico.contrast, c.text, size = 20.dp, strokeWidth = 1.9f) },
                 trailing = {
-                    ArcSwitch(vm.frostedGlass) { vm.updateFrostedGlass(it) }
+                    ArcSwitch(vm.reduceTransparency) { vm.updateReduceTransparency(it) }
                 },
-                onClick = { vm.updateFrostedGlass(!vm.frostedGlass) },
+                onClick = { vm.updateReduceTransparency(!vm.reduceTransparency) },
             )
             SettingsRow(
                 "Text size",
