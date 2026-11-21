@@ -809,10 +809,9 @@ private fun ChromeOverlay(
             overlay == Overlay.Search || overlay == Overlay.Tabs) && !immersive &&
             vm.pendingDownload == null && !popupPill && !vm.findOpen &&
             !(overlay == Overlay.None && vm.toastMessage != null) && !vm.clearAllPrompt
-        // The pill frosts the page under it in real time: a frame-paced 30fps
-        // refresh of just the capsule's rect, with a reused readback buffer and
-        // a tiny blur. Only on a live page with no sheet over it — any overlay
-        // would put the wrong pixels under the glass.
+        // Layer 3: the pill snapshot is cheap and bounded — max 10fps, only while
+        // the page is scrolling/changing, at ~1/6 resolution. Idle pages keep
+        // their last frosted frame; a failed readback falls back to a plain tint.
         val siteHost = BrowserViewModel.hostOf(vm.activeTab?.url.orEmpty())
         val siteAccent = (if (siteHost.isNotBlank()) faviconAccent(siteHost) else null) ?: c.accent
         LaunchedEffect(pillVisible, overlay, pageLive) {
@@ -823,20 +822,28 @@ private fun ChromeOverlay(
                 return@LaunchedEffect
             }
             val window = context.findActivity()?.window ?: return@LaunchedEffect
+            vm.notePageActivity()
             var lastTick = 0L
             try {
                 while (true) {
                     var due = false
                     withFrameNanos { now ->
-                        if (now - lastTick >= 33_000_000L) {
+                        if (now - lastTick >= 100_000_000L) {
                             lastTick = now
                             due = true
                         }
                     }
                     if (due) {
-                        val rect = pillRect
-                        if (rect != null) {
-                            captureAreaFrost(window, rect, pillScratch)?.let { pillFrost.value = it }
+                        val active = android.os.SystemClock.uptimeMillis() - vm.pageActivityAt < 600L
+                        if (active) {
+                            val rect = pillRect
+                            if (rect != null) {
+                                captureAreaFrost(
+                                    window, rect, pillScratch, maxEdge = 48, radius = 3,
+                                )?.let { pillFrost.value = it }
+                            }
+                        } else if (pillFrost.value != null) {
+                            // Idle: keep the last good frame instead of churning.
                         }
                     }
                 }

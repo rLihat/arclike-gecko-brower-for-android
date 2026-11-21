@@ -1220,6 +1220,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         session.scrollDelegate = object : GeckoSession.ScrollDelegate {
             override fun onScrollChanged(session: GeckoSession, scrollX: Int, scrollY: Int) {
                 if (id != activeId || fullscreen || overlay != Overlay.None) return
+                pageActivityAt = SystemClock.uptimeMillis()
                 val previous = scrollPositions[id] ?: 0
                 scrollPositions[id] = scrollY
                 val delta = scrollY - previous
@@ -3626,6 +3627,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     val activeTabIsPrivate: Boolean get() = isPrivateTab(activeId)
 
     val privateTabCount: Int get() = tabs.count { isPrivateTab(it.id) }
+
+    /** Last time the page scrolled or changed; gates the low-rate pill snapshot. */
+    var pageActivityAt by mutableLongStateOf(0L)
+        private set
+
+    fun notePageActivity() {
+        pageActivityAt = SystemClock.uptimeMillis()
+    }
 
     /** Firefox-style private notice; swipe-to-dismiss also closes private tabs. */
     var privateNotice by mutableStateOf(true)
