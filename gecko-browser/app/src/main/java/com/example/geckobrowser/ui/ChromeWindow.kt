@@ -13,7 +13,6 @@ import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
-import androidx.lifecycle.viewmodel.setViewTreeViewModelStoreOwner
 import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.geckobrowser.BrowserViewModel
 
@@ -34,7 +33,6 @@ fun ChromeBlurWindow(
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val savedStateOwner = LocalSavedStateRegistryOwner.current
-    val viewModelStoreOwner = LocalViewModelStoreOwner.current
     val chromeState = rememberUpdatedState(chrome)
 
     DisposableEffect(context, blurRadiusDp) {
@@ -42,7 +40,6 @@ fun ChromeBlurWindow(
         val compose = androidx.compose.ui.platform.ComposeView(context).apply {
             setViewTreeLifecycleOwner(lifecycleOwner)
             setViewTreeSavedStateRegistryOwner(savedStateOwner)
-            setViewTreeViewModelStoreOwner(viewModelStoreOwner)
             setContent { chromeState.value() }
         }
         dialog.setContentView(compose)
@@ -56,8 +53,8 @@ fun ChromeBlurWindow(
             )
             if (Build.VERSION.SDK_INT >= 31) {
                 // Animate the radius from 0 so the blur doesn't pop in.
-                w.setBackgroundBlurRadius(0f)
-                compose.post { w.setBackgroundBlurRadius(blurRadiusDp) }
+                w.setBackgroundBlurRadius(0)
+                compose.post { w.setBackgroundBlurRadius(blurRadiusDp.toInt()) }
             }
         }
         dialog.setOnCancelListener { vm.onBackPressed() }
