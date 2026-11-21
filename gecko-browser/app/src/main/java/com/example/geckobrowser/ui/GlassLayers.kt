@@ -31,11 +31,12 @@ object GlassLayers {
             val wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
             crossWindowBlur = wm?.isCrossWindowBlurEnabled == true
             // Blur can switch off in battery saver / on low-end devices.
-            blurListener = java.util.function.Consumer { enabled ->
+            val listener = java.util.function.Consumer { enabled: Boolean ->
                 crossWindowBlur = enabled
                 logStatus()
             }
-            wm?.addCrossWindowBlurEnabledListener(blurListener)
+            blurListener = listener
+            wm?.addCrossWindowBlurEnabledListener(listener)
         } else {
             crossWindowBlur = false
         }

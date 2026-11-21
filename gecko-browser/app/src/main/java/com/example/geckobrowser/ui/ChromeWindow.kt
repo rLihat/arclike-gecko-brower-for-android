@@ -11,7 +11,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.LocalSavedStateRegistryOwner
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.setViewTreeLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
+import androidx.lifecycle.viewmodel.setViewTreeViewModelStoreOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import com.example.geckobrowser.BrowserViewModel
 
 /**
@@ -53,8 +56,8 @@ fun ChromeBlurWindow(
             )
             if (Build.VERSION.SDK_INT >= 31) {
                 // Animate the radius from 0 so the blur doesn't pop in.
-                w.setBlurBehindRadius(0)
-                w.post { w.setBlurBehindRadius(blurRadiusDp.toInt()) }
+                w.setBackgroundBlurRadius(0f)
+                compose.post { w.setBackgroundBlurRadius(blurRadiusDp) }
             }
         }
         dialog.setOnCancelListener { vm.onBackPressed() }
