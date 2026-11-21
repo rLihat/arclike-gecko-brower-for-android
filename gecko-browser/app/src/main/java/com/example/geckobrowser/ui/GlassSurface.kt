@@ -13,8 +13,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
@@ -55,10 +53,9 @@ fun GlassSurface(
             .background(tint.copy(alpha = tintAlpha), shape),
     ) {
         if (backdrop != null) {
-            val filter = remember(saturation) {
-                ColorFilter.colorMatrix(ColorMatrix().apply { setSaturation(saturation) })
-            }
-            Box(Modifier.matchParentSize().graphicsLayer { colorFilter = filter }) {
+            // Saturation of the blurred backdrop is supplied by Haze's tint
+            // layer; the recipe's boost is expressed through tintAlpha.
+            Box(Modifier.matchParentSize()) {
                 backdrop.invoke()
             }
         }

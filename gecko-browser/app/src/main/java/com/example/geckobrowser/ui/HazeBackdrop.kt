@@ -2,13 +2,13 @@ package com.example.geckobrowser.ui
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeEffect
 import dev.chrisbanes.haze.hazeSource
-import dev.chrisbanes.haze.rememberHazeState
 
 /** Haze state shared between a screen's backdrop and its glass surfaces. */
 val LocalHazeState = compositionLocalOf<HazeState?> { null }
@@ -23,7 +23,7 @@ fun ScreenHaze(
     enabled: Boolean,
     content: @Composable () -> Unit,
 ) {
-    val state = rememberHazeState(blurEnabled = enabled)
+    val state = remember { HazeState() }
     androidx.compose.runtime.CompositionLocalProvider(LocalHazeState provides state) {
         content()
     }
@@ -38,12 +38,13 @@ fun Modifier.hazeBackdrop(): Modifier {
 
 /** Apply to a glass surface to sample the screen's backdrop. */
 @Composable
-fun Modifier.hazeGlass(radius: Dp = 24.dp): Modifier {
+fun Modifier.hazeGlass(radius: Dp = 24.dp, enabled: Boolean = true): Modifier {
     val state = LocalHazeState.current
     return if (state != null) {
         this.hazeEffect(state) {
             blurRadius = radius
             noiseFactor = 0.03f
+            blurEnabled = enabled
         }
     } else {
         this
