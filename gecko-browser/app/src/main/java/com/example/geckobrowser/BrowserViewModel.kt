@@ -388,7 +388,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         android.os.Build.VERSION.SDK_INT >= 31 && isCrossWindowBlurEnabled()
 
     private fun isCrossWindowBlurEnabled(): Boolean = runCatching {
-        val wm = getSystemService(android.content.Context.WINDOW_SERVICE) as? android.view.WindowManager
+        val wm = application.getSystemService(android.content.Context.WINDOW_SERVICE) as? android.view.WindowManager
         wm?.isCrossWindowBlurEnabled ?: false
     }.getOrDefault(false)
 
