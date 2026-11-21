@@ -834,7 +834,8 @@ private fun ChromeOverlay(
                         }
                     }
                     if (due) {
-                        val active = android.os.SystemClock.uptimeMillis() - vm.pageActivityAt < 600L
+                        val lastActivity: Long = vm.pageActivityAt
+                        val active = (android.os.SystemClock.uptimeMillis() - lastActivity) < 600L
                         if (active) {
                             val rect = pillRect
                             if (rect != null) {
