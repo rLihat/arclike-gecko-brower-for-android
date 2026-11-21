@@ -1,7 +1,9 @@
 package com.example.geckobrowser.ui
 
+import android.content.Context
 import android.os.Build
 import android.util.Log
+import android.view.WindowManager
 import androidx.compose.runtime.staticCompositionLocalOf
 
 /** Which blur layers are currently active, for the startup log and diagnostics. */
@@ -20,10 +22,23 @@ object GlassLayers {
     var snapshotFallback: Boolean = true
         private set
 
-    fun configure(haze: Boolean, windowBlur: Boolean, usingSnapshot: Boolean) {
+    private var blurListener: java.util.function.Consumer<Boolean>? = null
+
+    fun configure(context: Context, haze: Boolean, usingSnapshot: Boolean) {
         hazeActive = haze
-        crossWindowBlur = windowBlur
         snapshotFallback = usingSnapshot
+        if (Build.VERSION.SDK_INT >= 31) {
+            val wm = context.getSystemService(Context.WINDOW_SERVICE) as? WindowManager
+            crossWindowBlur = wm?.isCrossWindowBlurEnabled == true
+            // Blur can switch off in battery saver / on low-end devices.
+            blurListener = java.util.function.Consumer { enabled ->
+                crossWindowBlur = enabled
+                logStatus()
+            }
+            wm?.addCrossWindowBlurEnabledListener(blurListener)
+        } else {
+            crossWindowBlur = false
+        }
     }
 
     /** One line on startup: active layer status. Nothing claims device-verified. */

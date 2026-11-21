@@ -379,8 +379,18 @@ fun BrowserApp(
                 } else {
                     c
                 }
-                CompositionLocalProvider(LocalArc provides chromeColors) {
-                    ChromeOverlay(vm, immersive, pageFrost)
+                val useWindowBlur = frostOn && !vm.glassV1 && GlassLayers.crossWindowBlur &&
+                    (overlay in frostedSheets || overlay == Overlay.None || overlay == Overlay.Tabs)
+                if (useWindowBlur) {
+                    ChromeBlurWindow(vm = vm, blurRadiusDp = 26f) {
+                        CompositionLocalProvider(LocalArc provides chromeColors) {
+                            ChromeOverlay(vm, immersive, pageFrost)
+                        }
+                    }
+                } else {
+                    CompositionLocalProvider(LocalArc provides chromeColors) {
+                        ChromeOverlay(vm, immersive, pageFrost)
+                    }
                 }
                 Box(
                     Modifier

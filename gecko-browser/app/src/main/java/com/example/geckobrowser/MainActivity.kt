@@ -40,8 +40,8 @@ class MainActivity : ComponentActivity() {
         (application as ArcApplication).browserVm = vm
         // Layer status is logged once; nothing here claims device verification.
         GlassLayers.configure(
+            context = this,
             haze = true,
-            windowBlur = android.os.Build.VERSION.SDK_INT >= 31,
             usingSnapshot = true,
         )
         GlassLayers.logStatus()
