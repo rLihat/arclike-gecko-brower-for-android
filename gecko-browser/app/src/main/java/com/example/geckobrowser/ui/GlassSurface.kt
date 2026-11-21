@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -17,6 +19,12 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+
+/** Drop-in glass fill for an existing Box: draws the recipe behind its content. */
+@Composable
+fun BoxScope.GlassFill(tint: Color, alpha: Float = 0.48f) {
+    GlassSurface(Modifier.matchParentSize(), tint = tint, tintAlpha = alpha) {}
+}
 
 /**
  * The one glass recipe used everywhere the new frost applies: translucent tint,

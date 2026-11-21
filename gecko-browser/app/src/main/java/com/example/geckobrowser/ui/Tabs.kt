@@ -435,6 +435,9 @@ private fun TabCard(
                     RoundedCornerShape(20.dp),
                 ),
         ) {
+            if (LocalFrost.current && LocalHazeState.current != null) {
+                GlassFill(tint = c.surface, alpha = 0.42f)
+            }
             TabMiniature(tab)
         }
     }

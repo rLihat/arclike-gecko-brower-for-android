@@ -286,16 +286,21 @@ private fun matches(query: String, label: String) =
 @Composable
 private fun SearchPill(value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
     val c = LocalArc.current
-    Row(
+    Box(
         modifier
             .fillMaxWidth(0.7f)
             .height(58.dp)
             .clip(RoundedCornerShape(29.dp))
             .background(c.navSurface)
-            .then(rememberGlass(c.navSurface, fps = 20, maxEdge = 170, radius = 6))
-            .padding(horizontal = 20.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .then(rememberGlass(c.navSurface, fps = 20, maxEdge = 170, radius = 6)),
     ) {
+        if (LocalFrost.current && LocalHazeState.current != null) {
+            GlassFill(tint = c.navSurface, alpha = 0.5f)
+        }
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
         Glyph(Ico.find, c.muted, size = 18.dp, strokeWidth = 2f)
         Spacer(Modifier.width(10.dp))
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
@@ -310,6 +315,7 @@ private fun SearchPill(value: String, onChange: (String) -> Unit, modifier: Modi
                 cursorBrush = SolidColor(c.accent),
                 modifier = Modifier.fillMaxWidth(),
             )
+        }
         }
     }
 }

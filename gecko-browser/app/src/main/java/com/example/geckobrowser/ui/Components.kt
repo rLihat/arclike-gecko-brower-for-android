@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -586,14 +587,21 @@ fun SettingsRow(
 @Composable
 fun SettingsGroup(content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit) {
     val c = LocalArc.current
-    androidx.compose.foundation.layout.Column(
+    Box(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(c.surface)
-            .padding(vertical = 2.dp),
-        content = content,
-    )
+            .clip(RoundedCornerShape(16.dp)),
+    ) {
+        if (LocalFrost.current && LocalHazeState.current != null) {
+            GlassFill(tint = c.surface, alpha = 0.5f)
+        } else {
+            Box(Modifier.matchParentSize().background(c.surface))
+        }
+        androidx.compose.foundation.layout.Column(
+            Modifier.fillMaxWidth().padding(vertical = 2.dp),
+            content = content,
+        )
+    }
 }
 
 /* ------------------------------------------------------------------ pill */
