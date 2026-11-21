@@ -55,3 +55,6 @@ object GlassLayers {
 
 /** True when the app's glass effects should run (all layers honour this). */
 val LocalFrost = staticCompositionLocalOf { true }
+
+/** Layer 1 (Haze / new GlassSurface) is disabled for the V1 legacy look. */
+val LocalNewGlass = staticCompositionLocalOf { true }

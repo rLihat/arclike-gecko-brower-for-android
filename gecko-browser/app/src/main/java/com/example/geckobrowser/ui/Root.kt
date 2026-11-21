@@ -135,7 +135,10 @@ fun BrowserApp(
     val liveHost = BrowserViewModel.hostOf(vm.activeTab?.url.orEmpty())
     val liveAccent = if (liveHost.isNotBlank()) faviconAccent(liveHost) else null
     ArcTheme(vm.darkMode, vm.accentKey, liveAccent, vm.oledMode) {
-        CompositionLocalProvider(LocalFrost provides (vm.frostedGlass && !vm.reduceTransparency)) {
+        CompositionLocalProvider(
+            LocalFrost provides vm.frostedGlass,
+            LocalNewGlass provides (!vm.glassV1 && vm.frostedGlass),
+        ) {
         val systemDark = isSystemInDarkTheme()
         LaunchedEffect(systemDark) { vm.updateSystemDark(systemDark) }
         val c = LocalArc.current

@@ -33,14 +33,14 @@ fun ScreenHaze(
 @Composable
 fun Modifier.hazeBackdrop(): Modifier {
     val state = LocalHazeState.current
-    return if (state != null) this.hazeSource(state) else this
+    return if (state != null && LocalNewGlass.current) this.hazeSource(state) else this
 }
 
 /** Apply to a glass surface to sample the screen's backdrop. */
 @Composable
 fun Modifier.hazeGlass(radius: Dp = 24.dp, enabled: Boolean = true): Modifier {
     val state = LocalHazeState.current
-    return if (state != null) {
+    return if (state != null && LocalNewGlass.current && enabled) {
         this.hazeEffect(state) {
             blurRadius = radius
             noiseFactor = 0.03f

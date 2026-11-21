@@ -368,8 +368,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     )
         private set
 
-    /** True when any frost/glass effects should run. */
-    val frostedGlass: Boolean get() = frostedGlassMode != "off"
+    /** Effective frost: Auto turns on only when the device supports window blur. */
+    val frostedGlass: Boolean get() = when (frostedGlassMode) {
+        "off" -> false
+        "auto" -> crossWindowBlurSupported
+        else -> true
+    } && !reduceTransparency
 
     /** True for the previous (v1) snapshot-era glass look. */
     val glassV1: Boolean get() = frostedGlassMode == "v1"
