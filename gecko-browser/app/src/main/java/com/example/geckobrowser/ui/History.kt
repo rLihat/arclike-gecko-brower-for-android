@@ -80,10 +80,12 @@ fun HistoryScreen(vm: BrowserViewModel, onBack: () -> Unit) {
         prewarmFaviconCache(rows.map { it.host }.distinct().take(40))
     }
 
+    ScreenHaze(enabled = LocalFrost.current) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(c.settingsBg),
+            .background(c.settingsBg)
+            .hazeBackdrop(),
     ) {
         SettingsHeader(
             title = "History",
@@ -250,6 +252,7 @@ fun HistoryScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 }
             }
         }
+    }
     }
 }
 

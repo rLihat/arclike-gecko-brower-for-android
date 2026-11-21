@@ -21,6 +21,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.example.geckobrowser.ui.BrowserRoot
+import com.example.geckobrowser.ui.GlassLayers
 
 class MainActivity : ComponentActivity() {
 
@@ -37,6 +38,13 @@ class MainActivity : ComponentActivity() {
         val splashStartedAt = SystemClock.uptimeMillis()
         super.onCreate(savedInstanceState)
         (application as ArcApplication).browserVm = vm
+        // Layer status is logged once; nothing here claims device verification.
+        GlassLayers.configure(
+            haze = true,
+            windowBlur = android.os.Build.VERSION.SDK_INT >= 31,
+            usingSnapshot = true,
+        )
+        GlassLayers.logStatus()
         if (android.os.Build.VERSION.SDK_INT >= 33 &&
             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
             android.content.pm.PackageManager.PERMISSION_GRANTED

@@ -113,6 +113,7 @@ fun TabSwitcher(
         if (!grid) state.scrollToItem(activeIndex)
     }
 
+    ScreenHaze(enabled = LocalFrost.current && frost != null) {
     BoxWithConstraints(
         modifier
             .fillMaxSize()
@@ -128,7 +129,7 @@ fun TabSwitcher(
                 bitmap = frost,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().hazeBackdrop(),
             )
             Box(Modifier.fillMaxSize().background(c.switcherBg.copy(alpha = 0.72f)))
         }
@@ -297,6 +298,7 @@ fun TabSwitcher(
 
         // The clear-all confirmation is drawn by ChromeOverlay so it floats
         // above the nav pill, exactly like the immersive banner.
+    }
     }
 }
 

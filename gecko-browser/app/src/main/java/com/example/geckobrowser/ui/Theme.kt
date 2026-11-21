@@ -202,9 +202,6 @@ val OledArc = DarkArc.copy(
 
 val LocalArc = staticCompositionLocalOf { LightArc }
 
-/** Global Frosted Glass (Experimental) switch. */
-val LocalFrost = staticCompositionLocalOf { true }
-
 /**
  * Mirrors the mockup's `prefers-reduced-motion` gate: when the system animator
  * scale is 0, new transitions collapse to their end state instead of playing.

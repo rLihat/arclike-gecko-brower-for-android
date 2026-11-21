@@ -63,13 +63,14 @@ fun SettingsScreen(
         else onBack()
     }
 
+    ScreenHaze(enabled = LocalFrost.current && frost != null) {
     Box(Modifier.fillMaxSize()) {
         if (frost != null) {
             Image(
                 bitmap = frost,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxSize().hazeBackdrop(),
             )
             Box(Modifier.fillMaxSize().background(c.surface.copy(alpha = 0.74f)))
         }
@@ -94,6 +95,7 @@ fun SettingsScreen(
             else -> SettingsHub(vm, onBack)
         }
         }
+    }
     }
 }
 

@@ -70,6 +70,9 @@ android {
 
 dependencies {
     implementation platform('androidx.compose:compose-bom:2024.12.01')
+    // Layer 1 — live blur over Compose-drawn backdrops. Pinned; Haze 1.x keeps
+    // the hazeState / Modifier.haze / hazeChild API this layer uses.
+    implementation 'dev.chrisbanes.haze:haze:1.7.3'
     implementation 'androidx.activity:activity-compose:1.9.3'
     implementation 'androidx.core:core-ktx:1.15.0'
     implementation 'androidx.core:core-splashscreen:1.0.1'

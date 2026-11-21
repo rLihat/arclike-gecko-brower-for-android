@@ -99,6 +99,7 @@ fun HomeScreen(onSearch: () -> Unit, onOpen: (String) -> Unit) {
     }
     // Ultra-minimal new-tab page: nothing but the brand mark. Tapping anywhere
     // opens search; there are no recents, pins or shortcuts.
+    ScreenHaze(enabled = LocalFrost.current) {
     Box(
         Modifier
             .fillMaxSize()
@@ -108,12 +109,20 @@ fun HomeScreen(onSearch: () -> Unit, onOpen: (String) -> Unit) {
             ) { onSearch() },
         contentAlignment = Alignment.Center,
     ) {
+        // Compose-drawn backdrop for Haze (home has no web page behind it).
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Brush.radialGradient(listOf(c.pageTop, c.pageBottom)))
+                .hazeBackdrop(),
+        )
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.offset(y = offsetY.value.dp),
         ) {
             HorizenMark(progress = progress.value, modifier = Modifier.size(152.dp))
         }
+    }
     }
 }
 
@@ -320,10 +329,12 @@ fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
             it.status == DownloadStatus.Canceled
     }
 
+    ScreenHaze(enabled = LocalFrost.current) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(c.settingsBg),
+            .background(c.settingsBg)
+            .hazeBackdrop(),
     ) {
         SettingsHeader(
             title = "Downloads",
@@ -436,6 +447,7 @@ fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 TextButton(onClick = { pendingDelete = null }) { Text("Cancel") }
             },
         )
+    }
     }
 }
 
