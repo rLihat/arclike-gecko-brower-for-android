@@ -952,33 +952,40 @@
     }
     .plus-chooser button.private-choice { color: var(--private); font-weight: 600; }
     .plus-chooser i { width: 1px; height: 20px; background: var(--stroke); }
-    /* Clear-all confirmation: immersive-banner capsule, above the nav pill. */
+    /* Clear-all confirmation: the same centred modal as the download prompt,
+       not a banner over the pill. Scrim covers the pill entirely. */
     .clear-all-banner {
-      position: absolute; left: 15%; width: 70%; bottom: 18px; height: 58px; z-index: 70;
-      display: flex; align-items: center; gap: 9px; padding: 0 12px;
-      border-radius: 29px; background: var(--nav-soft); border: 1px solid var(--stroke);
-      backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur));
-      opacity: 0; visibility: hidden; transform: translateY(14px) scale(.96);
-      transition: opacity .2s ease, transform .26s cubic-bezier(.32,.72,0,1), visibility .2s;
+      position: absolute; inset: 0; z-index: 75; display: none;
+      align-items: center; justify-content: center; background: rgba(0,0,0,.42);
     }
-    .clear-all-banner.open { opacity: 1; visibility: visible; transform: none; }
-    .clear-all-banner .ca-ico { width: 26px; height: 26px; border-radius: 9px; background: var(--chip); color: var(--accent); display:flex; align-items:center; justify-content:center; flex:0 0 26px; }
-    .clear-all-banner .ca-ico svg { width: 15px; height: 15px; stroke: currentColor; stroke-width: 2; fill: none; }
-    .clear-all-banner .ca-label { flex: 1; font-size: 12.5px; font-weight: 600; color: var(--text); }
-    .clear-all-banner button { border: 0; background: transparent; font: inherit; font-size: 12px; cursor: pointer; color: var(--accent); font-weight: 600; }
-    .clear-all-banner button.dismiss { color: var(--muted); font-weight: 400; }
-    /* Firefox-style private browsing notice. */
-    .private-notice {
-      position: absolute; left: 15%; width: 70%; top: 18px; z-index: 65;
-      display: none; align-items: center; gap: 9px; padding: 0 12px; height: 52px;
-      border-radius: 26px; background: var(--nav-soft); border: 1px solid var(--stroke);
-      backdrop-filter: blur(var(--glass-blur)); -webkit-backdrop-filter: blur(var(--glass-blur));
-      color: var(--text);
+    .clear-all-banner.open { display: flex; }
+    .clear-all-banner .cac-card {
+      width: 78%; padding: 18px; border-radius: 18px; background: var(--surface);
+      color: var(--text); box-shadow: var(--shadow); font-size: 13px;
     }
-    .private-notice.open { display: flex; }
-    .private-notice svg { width: 19px; height: 19px; stroke: var(--private); stroke-width: 1.9; fill: none; }
-    .private-notice .pn-label { flex: 1; font-size: 12.5px; font-weight: 600; }
-    .private-notice button { border: 0; background: transparent; color: var(--private); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .clear-all-banner .cac-card b { display: block; margin-bottom: 8px; font-size: 14px; }
+    .clear-all-banner .cac-actions { display: flex; justify-content: flex-end; gap: 16px; margin-top: 16px; }
+    .clear-all-banner button { border: 0; background: transparent; font: inherit; font-size: 13px; cursor: pointer; color: var(--accent); }
+    .clear-all-banner button.danger { color: #e0453c; font-weight: 600; }
+    #phone:has(#clear-all-banner.open) .bottom-bar { opacity: 0; pointer-events: none; }
+    /* Private browsing notice: a SYSTEM heads-up notification, not in-app chrome. */
+    .system-notif {
+      position: absolute; left: 8px; right: 8px; top: 8px; z-index: 68;
+      display: none; align-items: flex-start; gap: 10px; padding: 11px 12px;
+      border-radius: 16px; background: rgba(248,249,250,.96); color: #1b1b1f;
+      box-shadow: 0 8px 28px rgba(0,0,0,.28); border: 1px solid rgba(0,0,0,.08);
+      backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+    }
+    .dark .system-notif { background: rgba(32,36,40,.96); color: #eef3f2; border-color: rgba(255,255,255,.1); }
+    .system-notif.open { display: flex; }
+    .system-notif .sn-app { width: 22px; height: 22px; border-radius: 7px; background: var(--private); color: #fff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex: 0 0 22px; }
+    .system-notif .sn-body { flex: 1; min-width: 0; }
+    .system-notif .sn-head { display: flex; justify-content: space-between; gap: 8px; font-size: 10.5px; color: #6b6b76; text-transform: uppercase; letter-spacing: .04em; }
+    .dark .system-notif .sn-head { color: #aeb7b6; }
+    .system-notif .sn-title { font-size: 13px; font-weight: 700; margin-top: 2px; }
+    .system-notif .sn-text { font-size: 11.5px; opacity: .85; margin-top: 2px; }
+    .system-notif .sn-actions { display: flex; gap: 14px; margin-top: 9px; }
+    .system-notif button { border: 0; background: transparent; font: inherit; font-size: 11.5px; font-weight: 700; color: var(--private); cursor: pointer; text-transform: uppercase; letter-spacing: .03em; }
     .private-confirm {
       position: absolute; inset: 0; z-index: 80; display: none;
       align-items: center; justify-content: center; background: rgba(0,0,0,.42);
@@ -1479,6 +1486,7 @@
     }
     .glass-surface.pressed { transform: scale(.96); }
     body[data-frost="off"] .glass-surface,
+    body[data-frost="off"] .system-notif,
     body[data-frost="off"] .tab-switcher,
     body[data-frost="off"] .bottom-bar,
     body[data-frost="off"] #menu-overlay .sheet,
@@ -1496,7 +1504,7 @@
     }
     /* Apply the recipe to the real chrome surfaces. */
     .bottom-bar, #menu-overlay .sheet, #search-overlay .sheet, .tab-switcher,
-    .settings-search, .private-notice, .clear-all-banner,
+    .settings-search, .system-notif,
     .search-hint, .card, .settings-group {
       background: var(--glass-tint);
       backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
@@ -1506,14 +1514,33 @@
     .bottom-bar { background: var(--glass-tint-strong); }
     /* Home cards keep a touch more tint for legibility over page content. */
     .search-hint, .card { background: var(--glass-tint-strong); }
-    /* Popups over sheets don't double-blur; just tint + edge. */
-    .private-notice, .clear-all-banner { backdrop-filter: none; -webkit-backdrop-filter: none; }
+    /* System notification is OS chrome; the modal uses a solid card. */
+    .system-notif, .clear-all-banner { backdrop-filter: none; -webkit-backdrop-filter: none; }
 
     /* Settings: Frosted glass (Auto / On / Off) + Reduce transparency. */
     .glass-control { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
     .seg { display: flex; background: var(--icon-bg); border-radius: 11px; padding: 3px; }
     .seg button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; padding: 6px 11px; border-radius: 9px; cursor: pointer; }
     .seg button.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
+    .seg .swatch { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 3px; background: linear-gradient(135deg, rgba(255,255,255,.5), rgba(180,180,190,.35)); border: 1px solid var(--stroke); vertical-align: -1px; }
+    /* V1 = the previous (snapshot-era) look: softer blur, flat tint, plain edge. */
+    body[data-frost="v1"] #phone,
+    body[data-frost="v1"] {
+      --glass-blur: 14px; --glass-sat: 1.12;
+      --glass-tint: var(--nav-soft); --glass-tint-strong: var(--sheet-soft);
+      --glass-shadow: var(--shadow); --glass-edge: var(--stroke);
+    }
+    body[data-frost="v1"] .glass-surface::before,
+    body[data-frost="v1"] .glass-surface::after,
+    body[data-frost="v1"] .glass-noise { display: none; }
+    body[data-frost="v1"] .glass-surface,
+    body[data-frost="v1"] .bottom-bar,
+    body[data-frost="v1"] #menu-overlay .sheet,
+    body[data-frost="v1"] #search-overlay .sheet,
+    body[data-frost="v1"] .tab-switcher {
+      box-shadow: var(--shadow), inset 0 1px 0 var(--glass-border);
+      transition: none;
+    }
   </style>
 </head>
 <body>
@@ -1590,17 +1617,27 @@
           <i aria-hidden="true"></i>
           <button class="private-choice" type="button" onclick="pickPlusChoice(true)">Private tab</button>
         </div>
-        <div class="clear-all-banner" id="clear-all-banner" role="status" aria-label="Clear all tabs">
-          <span class="ca-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13"/></svg></span>
-          <span class="ca-label">Clear all tabs?</span>
-          <button type="button" onclick="confirmClearAll()">Clear</button>
-          <button class="dismiss" type="button" onclick="hideClearAll()">Dismiss</button>
+        <div class="clear-all-banner" id="clear-all-banner" role="dialog" aria-label="Clear all tabs">
+          <div class="cac-card">
+            <b>Clear all tabs?</b>
+            <span>All open tabs will be closed. This can't be undone.</span>
+            <div class="cac-actions">
+              <button type="button" onclick="hideClearAll()">Cancel</button>
+              <button class="danger" type="button" onclick="confirmClearAll()">Clear all</button>
+            </div>
+          </div>
         </div>
 
-        <div class="private-notice" id="private-notice" role="status" aria-label="Private tabs open">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 11C2.5 7.5 6.5 5 12 5s9.5 2.5 9.5 6c0 5.5-4 9-9.5 9s-9.5-3.5-9.5-9z"/><circle cx="8.5" cy="12" r="1.5"/><circle cx="15.5" cy="12" r="1.5"/><path d="M9.5 16h5"/></svg>
-          <span class="pn-label" id="private-count">Private tabs open</span>
-          <button type="button" onclick="requestClosePrivate()">Close private</button>
+        <div class="system-notif" id="private-notice" role="status" aria-label="Private tabs system notification">
+          <span class="sn-app">hZ</span>
+          <div class="sn-body">
+            <div class="sn-head"><span>horiZen</span><span>now</span></div>
+            <div class="sn-title">Private tabs open</div>
+            <div class="sn-text" id="private-count">1 private tab open</div>
+            <div class="sn-actions">
+              <button type="button" onclick="requestClosePrivate()">Close private</button>
+            </div>
+          </div>
         </div>
         <div class="private-confirm" id="private-confirm" role="dialog" aria-label="Close private tabs">
           <div class="pc-card">
@@ -1849,6 +1886,7 @@
                     <button type="button" data-frost="auto" class="active" onclick="setMockFrost('auto')">Auto</button>
                     <button type="button" data-frost="on" onclick="setMockFrost('on')">On</button>
                     <button type="button" data-frost="off" onclick="setMockFrost('off')">Off</button>
+                    <button type="button" data-frost="v1" title="Previous design" onclick="setMockFrost('v1')"><span class="swatch"></span>V1</button>
                   </div>
                 </div>
               </div>
@@ -2163,7 +2201,8 @@
        <div class="note"><b>Pinned sites:</b> the Essentials row sits under the search field - three equal favicon thirds per row, scrollable, order persists. The site you are on is outlined in its favicon's dominant colour. Hold a tile until the x replaces the favicon, then release to unpin it; keep holding and drag sideways to reorder - neighbours slide into place and the row closes the gap after an unpin.</div>
       <div class="note"><b>Popups:</b> the download question and small messages like “Canceled” or “Opening” use the pill’s own footprint, and the pill steps aside while they show. Finished downloads don’t pop anything — the live chip already says it.</div>
       <div class="note"><b>Gestures:</b> swipe ↑ from the plus or menu arrow for the menu · ↓ from the plus, search ×, menu arrow or a sheet handle dismisses what’s open · ←/→ from the plus slides between tabs · ↑ from the tab icon opens previews (↓ closes them) · ←/→ from the tab icon goes back/forward · ← from the menu arrow goes back · ↑ from the live download chip cancels it and clears the row. Back and forward flash the same pill-sized notice as immersive mode.</div>
-      <div class="note"><b>Frosted glass:</b> one GlassSurface recipe across the nav pill, sheets, tab switcher, settings and home cards: translucent tint (stronger in light), top highlight, gradient edge, inner rim, soft shadow, faint noise and a press spring. The settings control offers Auto / On / Off (Auto follows device blur support) plus Reduce transparency for flat surfaces. Blur 24px, saturation 1.7.</div>
+      <div class="note"><b>Frosted glass:</b> one GlassSurface recipe across the nav pill, sheets, tab switcher, settings and home cards: translucent tint (stronger in light), top highlight, gradient edge, inner rim, soft shadow, faint noise and a press spring. The settings control offers Auto / On / Off plus a V1 swatch for the previous look (softer blur, flat tint, plain edge). Auto follows device blur support; Reduce transparency forces flat surfaces. Blur 24px, saturation 1.7.</div>
+      <div class="note"><b>Private &amp; clear-all:</b> private tabs surface a system heads-up notification, not in-app chrome. The clear-all prompt appears only after a card has actually been swiped away, and is a centred modal like the download confirmation prompt with the pill fully covered.</div>
       <div class="note"><b>Private &amp; selection:</b> press and hold the plus for New tab / Private tab; the search field's trailing mask toggles privacy for the next search and the search pill shows the same mask. Private tabs are ringed in purple around the live preview only. Long-press a tab preview to multi-select (top-corner Cancel/Delete), and the bottom-left switcher flips between carousel and grid, where the current tab slides into the first slot and private tabs group under a label. Swiping a card up with more than two tabs open surfaces a Clear-all banner over the pill.</div>
       <div class="section-title">Debug</div>
       <div class="debug-row">
@@ -3140,10 +3179,7 @@
         // downward swipe focuses the tab (like a tap), an upward swipe dismisses
         // it. Horizontal drags fall through and keep scrolling the row.
         attachSwipe(card, {
-          up: () => {
-            if (tabs.length > 2) showClearAll();
-            else dismissTabCard(i, card);
-          },
+          up: () => dismissTabCard(i, card, true),
           down: () => openTab(i),
         });
         bindTabLongPress(card, i);
@@ -3251,7 +3287,7 @@
     /* Swipe-up on a card: the card lifts away, then the row closes the gap.
        Removing the focused tab focuses its neighbour; removing the last tab
        leaves a fresh home tab behind. */
-    function dismissTabCard(index, card) {
+    function dismissTabCard(index, card, offerClearAll = false) {
       if (!tabs[index]) return;
       const wasActive = index === currentTab;
       const removed = tabs[index];
@@ -3269,6 +3305,8 @@
         updateChrome();
         renderTabStack();
         syncDownloadChip();
+        // Only offered once the card is actually gone, never on touch/contact.
+        if (offerClearAll && tabs.length > 2) showClearAll();
       }, 270);
     }
     /* Reverse FLIP: the chosen card's miniature expands into the focused page. */
@@ -4854,16 +4892,19 @@
     let mockFrost = 'auto';
     let reduceTransparency = false;
     function applyGlassSettings() {
-      const effective = mockFrost === 'off' ? 'off'
-        : mockFrost === 'on' ? 'on'
-        : (window.matchMedia('(prefers-reduced-transparency: reduce)').matches || reduceTransparency) ? 'off' : 'on';
-      document.body.dataset.frost = effective === 'on' ? 'on' : 'off';
+      const reduced = window.matchMedia('(prefers-reduced-transparency: reduce)').matches || reduceTransparency;
+      let mode;
+      if (mockFrost === 'off' || reduced) mode = 'off';
+      else if (mockFrost === 'v1') mode = 'v1';
+      else if (mockFrost === 'on') mode = 'on';
+      else mode = reduced ? 'off' : 'on'; // Auto follows device blur support
+      document.body.dataset.frost = mode;
       document.body.dataset.transparency = reduceTransparency ? 'reduce' : 'full';
       document.querySelectorAll('#frost-seg button').forEach(b =>
         b.classList.toggle('active', b.dataset.frost === mockFrost));
       const sw = document.getElementById('reduce-switch');
       if (sw) { sw.classList.toggle('on', reduceTransparency); sw.setAttribute('aria-checked', String(reduceTransparency)); }
-      log('Frosted glass: ' + mockFrost + (effective === 'off' ? ' (flat surfaces)' : ' (glass active)'));
+      log('Frosted glass: ' + mockFrost + (mode === 'v1' ? ' (previous design)' : mode === 'off' ? ' (flat surfaces)' : ' (glass active)'));
     }
     function setMockFrost(mode) { mockFrost = mode; applyGlassSettings(); }
     function toggleReduceTransparency() { reduceTransparency = !reduceTransparency; applyGlassSettings(); }
