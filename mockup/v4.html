@@ -52,6 +52,10 @@
        so the notes panel outside stays readable */
     .dark {
       color: var(--text);
+      --glass-tint: rgba(20,26,30,0.5);
+      --glass-tint-strong: rgba(20,26,30,0.58);
+      --glass-edge: linear-gradient(135deg, rgba(255,255,255,0.26), rgba(255,255,255,0.07) 42%, rgba(255,255,255,0.05));
+      --glass-shadow: 0 10px 40px rgba(0,0,0,0.42), 0 2px 8px rgba(0,0,0,0.3);
       --bg1: #111a20;
       --bg2: #090d10;
       --page-top: #1b2831;
@@ -860,7 +864,7 @@
     .pfp { width: 46px; height: 46px; border-radius: 23px; background: linear-gradient(135deg,#ff7a59,#ffbd59); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; }
     .pfp.pfp-small { width: 30px; height: 30px; border-radius: 15px; font-size: 12px; }
     .pill-ico { width: 24px; height: 24px; border-radius: 0; background: transparent; display:flex; align-items:center; justify-content:center; font-size: 22px; }
-    .tab-switcher { position:absolute; inset:0; padding: 24px 0 24px; overflow: hidden; display: flex; flex-direction: column; background: var(--switcher-bg); backdrop-filter: none; -webkit-backdrop-filter: none; border: none; box-shadow: none; max-height: none; perspective: 1400px; }
+    .tab-switcher { position:absolute; inset:0; padding: 24px 0 24px; overflow: hidden; display: flex; flex-direction: column; background: var(--glass-tint); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); border: none; box-shadow: var(--glass-shadow); max-height: none; perspective: 1400px; }
     .stack {
       flex: 1; display: flex; flex-direction: row; gap: 16px; overflow-x: auto; overflow-y: hidden;
       padding: 12px 32px; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; align-items: center;
@@ -1436,6 +1440,80 @@
     }
     .debug-row .switch { cursor: pointer; }
     @media (max-width: 820px) { .app { flex-direction: column; align-items: center; } .panel { width: 390px; flex: 0 0 auto; position: static; } }
+
+    /* ================= GLASS SURFACE RECIPE (mirrors the app's GlassSurface) =================
+       One recipe for every frosted surface: backdrop + tint + top highlight +
+       gradient edge + inner top rim + soft shadow + faint noise + press spring. */
+    :root {
+      --glass-blur: 26px;
+      --glass-sat: 1.7;
+      --glass-tint: rgba(246,246,244,0.46);
+      --glass-tint-strong: rgba(246,246,244,0.54);
+      --glass-edge: linear-gradient(135deg, rgba(255,255,255,0.38), rgba(255,255,255,0.08) 42%, rgba(255,255,255,0.06));
+      --glass-shadow: 0 10px 40px rgba(20,30,35,0.16), 0 2px 8px rgba(20,30,35,0.08);
+      --glass-noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
+    }
+    .glass-surface {
+      position: relative;
+      background: var(--glass-tint);
+      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      box-shadow: var(--glass-shadow);
+      isolation: isolate;
+      transition: transform .32s cubic-bezier(.34,1.4,.5,1), background .3s ease, box-shadow .3s ease;
+    }
+    .glass-surface::before {
+      content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 1;
+      background: linear-gradient(to bottom, rgba(255,255,255,0.13) 0%, rgba(255,255,255,0.05) 24%, transparent 38%);
+    }
+    .glass-surface::after {
+      content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 2;
+      padding: 1px; background: var(--glass-edge);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.22);
+    }
+    .glass-surface .glass-noise {
+      position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 3;
+      background-image: var(--glass-noise); background-size: 120px 120px; opacity: .9;
+    }
+    .glass-surface.pressed { transform: scale(.96); }
+    body[data-frost="off"] .glass-surface,
+    body[data-frost="off"] .tab-switcher,
+    body[data-frost="off"] .bottom-bar,
+    body[data-frost="off"] #menu-overlay .sheet,
+    body[data-frost="off"] #search-overlay .sheet {
+      background: var(--surface-strong) !important;
+      backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+    }
+    body[data-transparency="reduce"] .glass-surface,
+    body[data-transparency="reduce"] .tab-switcher,
+    body[data-transparency="reduce"] .bottom-bar,
+    body[data-transparency="reduce"] #menu-overlay .sheet,
+    body[data-transparency="reduce"] #search-overlay .sheet {
+      background: var(--surface-strong) !important;
+      backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+    }
+    /* Apply the recipe to the real chrome surfaces. */
+    .bottom-bar, #menu-overlay .sheet, #search-overlay .sheet, .tab-switcher,
+    .settings-search, .private-notice, .clear-all-banner,
+    .search-hint, .card, .settings-group {
+      background: var(--glass-tint);
+      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+      box-shadow: var(--glass-shadow), inset 0 1px 0 rgba(255,255,255,0.18);
+    }
+    .bottom-bar { background: var(--glass-tint-strong); }
+    /* Home cards keep a touch more tint for legibility over page content. */
+    .search-hint, .card { background: var(--glass-tint-strong); }
+    /* Popups over sheets don't double-blur; just tint + edge. */
+    .private-notice, .clear-all-banner { backdrop-filter: none; -webkit-backdrop-filter: none; }
+
+    /* Settings: Frosted glass (Auto / On / Off) + Reduce transparency. */
+    .glass-control { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .seg { display: flex; background: var(--icon-bg); border-radius: 11px; padding: 3px; }
+    .seg button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; padding: 6px 11px; border-radius: 9px; cursor: pointer; }
+    .seg button.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
   </style>
 </head>
 <body>
@@ -1477,7 +1555,7 @@
         </div>
 
         <div class="sb-thumb" id="sb-thumb" aria-hidden="true"></div>
-        <div class="bottom-bar glass" id="bottom-bar">
+        <div class="bottom-bar glass glass-surface" id="bottom-bar">
           <div class="nav-domain" id="nav-domain" onclick="expandNavPill()" title="Expand"
                role="button" aria-label="Site domain, tap to expand navigation">
             <span id="nd-text">example.com</span>
@@ -1763,6 +1841,21 @@
                 <span class="label">Appearance</span>
                 <span class="value">System</span>
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+              </div>
+              <div class="settings-row" style="display:block;cursor:default">
+                <div class="glass-control">
+                  <span class="label">Frosted glass</span>
+                  <div class="seg" id="frost-seg">
+                    <button type="button" data-frost="auto" class="active" onclick="setMockFrost('auto')">Auto</button>
+                    <button type="button" data-frost="on" onclick="setMockFrost('on')">On</button>
+                    <button type="button" data-frost="off" onclick="setMockFrost('off')">Off</button>
+                  </div>
+                </div>
+              </div>
+              <div class="settings-row" onclick="toggleReduceTransparency()">
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 18 0"/><path d="M3 12h18"/><path d="M12 3v18"/></svg></span>
+                <span class="label">Reduce transparency</span>
+                <span class="switch" id="reduce-switch" role="switch" aria-checked="false"><span></span></span>
               </div>
               <div class="settings-row" onclick="settingTap('Accent colour')">
                 <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="9" cy="10" r="1.6" fill="currentColor" stroke="none"/><path d="M17.5 13.25a2.25 2.25 0 0 0-4 0"/></svg></span>
@@ -2070,6 +2163,7 @@
        <div class="note"><b>Pinned sites:</b> the Essentials row sits under the search field - three equal favicon thirds per row, scrollable, order persists. The site you are on is outlined in its favicon's dominant colour. Hold a tile until the x replaces the favicon, then release to unpin it; keep holding and drag sideways to reorder - neighbours slide into place and the row closes the gap after an unpin.</div>
       <div class="note"><b>Popups:</b> the download question and small messages like “Canceled” or “Opening” use the pill’s own footprint, and the pill steps aside while they show. Finished downloads don’t pop anything — the live chip already says it.</div>
       <div class="note"><b>Gestures:</b> swipe ↑ from the plus or menu arrow for the menu · ↓ from the plus, search ×, menu arrow or a sheet handle dismisses what’s open · ←/→ from the plus slides between tabs · ↑ from the tab icon opens previews (↓ closes them) · ←/→ from the tab icon goes back/forward · ← from the menu arrow goes back · ↑ from the live download chip cancels it and clears the row. Back and forward flash the same pill-sized notice as immersive mode.</div>
+      <div class="note"><b>Frosted glass:</b> one GlassSurface recipe across the nav pill, sheets, tab switcher, settings and home cards: translucent tint (stronger in light), top highlight, gradient edge, inner rim, soft shadow, faint noise and a press spring. The settings control offers Auto / On / Off (Auto follows device blur support) plus Reduce transparency for flat surfaces. Blur 24px, saturation 1.7.</div>
       <div class="note"><b>Private &amp; selection:</b> press and hold the plus for New tab / Private tab; the search field's trailing mask toggles privacy for the next search and the search pill shows the same mask. Private tabs are ringed in purple around the live preview only. Long-press a tab preview to multi-select (top-corner Cancel/Delete), and the bottom-left switcher flips between carousel and grid, where the current tab slides into the first slot and private tabs group under a label. Swiping a card up with more than two tabs open surfaces a Clear-all banner over the pill.</div>
       <div class="section-title">Debug</div>
       <div class="debug-row">
@@ -4757,6 +4851,22 @@
     function hideClearAll() {
       document.getElementById('clear-all-banner').classList.remove('open');
     }
+    let mockFrost = 'auto';
+    let reduceTransparency = false;
+    function applyGlassSettings() {
+      const effective = mockFrost === 'off' ? 'off'
+        : mockFrost === 'on' ? 'on'
+        : (window.matchMedia('(prefers-reduced-transparency: reduce)').matches || reduceTransparency) ? 'off' : 'on';
+      document.body.dataset.frost = effective === 'on' ? 'on' : 'off';
+      document.body.dataset.transparency = reduceTransparency ? 'reduce' : 'full';
+      document.querySelectorAll('#frost-seg button').forEach(b =>
+        b.classList.toggle('active', b.dataset.frost === mockFrost));
+      const sw = document.getElementById('reduce-switch');
+      if (sw) { sw.classList.toggle('on', reduceTransparency); sw.setAttribute('aria-checked', String(reduceTransparency)); }
+      log('Frosted glass: ' + mockFrost + (effective === 'off' ? ' (flat surfaces)' : ' (glass active)'));
+    }
+    function setMockFrost(mode) { mockFrost = mode; applyGlassSettings(); }
+    function toggleReduceTransparency() { reduceTransparency = !reduceTransparency; applyGlassSettings(); }
     function updatePrivateNotice() {
       const count = tabs.filter(t => t.private).length;
       const notice = document.getElementById('private-notice');
@@ -4949,6 +5059,7 @@
       }
     }
 
+    applyGlassSettings();
     bindNavGestures();
     bindPlusLongPress();
     attachSwipe(document.getElementById('private-notice'), {
