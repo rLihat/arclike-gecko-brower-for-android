@@ -1,4 +1,4 @@
-package com.example.geckobrowser
+﻿package com.example.geckobrowser
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -474,33 +474,45 @@ class DownloadService : Service() {
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val cancel = PendingIntent.getService(
+        fun serviceIntent(action: String): PendingIntent = PendingIntent.getService(
             this,
-            REQ_CANCEL + id.toInt(),
+            when (action) {
+                ACTION_CANCEL -> REQ_CANCEL
+                ACTION_PAUSE -> REQ_PAUSE
+                else -> REQ_RESUME
+            } + id.toInt(),
             Intent(this, DownloadService::class.java).apply {
-                action = ACTION_CANCEL
+                this.action = action
                 putExtra(EXTRA_ID, id)
             },
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
+        val status = item?.status
+        val paused = status == DownloadStatus.Paused
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle(name)
             .setContentIntent(open)
             .setOnlyAlertOnce(true)
-            .setOngoing(!done && !failed)
+            .setOngoing(!done && !failed && !paused)
             .setAutoCancel(done || failed)
         when {
-            failed -> builder.setContentText("Download failed")
-            done -> builder.setContentText("Download complete")
+            failed || status == DownloadStatus.Failed -> {
+                builder.setContentText("Download failed")
+                builder.addAction(android.R.drawable.ic_menu_rotate, "Retry", serviceIntent(ACTION_START))
+                builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", serviceIntent(ACTION_CANCEL))
+            }
+            done || status == DownloadStatus.Done -> builder.setContentText("Download complete")
+            paused -> {
+                builder.setContentText("Paused")
+                builder.addAction(android.R.drawable.ic_media_play, "Resume", serviceIntent(ACTION_START))
+                builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", serviceIntent(ACTION_CANCEL))
+            }
             else -> {
-                builder.setContentText(if (indeterminate) "Downloading…" else "$progress%")
+                builder.setContentText(if (indeterminate) "Downloading." else "$progress%")
                 builder.setProgress(100, progress, indeterminate)
-                builder.addAction(
-                    android.R.drawable.ic_menu_close_clear_cancel,
-                    "Cancel",
-                    cancel,
-                )
+                builder.addAction(android.R.drawable.ic_media_pause, "Pause", serviceIntent(ACTION_PAUSE))
+                builder.addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancel", serviceIntent(ACTION_CANCEL))
             }
         }
         return builder.build()
@@ -554,6 +566,8 @@ class DownloadService : Service() {
         private const val NOTIF_ID = 4101
         private const val REQ_OPEN = 4102
         private const val REQ_CANCEL = 4200
+        private const val REQ_PAUSE = 4300
+        private const val REQ_RESUME = 4400
 
         data class DownloadRequest(val name: String, val mime: String, val url: String, val size: Long)
 

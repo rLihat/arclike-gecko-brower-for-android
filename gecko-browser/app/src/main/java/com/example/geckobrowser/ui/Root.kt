@@ -1,4 +1,4 @@
-package com.example.geckobrowser.ui
+﻿package com.example.geckobrowser.ui
 
 import android.os.SystemClock
 import android.view.MotionEvent
@@ -950,37 +950,63 @@ private fun ChromeOverlay(
         ToastHost(vm, raised = pillVisible)
         DownloadFlightLayer(vm, screenW, screenH)
 
-        // Clear-all confirmation is a centred modal, identical in shape to the
-        // download confirmation prompt. The pill is hidden while it is up.
-        if (vm.clearAllPrompt && overlay == Overlay.Tabs) {
+        // Clear-all confirmation reuses the download question's pill footprint,
+        // so the chrome reads as morphing into the prompt. The nav pill is hidden
+        // while it is up.
+        val reduceMotionClear = rememberReduceMotion()
+        AnimatedVisibility(
+            visible = vm.clearAllPrompt && overlay == Overlay.Tabs,
+            enter = popupEnter(reduceMotionClear),
+            exit = popupExit(reduceMotionClear),
+            modifier = Modifier.fillMaxSize(),
+        ) {
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.42f))
-                    .clickable(enabled = false) {},
-                contentAlignment = Alignment.Center,
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { vm.dismissClearAllPrompt() },
             ) {
-                Column(
+                Row(
                     Modifier
-                        .fillMaxWidth(0.78f)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(c.surface)
-                        .padding(18.dp),
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 18.dp)
+                        .fillMaxWidth(0.7f)
+                        .height(58.dp)
+                        .clip(RoundedCornerShape(29.dp))
+                        .background(c.navSurface)
+                        .then(rememberGlass(c.navSurface, fps = 15))
+                        .border(1.dp, c.stroke, RoundedCornerShape(29.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { /* keep taps on the popup */ }
+                        .padding(start = 10.dp, end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text("Clear all tabs?", color = c.text, fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold)
-                    Spacer(Modifier.height(8.dp))
-                    Text("All open tabs will be closed. This can't be undone.",
-                        color = c.muted, fontSize = 12.5.sp)
-                    Spacer(Modifier.height(16.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        Text("Cancel", color = c.text, fontSize = 13.sp,
-                            modifier = Modifier.clickable { vm.dismissClearAllPrompt() })
-                        Spacer(Modifier.width(16.dp))
-                        Text("Clear all", color = Color(0xFFE0453C), fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.clickable { vm.clearAllTabs() })
+                    Box(
+                        Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(c.chip),
+                        contentAlignment = Alignment.Center,
+                    ) { Glyph(Ico.trash, c.iconInk, size = 17.dp, strokeWidth = 1.9f) }
+                    Spacer(Modifier.width(9.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Clear all tabs?", color = c.text, fontSize = 12.5.sp,
+                            fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("All tabs will be closed", color = c.muted, fontSize = 10.5.sp,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
+                    Box(
+                        Modifier.size(26.dp).clip(RoundedCornerShape(9.dp))
+                            .clickable { vm.dismissClearAllPrompt() },
+                        contentAlignment = Alignment.Center,
+                    ) { Glyph(Ico.close, c.muted, size = 14.dp, strokeWidth = 2f) }
+                    Spacer(Modifier.width(4.dp))
+                    Box(
+                        Modifier.size(34.dp).clip(CircleShape).background(Color(0xFFE0453C))
+                            .clickable { vm.clearAllTabs() },
+                        contentAlignment = Alignment.Center,
+                    ) { Glyph(Ico.trash, Color.White, size = 16.dp, strokeWidth = 2f) }
                 }
             }
         }

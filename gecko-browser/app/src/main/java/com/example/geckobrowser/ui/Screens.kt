@@ -630,6 +630,17 @@ private fun DownloadRow(
                     )
                 }
             }
+            if (downloading || paused || failed) {
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    when {
+                        downloading -> DlAction(Ico.pause) { vm.pauseDownload(d.id) }
+                        paused -> DlAction(Ico.play) { vm.resumeDownload(d.id) }
+                        failed -> DlAction(Ico.refresh) { vm.retryDownload(d.id) }
+                    }
+                    DlAction(Ico.close) { vm.cancelDownload(d.id) }
+                }
+            }
         }
         }
     }
