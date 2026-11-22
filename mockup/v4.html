@@ -1450,10 +1450,12 @@
 
     /* ===== Frost v2: layered glass (tint + highlight + rim + grain + shadow + spring press) ===== */
     #phone { --g-blur: blur(30px) saturate(1.8);
-      --g-fill: rgba(255,255,255,.50); --g-fill-hi: rgba(255,255,255,.64); --g-sheen: rgba(255,255,255,.55);
-      --g-top: rgba(255,255,255,.95); --g-bot: rgba(255,255,255,.28); --g-ring: rgba(255,255,255,.45); --g-glow: rgba(47,92,105,.22); --g-grain: .05; }
-    #phone.dark { --g-fill: rgba(26,36,46,.38); --g-fill-hi: rgba(24,32,42,.52); --g-sheen: rgba(255,255,255,.17);
-      --g-top: rgba(255,255,255,.32); --g-bot: rgba(255,255,255,.06); --g-ring: rgba(255,255,255,.14); --g-glow: rgba(90,170,200,.22); --g-grain: .06; }
+      --g-fill: rgba(255,255,255,.56); --g-fill-hi: rgba(255,255,255,.70); --g-sheen: rgba(255,255,255,.55);
+      --g-top: rgba(255,255,255,.95); --g-bot: rgba(255,255,255,.28); --g-ring: rgba(255,255,255,.55); --g-glow: rgba(47,92,105,.22); --g-grain: .05;
+      --g-edge: rgba(255,255,255,.20); }
+    #phone.dark { --g-fill: rgba(34,44,54,.42); --g-fill-hi: rgba(32,40,50,.56); --g-sheen: rgba(255,255,255,.17);
+      --g-top: rgba(255,255,255,.38); --g-bot: rgba(255,255,255,.06); --g-ring: rgba(255,255,255,.20); --g-glow: rgba(90,170,200,.22); --g-grain: .06;
+      --g-edge: rgba(255,255,255,.14); }
     .bottom-bar.glass:not(.blend):not(.menu-open):not(.search-open):not(.sheet-closing),
     #menu-overlay .sheet, #search-overlay .sheet, #tab-overlay .sheet.tab-switcher, .dl-core, .dl-prompt, .ext-prompt, .toast,
     .glass-surface {
@@ -1464,7 +1466,7 @@
         linear-gradient(135deg, rgba(255,255,255,.10), rgba(255,255,255,0) 55%);
       -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur);
       border: 1px solid var(--g-ring);
-      box-shadow: inset 0 1.5px 0 var(--g-top), inset 0 -1px 0 var(--g-bot), inset 0 0 22px rgba(255,255,255,.06),
+      box-shadow: inset 0 0 0 1px var(--g-edge), inset 0 1.5px 0 var(--g-top), inset 0 -1px 0 var(--g-bot), inset 0 0 22px rgba(255,255,255,.06),
                   0 14px 38px var(--g-glow), 0 2px 8px rgba(0,0,0,.14);
     }
     #menu-overlay.open .sheet, #search-overlay.open .sheet, #tab-overlay.open .sheet.tab-switcher { background-color: var(--g-fill-hi); }
