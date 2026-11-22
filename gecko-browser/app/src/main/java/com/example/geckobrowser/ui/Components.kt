@@ -276,14 +276,6 @@ object Ico {
     val searchCheck = IcoSearchCheck
     val search = IcoSearch
     val cog = IcoCog
-    val mapPin = IcoMapPin
-    val cookie = IcoCookie
-    val engine = IcoEngine
-    val packageIcon = IcoPackage
-    val squareCode = IcoSquareCode
-    val searchCheck = IcoSearchCheck
-    val search = IcoSearch
-    val cog = IcoCog
 }
 
 /* -------------------------------------------------------- download tiles */
