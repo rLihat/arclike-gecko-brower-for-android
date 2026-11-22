@@ -436,7 +436,7 @@ private fun TabCard(
                 ),
         ) {
             if (LocalFrost.current && LocalHazeState.current != null) {
-                GlassFill(tint = c.surface, alpha = 0.42f)
+                GlassFill(dark = c.dark)
             }
             TabMiniature(tab)
         }

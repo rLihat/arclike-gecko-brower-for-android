@@ -7,98 +7,133 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/** Drop-in glass fill for an existing Box: draws the recipe behind its content. */
-@Composable
-fun BoxScope.GlassFill(tint: Color, alpha: Float = 0.48f) {
-    GlassSurface(Modifier.matchParentSize(), tint = tint, tintAlpha = alpha) {}
+/** Frost v2 tokens, transcribed from the attached specification. */
+object FrostV2 {
+    val BlurRadius = 30.dp
+    const val Saturation = 1.8f
+
+    val LightFill = Color(0x80FFFFFF)
+    val LightFillStrong = Color(0xA3FFFFFF)
+    val LightSheen = Color(0x8CFFFFFF)
+    val LightTop = Color(0xF2FFFFFF)
+    val LightBottom = Color(0x47FFFFFF)
+    val LightRing = Color(0x73FFFFFF)
+    val LightGlow = Color(0x382F5C69)
+
+    val DarkFill = Color(0x611A242E)
+    val DarkFillStrong = Color(0x8518202A)
+    val DarkSheen = Color(0x2BFFFFFF)
+    val DarkTop = Color(0x52FFFFFF)
+    val DarkBottom = Color(0x0FFFFFFF)
+    val DarkRing = Color(0x24FFFFFF)
+    val DarkGlow = Color(0x385AAAC8)
 }
 
-/**
- * The one glass recipe used everywhere the new frost applies: translucent tint,
- * a white-to-transparent top highlight, a gradient edge (bright top-left), an
- * inner top rim, a soft shadow and a press-scale spring.
- *
- * The blurred backdrop itself comes from the active layer (Haze for Compose
- * backdrops, window blur for GeckoView pages, or the snapshot fallback) and is
- * supplied by the caller as [backdrop], drawn beneath this recipe.
- */
+/** Drop-in Frost v2 fill for an existing Box. */
+@Composable
+fun BoxScope.GlassFill(dark: Boolean, strong: Boolean = false) {
+    val fill = when {
+        dark && strong -> FrostV2.DarkFillStrong
+        dark -> FrostV2.DarkFill
+        strong -> FrostV2.LightFillStrong
+        else -> FrostV2.LightFill
+    }
+    val sheen = if (dark) FrostV2.DarkSheen else FrostV2.LightSheen
+    val top = if (dark) FrostV2.DarkTop else FrostV2.LightTop
+    val bottom = if (dark) FrostV2.DarkBottom else FrostV2.LightBottom
+    val ring = if (dark) FrostV2.DarkRing else FrostV2.LightRing
+    val glow = if (dark) FrostV2.DarkGlow else FrostV2.LightGlow
+    val shape = RoundedCornerShape(20.dp)
+
+    Box(
+        Modifier
+            .matchParentSize()
+            .shadow(14.dp, shape, spotColor = glow, ambientColor = glow)
+            .background(fill, shape),
+    )
+    // Top sheen fades out by ~38% of the surface.
+    Box(
+        Modifier
+            .matchParentSize()
+            .background(
+                Brush.verticalGradient(listOf(sheen, Color.Transparent), endY = 900f),
+                shape,
+            ),
+    )
+    // Diagonal light sweep.
+    Box(
+        Modifier
+            .matchParentSize()
+            .background(
+                Brush.linearGradient(listOf(top.copy(alpha = 0.10f), Color.Transparent)),
+                shape,
+            ),
+    )
+    // Inner top rim and faint bottom rim.
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(1.5.dp)
+            .align(Alignment.TopCenter)
+            .background(top),
+    )
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .align(Alignment.BottomCenter)
+            .background(bottom),
+    )
+    // Gradient edge ring, brighter at top-left.
+    Box(
+        Modifier
+            .matchParentSize()
+            .background(
+                Brush.linearGradient(listOf(ring.copy(alpha = 0.6f), Color.Transparent)),
+                shape,
+            )
+            .then(Modifier.background(Color.Transparent)),
+    )
+}
+
+/** Full Frost v2 glass surface; the backdrop is sampled by the active layer. */
 @Composable
 fun GlassSurface(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(20.dp),
-    tint: Color,
-    /** 0..1; higher in light mode so text stays readable. */
-    tintAlpha: Float = 0.48f,
-    /** Saturation boost for the blurred backdrop (~1.6–1.8 in the recipe). */
-    saturation: Float = 1.7f,
-    backdrop: (@Composable () -> Unit)? = null,
+    dark: Boolean = false,
+    strong: Boolean = false,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
     content: @Composable () -> Unit,
 ) {
     val pressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.96f else 1f,
+        targetValue = if (pressed) 0.92f else 1f,
         animationSpec = spring(),
         label = "glassPress",
     )
     Box(
         modifier
-            .hazeGlass()
-            .graphicsLayer { scaleX = scale; scaleY = scale }
-            .background(tint.copy(alpha = tintAlpha), shape),
+            .hazeGlass(radius = FrostV2.BlurRadius)
+            .graphicsLayer { scaleX = scale; scaleY = scale },
     ) {
-        if (backdrop != null) {
-            // Saturation of the blurred backdrop is supplied by Haze's tint
-            // layer; the recipe's boost is expressed through tintAlpha.
-            Box(Modifier.matchParentSize()) {
-                backdrop.invoke()
-            }
-        }
-        // Top highlight: white fading to transparent over the top ~38%.
-        Box(
-            Modifier
-                .matchParentSize()
-                .background(
-                    Brush.verticalGradient(
-                        listOf(
-                            Color.White.copy(alpha = 0.12f),
-                            Color.White.copy(alpha = 0.05f),
-                            Color.Transparent,
-                        ),
-                    ),
-                ),
-        )
-        // Gradient edge: bright at top-left, faint at bottom-right.
-        Box(
-            Modifier
-                .matchParentSize()
-                .background(
-                    Brush.linearGradient(
-                        listOf(
-                            Color.White.copy(alpha = 0.36f),
-                            Color.White.copy(alpha = 0.10f),
-                            Color.White.copy(alpha = 0.06f),
-                        ),
-                    ),
-                ),
-        )
-        Box(
-            Modifier
-                .matchParentSize()
-                .background(tint.copy(alpha = 0f)),
-        )
+        GlassFill(dark = dark, strong = strong)
         content()
     }
 }

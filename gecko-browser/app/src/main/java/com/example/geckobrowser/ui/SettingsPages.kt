@@ -295,7 +295,7 @@ private fun SearchPill(value: String, onChange: (String) -> Unit, modifier: Modi
             .then(rememberGlass(c.navSurface, fps = 20, maxEdge = 170, radius = 6)),
     ) {
         if (LocalFrost.current && LocalHazeState.current != null) {
-            GlassFill(tint = c.navSurface, alpha = 0.5f)
+            GlassFill(dark = c.dark)
         }
         Row(
             Modifier.fillMaxSize().padding(horizontal = 20.dp),

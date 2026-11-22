@@ -382,18 +382,11 @@ fun BrowserApp(
                 } else {
                     c
                 }
-                val useWindowBlur = frostOn && !vm.glassV1 && GlassLayers.crossWindowBlur &&
-                    (overlay in frostedSheets || overlay == Overlay.None || overlay == Overlay.Tabs)
-                if (useWindowBlur) {
-                    ChromeBlurWindow(vm = vm, blurRadiusDp = 26f) {
-                        CompositionLocalProvider(LocalArc provides chromeColors) {
-                            ChromeOverlay(vm, immersive, pageFrost)
-                        }
-                    }
-                } else {
-                    CompositionLocalProvider(LocalArc provides chromeColors) {
-                        ChromeOverlay(vm, immersive, pageFrost)
-                    }
+                // Chrome stays in the Activity. The Dialog-hosted cross-window
+                // blur layer was unstable on device (crashes), so GeckoView
+                // surfaces use the proven snapshot/tint path again.
+                CompositionLocalProvider(LocalArc provides chromeColors) {
+                    ChromeOverlay(vm, immersive, pageFrost)
                 }
                 Box(
                     Modifier

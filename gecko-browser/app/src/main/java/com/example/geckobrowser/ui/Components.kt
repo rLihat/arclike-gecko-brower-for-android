@@ -1,4 +1,4 @@
-package com.example.geckobrowser.ui
+﻿package com.example.geckobrowser.ui
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -592,7 +592,7 @@ fun SettingsGroup(content: @Composable androidx.compose.foundation.layout.Column
             .clip(RoundedCornerShape(16.dp)),
     ) {
         if (LocalFrost.current && LocalHazeState.current != null) {
-            GlassFill(tint = c.surface, alpha = 0.5f)
+            GlassFill(dark = c.dark)
         } else {
             Box(Modifier.matchParentSize().background(c.surface))
         }
