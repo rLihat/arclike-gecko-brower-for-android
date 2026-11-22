@@ -863,7 +863,7 @@
     .ext-pill { display:inline-flex; align-items:center; gap:6px; padding: 8px 10px; border-radius: 999px; background: var(--chip); margin: 4px 6px 0 0; font-size: 13px; }
     .pfp { width: 46px; height: 46px; border-radius: 23px; background: linear-gradient(135deg,#ff7a59,#ffbd59); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:700; }
     .pfp.pfp-small { width: 30px; height: 30px; border-radius: 15px; font-size: 12px; }
-    .pill-ico { width: 24px; height: 24px; border-radius: 0; background: transparent; display:flex; align-items:center; justify-content:center; font-size: 22px; }
+    .pill-ico { width: 24px; height: 24px; border-radius: 0; background: transparent; display:flex; align-items:center; justify-content:center; font-size: 22px; } .pill-ico svg { width: 24px; height: 24px; stroke: var(--text); stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .tab-switcher { position:absolute; inset:0; padding: 24px 0 24px; overflow: hidden; display: flex; flex-direction: column; background: var(--glass-tint); backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat)); border: none; box-shadow: var(--glass-shadow); max-height: none; perspective: 1400px; }
     .stack {
       flex: 1; display: flex; flex-direction: row; gap: 16px; overflow-x: auto; overflow-y: hidden;
@@ -1488,7 +1488,7 @@
       box-shadow: none !important;
     }
     /* Settings: Frosted glass (Auto / On / Off / V1) + Reduce transparency. */
-    .glass-control { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .glass-control { display: flex; align-items: center; justify-content: space-between; gap: 10px; } .glass-control .label svg { stroke: var(--text); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
     .seg { display: flex; background: var(--icon-bg); border-radius: 11px; padding: 3px; }
     .seg button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; padding: 6px 11px; border-radius: 9px; cursor: pointer; }
     .seg button.active { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,.15); }
@@ -1557,7 +1557,7 @@
               <div class="pfp pfp-small">M</div>
             </button>
             <button class="nav-btn" id="nav-settings" onclick="openSettings()" title="Settings" aria-label="Settings">
-              <div class="pill-ico">⚙</div>
+              <div class="pill-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 10.27 7 3.34" /> <path d="m11 13.73-4 6.93" /> <path d="M12 22v-2" /> <path d="M12 2v2" /> <path d="M14 12h8" /> <path d="m17 20.66-1-1.73" /> <path d="m17 3.34-1 1.73" /> <path d="M2 12h2" /> <path d="m20.66 17-1.73-1" /> <path d="m20.66 7-1.73 1" /> <path d="m3.34 17 1.73-1" /> <path d="m3.34 7 1.73 1" /> <circle cx="12" cy="12" r="2" /> <circle cx="12" cy="12" r="8" /></svg></div>
             </button>
             <button class="nav-btn nav-menu-btn" onclick="toggleMenu()" title="Menu" aria-label="Menu">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m18 15-6-6-6 6" /></svg>
