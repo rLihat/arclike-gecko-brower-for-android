@@ -841,11 +841,13 @@ fun MenuSheet(vm: BrowserViewModel) {
                     contentAlignment = Alignment.Center,
                 ) { Glyph(Ico.zoomOut, c.text, size = 15.dp, strokeWidth = 2f) }
                 Text(
-                    "${vm.zoom}%",
-                    color = c.text,
-                    fontSize = 13.sp,
+                    if (vm.zoom != 100) "Reset zoom" else "${vm.zoom}%",
+                    color = if (vm.zoom != 100) c.accent else c.text,
+                    fontSize = 12.sp,
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.width(52.dp),
+                    modifier = Modifier
+                        .width(64.dp)
+                        .clickable { vm.resetZoom() },
                 )
                 Box(
                     Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(c.chip)

@@ -560,7 +560,7 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
             SettingsRow(
                 "Text size",
                 icon = { Glyph(Ico.textSize, c.text, size = 20.dp, strokeWidth = 1.9f) },
-                value = "${vm.zoom}%",
+                value = if (vm.zoom != 100) "Reset zoom" else "100%",
                 onClick = { vm.resetZoom() },
             )
             SettingsRow(
