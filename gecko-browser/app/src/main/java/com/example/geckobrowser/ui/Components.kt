@@ -141,16 +141,16 @@ private val IcoPerson: List<Path> by lazy { lucide("M 19 21 v -2 a 4 4 0 0 0 -4 
 private val IcoPin: List<Path> by lazy { lucide("M 12 17 v 5", "M 9 10.76 a 2 2 0 0 1 -1.11 1.79 l -1.78 .9 A 2 2 0 0 0 5 15.24 V 16 a 1 1 0 0 0 1 1 h 12 a 1 1 0 0 0 1 -1 v -.76 a 2 2 0 0 0 -1.11 -1.79 l -1.78 -.9 A 2 2 0 0 1 15 10.76 V 7 a 1 1 0 0 1 1 -1 2 2 0 0 0 0 -4 H 8 a 2 2 0 0 0 0 4 1 1 0 0 1 1 1 z") }
 private val IcoOpen: List<Path> by lazy { lucide("M 15 3 h 6 v 6", "M 10 14 21 3", "M 18 13 v 6 a 2 2 0 0 1 -2 2 H 5 a 2 2 0 0 1 -2 -2 V 8 a 2 2 0 0 1 2 -2 h 6") }
 private val IcoImage: List<Path> by lazy { lucide("M 5 3 H 19 A 2 2 0 0 1 21 5 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 5 A 2 2 0 0 1 5 3 Z", "M 7 9 a 2 2 0 1 0 4 0 a 2 2 0 1 0 -4 0", "m 21 15 -3.086 -3.086 a 2 2 0 0 0 -2.828 0 L 6 21") }
-private val IcoMask: List<Path> by lazy { lucide("M 15 10 v 1", "M 7.528 20.472 a 1.6 1.6 0 012.277 0 l 1.057 1.056 a 1.6 1.6 0 002.276 0 l 1.057 -1.056 a 1.6 1.6 0 012.277 0 l 1.114 1.114 a 1.4 1.4 0 002.414 -1 V 10 a 8 8 0 00 -16 0 v 10.586 a 1.4 1.4 0 002.414 1 z", "M 9 10 v 1") }
+private val IcoMask: List<Path> by lazy { lucide("M 15 10 v 1", "M 7.528 20.472 a 1.6 1.6 0 0 1 2.277 0 l 1.057 1.056 a 1.6 1.6 0 0 0 2.276 0 l 1.057 -1.056 a 1.6 1.6 0 0 1 2.277 0 l 1.114 1.114 a 1.4 1.4 0 0 0 2.414 -1 V 10 a 8 8 0 0 0 -16 0 v 10.586 a 1.4 1.4 0 0 0 2.414 1 z", "M 9 10 v 1") }
 private val IcoPause: List<Path> by lazy { lucide("M 15 3 H 18 A 1 1 0 0 1 19 4 V 20 A 1 1 0 0 1 18 21 H 15 A 1 1 0 0 1 14 20 V 4 A 1 1 0 0 1 15 3 Z", "M 6 3 H 9 A 1 1 0 0 1 10 4 V 20 A 1 1 0 0 1 9 21 H 6 A 1 1 0 0 1 5 20 V 4 A 1 1 0 0 1 6 3 Z") }
 private val IcoPlay: List<Path> by lazy { lucide("M 5 5 a 2 2 0 0 1 3.008 -1.728 l 11.997 6.998 a 2 2 0 0 1 .003 3.458 l -12 7 A 2 2 0 0 1 5 19 z") }
 private val IcoPinOff: List<Path> by lazy { lucide("M 12 17 v 5", "M 15 9.34 V 7 a 1 1 0 0 1 1 -1 2 2 0 0 0 0 -4 H 7.89", "m 2 2 20 20", "M 9 9 v 1.76 a 2 2 0 0 1 -1.11 1.79 l -1.78 .9 A 2 2 0 0 0 5 15.24 V 16 a 1 1 0 0 0 1 1 h 11") }
-private val IcoLens: List<Path> by lazy { lucide("M 15.725 7.296 h .01", "M 6 12 a 6 6 0 016 -6", "M 2 12 a 10 10 0 1 0 20 0 a 10 10 0 1 0 -20 0") }
+private val IcoLens: List<Path> by lazy { lucide("M 15.725 7.296 h .01", "M 6 12 a 6 6 0 0 1 6 -6", "M 2 12 a 10 10 0 1 0 20 0 a 10 10 0 1 0 -20 0") }
 private val IcoZoomIn: List<Path> by lazy { lucide("M 3 11 a 8 8 0 1 0 16 0 a 8 8 0 1 0 -16 0", "M 21 21 L 16.65 16.65", "M 11 8 L 11 14", "M 8 11 L 14 11") }
 private val IcoZoomOut: List<Path> by lazy { lucide("M 3 11 a 8 8 0 1 0 16 0 a 8 8 0 1 0 -16 0", "M 21 21 L 16.65 16.65", "M 8 11 L 14 11") }
 private val IcoUserCog: List<Path> by lazy { lucide("M 10 15 H 6 a 4 4 0 0 0 -4 4 v 2", "m 14.305 16.53 .923 -.382", "m 15.228 13.852 -.923 -.383", "m 16.852 12.228 -.383 -.923", "m 16.852 17.772 -.383 .924", "m 19.148 12.228 .383 -.923", "m 19.53 18.696 -.382 -.924", "m 20.772 13.852 .924 -.383", "m 20.772 16.148 .924 .383", "M 15 15 a 3 3 0 1 0 6 0 a 3 3 0 1 0 -6 0", "M 5 7 a 4 4 0 1 0 8 0 a 4 4 0 1 0 -8 0") }
-private val IcoDiagramFlow: List<Path> by lazy { lucide("M 8 12 h .5 a 3.5 3.5 0 013.5 3.5 3.5 3.5 0 003.5 3.5 h .5", "M 8.5 12 A 3.5 3.5 0 0012 8.5 3.5 3.5 0 0115.5 5 h .5", "M 17 16 H 21 A 1 1 0 0 1 22 17 V 21 A 1 1 0 0 1 21 22 H 17 A 1 1 0 0 1 16 21 V 17 A 1 1 0 0 1 17 16 Z", "M 17 2 H 21 A 1 1 0 0 1 22 3 V 7 A 1 1 0 0 1 21 8 H 17 A 1 1 0 0 1 16 7 V 3 A 1 1 0 0 1 17 2 Z", "M 3 9 H 7 A 1 1 0 0 1 8 10 V 14 A 1 1 0 0 1 7 15 H 3 A 1 1 0 0 1 2 14 V 10 A 1 1 0 0 1 3 9 Z") }
-private val IcoGhost: List<Path> by lazy { lucide("M 15 10 v 1", "M 7.528 20.472 a 1.6 1.6 0 012.277 0 l 1.057 1.056 a 1.6 1.6 0 002.276 0 l 1.057 -1.056 a 1.6 1.6 0 012.277 0 l 1.114 1.114 a 1.4 1.4 0 002.414 -1 V 10 a 8 8 0 00 -16 0 v 10.586 a 1.4 1.4 0 002.414 1 z", "M 9 10 v 1") }
+private val IcoDiagramFlow: List<Path> by lazy { lucide("M 8 12 h .5 a 3.5 3.5 0 0 1 3.5 3.5 3.5 3.5 0 0 0 3.5 3.5 h .5", "M 8.5 12 A 3.5 3.5 0 0 0 12 8.5 3.5 3.5 0 0 1 15.5 5 h .5", "M 17 16 H 21 A 1 1 0 0 1 22 17 V 21 A 1 1 0 0 1 21 22 H 17 A 1 1 0 0 1 16 21 V 17 A 1 1 0 0 1 17 16 Z", "M 17 2 H 21 A 1 1 0 0 1 22 3 V 7 A 1 1 0 0 1 21 8 H 17 A 1 1 0 0 1 16 7 V 3 A 1 1 0 0 1 17 2 Z", "M 3 9 H 7 A 1 1 0 0 1 8 10 V 14 A 1 1 0 0 1 7 15 H 3 A 1 1 0 0 1 2 14 V 10 A 1 1 0 0 1 3 9 Z") }
+private val IcoGhost: List<Path> by lazy { lucide("M 15 10 v 1", "M 7.528 20.472 a 1.6 1.6 0 0 1 2.277 0 l 1.057 1.056 a 1.6 1.6 0 0 0 2.276 0 l 1.057 -1.056 a 1.6 1.6 0 0 1 2.277 0 l 1.114 1.114 a 1.4 1.4 0 0 0 2.414 -1 V 10 a 8 8 0 0 0 -16 0 v 10.586 a 1.4 1.4 0 0 0 2.414 1 z", "M 9 10 v 1") }
 private val IcoRotateCwFadingClock: List<Path> by lazy { lucide("M 12 3 a 9.75 9.75 0 0 1 6.74 2.74", "M 18.74 5.74 21 8", "M 21 8 V 3", "M 7.5 19.794 c -6 -3.464 -6 -12.124 0 -15.588", "M 7.5 4.206 A 9 9 0 0 1 12 3", "M 12 7 v 5 l 4 2", "M 14 20.775 A 9 9 0 0 1 12 21", "M 19 17.656 a 9 9 0 0 1 -1.5 1.456", "M 21 12 a 9 9 0 0 1 -.228 2", "M 21 8 h -5") }
 private val IcoCircleFadingArrowUp: List<Path> by lazy { lucide("M 12 2 a 10 10 0 0 1 7.38 16.75", "m 16 12 -4 -4 -4 4", "M 12 16 V 8", "M 2.5 8.875 a 10 10 0 0 0 -.5 3", "M 2.83 16 a 10 10 0 0 0 2.43 3.4", "M 4.636 5.235 a 10 10 0 0 1 .891 -.857", "M 8.644 21.42 a 10 10 0 0 0 7.631 -.38") }
 private val IcoLightbulb: List<Path> by lazy { lucide("M 15 14 c .2 -1 .7 -1.7 1.5 -2.5 1 -.9 1.5 -2.2 1.5 -3.5 A 6 6 0 0 0 6 8 c 0 1 .2 2.2 1.5 3.5 .7 .7 1.3 1.5 1.5 2.5", "M 9 18 h 6", "M 10 22 h 4") }
@@ -175,8 +175,8 @@ private val IcoCamera: List<Path> by lazy { lucide("M 13.997 4 a 2 2 0 0 1 1.76 
 private val IcoBell: List<Path> by lazy { lucide("M 10.268 21 a 2 2 0 0 0 3.464 0", "M 3.262 15.326 A 1 1 0 0 0 4 17 h 16 a 1 1 0 0 0 .74 -1.673 C 19.41 13.956 18 12.499 18 8 A 6 6 0 0 0 6 8 c 0 4.499 -1.411 5.956 -2.738 7.326") }
 private val IcoLanguages: List<Path> by lazy { lucide("m 5 8 6 6", "m 4 14 6 -6 2 -3", "M 2 5 h 12", "M 7 2 h 1", "m 22 22 -5 -10 -5 10", "M 14 18 h 6") }
 private val IcoMapPin: List<Path> by lazy { lucide("M 20 10 c 0 4.993 -5.539 10.193 -7.399 11.799 a 1 1 0 0 1 -1.202 0 C 9.539 20.193 4 14.993 4 10 a 8 8 0 0 1 16 0", "M 9 10 a 3 3 0 1 0 6 0 a 3 3 0 1 0 -6 0") }
-private val IcoCookie: List<Path> by lazy { lucide("M 11 17 h .01", "M 11.496 2 c .324 -.016 .558 .292 .529 .615 a 4 4 0 004.235 4.368 .713 .713 0 01.758 .757 4 4 0 004.366 4.237 c .323 -.03 .63 .204 .614 .527 a 10 10 0 01 -2.915 6.566 A 1 1 0 114.93 4.918 10 10 0 0111.496 2", "M 12 12 h .01", "M 16 16 h .01", "M 16 3 h .01", "M 21 4 h .01", "M 21 8 h .01", "M 7 14 h .01", "M 9 8 h .01") }
-private val IcoEngine: List<Path> by lazy { lucide("M 10 3 h 6", "M 13 3 v 4", "M 2 10 v 6", "M 2 13 h 4", "M 6 16 a 2 2 0 002 2 h 1 a 2 2 0 011.6 .8 l .3 .4 a 2 2 0 001.6 .8 h 2.264 a 2 2 0 001.789 -1.106 l 1.67 -3.341 a 1 1 0 01.895 -.553 H 21 a 1 1 0 001 -1 v -4 a 1 1 0 00 -1 -1 h -3.5 a 1 1 0 01 -.8 -.4 l -.9 -1.2 A 1 1 0 0015 7 h -4 a 1 1 0 00 -.8 .4 l -.9 1.2 a 1 1 0 01 -.8 .4 H 7 a 1 1 0 00 -1 1 z") }
+private val IcoCookie: List<Path> by lazy { lucide("M 11 17 h .01", "M 11.496 2 c .324 -.016 .558 .292 .529 .615 a 4 4 0 0 0 4.235 4.368 .713 .713 0 0 1 .758 .757 4 4 0 0 0 4.366 4.237 c .323 -.03 .63 .204 .614 .527 a 10 10 0 0 1 -2.915 6.566 A 1 1 0 1 1 4.93 4.918 10 10 0 0 1 11.496 2", "M 12 12 h .01", "M 16 16 h .01", "M 16 3 h .01", "M 21 4 h .01", "M 21 8 h .01", "M 7 14 h .01", "M 9 8 h .01") }
+private val IcoEngine: List<Path> by lazy { lucide("M 10 3 h 6", "M 13 3 v 4", "M 2 10 v 6", "M 2 13 h 4", "M 6 16 a 2 2 0 0 0 2 2 h 1 a 2 2 0 0 1 1.6 .8 l .3 .4 a 2 2 0 0 0 1.6 .8 h 2.264 a 2 2 0 0 0 1.789 -1.106 l 1.67 -3.341 a 1 1 0 0 1 .895 -.553 H 21 a 1 1 0 0 0 1 -1 v -4 a 1 1 0 0 0 -1 -1 h -3.5 a 1 1 0 0 1 -.8 -.4 l -.9 -1.2 A 1 1 0 0 0 15 7 h -4 a 1 1 0 0 0 -.8 .4 l -.9 1.2 a 1 1 0 0 1 -.8 .4 H 7 a 1 1 0 0 0 -1 1 z") }
 private val IcoPackage: List<Path> by lazy { lucide("M 11 21.73 a 2 2 0 0 0 2 0 l 7 -4 A 2 2 0 0 0 21 16 V 8 a 2 2 0 0 0 -1 -1.73 l -7 -4 a 2 2 0 0 0 -2 0 l -7 4 A 2 2 0 0 0 3 8 v 8 a 2 2 0 0 0 1 1.73 z", "M 12 22 V 12", "M 3.29 7 L 12 12 L 20.71 7", "m 7.5 4.27 9 5.15") }
 private val IcoSquareCode: List<Path> by lazy { lucide("m 10 9 -3 3 3 3", "m 14 15 3 -3 -3 -3", "M 5 3 H 19 A 2 2 0 0 1 21 5 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 5 A 2 2 0 0 1 5 3 Z") }
 private val IcoSearchCheck: List<Path> by lazy { lucide("m 8 11 2 2 4 -4", "M 3 11 a 8 8 0 1 0 16 0 a 8 8 0 1 0 -16 0", "m 21 21 -4.3 -4.3") }
@@ -268,6 +268,14 @@ object Ico {
     val camera = IcoCamera
     val bell = IcoBell
     val languages = IcoLanguages
+    val mapPin = IcoMapPin
+    val cookie = IcoCookie
+    val engine = IcoEngine
+    val packageIcon = IcoPackage
+    val squareCode = IcoSquareCode
+    val searchCheck = IcoSearchCheck
+    val search = IcoSearch
+    val cog = IcoCog
     val mapPin = IcoMapPin
     val cookie = IcoCookie
     val engine = IcoEngine

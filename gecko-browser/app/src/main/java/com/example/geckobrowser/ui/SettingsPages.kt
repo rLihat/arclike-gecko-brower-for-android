@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -503,11 +504,31 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Box(
                                         Modifier
-                                            .size(10.dp)
-                                            .clip(RoundedCornerShape(3.dp))
-                                            .background(c.surface)
-                                            .border(1.dp, c.stroke, RoundedCornerShape(3.dp)),
-                                    )
+                                            .size(14.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(
+                                                Brush.linearGradient(
+                                                    listOf(
+                                                        Color.White.copy(alpha = 0.30f),
+                                                        c.surface.copy(alpha = 0.55f),
+                                                        Color.White.copy(alpha = 0.12f),
+                                                    )
+                                                )
+                                            )
+                                            .border(
+                                                1.dp,
+                                                Color.White.copy(alpha = 0.40f),
+                                                RoundedCornerShape(4.dp),
+                                            ),
+                                    ) {
+                                        Box(
+                                            Modifier
+                                                .align(Alignment.TopStart)
+                                                .fillMaxWidth()
+                                                .height(1.dp)
+                                                .background(Color.White.copy(alpha = 0.55f)),
+                                        )
+                                    }
                                     Spacer(Modifier.width(5.dp))
                                     Text(
                                         "V1",
