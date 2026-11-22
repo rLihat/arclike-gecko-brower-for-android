@@ -1606,20 +1606,20 @@
         <button class="dl-chip" id="dl-chip" onclick="openDownloads('chip')" title="Downloads" aria-label="Downloads">
           <span class="dl-ring" id="dl-ring"></span>
           <span class="dl-core">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v9"/><path d="M8 11l4 4 4-4"/><path d="M5 19h14"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" /></svg>
           </span>
           <span class="dl-badge" id="dl-badge">0</span>
         </button>
         <button class="menu-ext" id="menu-ext" onclick="log('Extensions: uBlock Origin (1 active)')" title="Extensions" aria-label="Extensions">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4.5a2 2 0 1 1 4 0V6h3.5a.5.5 0 0 1 .5.5V10h-1.5a2 2 0 1 0 0 4H18v3.5a.5.5 0 0 1-.5.5H14v-1.5a2 2 0 1 0-4 0V18H6.5a.5.5 0 0 1-.5-.5V14H4.5a2 2 0 1 1 0-4H6V6.5a.5.5 0 0 1 .5-.5H10z"/></svg>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z" /></svg>
         </button>
 
         <div class="dl-cancel" id="dl-cancel" aria-hidden="true">
           <span class="dlc-trash">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1V7"/><path d="M6.5 7l.9 11.6a1 1 0 0 0 1 .9h7.2a1 1 0 0 0 1-.9L17.5 7"/><path d="M10 11v4.5"/><path d="M14 11v4.5"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
             <span class="dlc-x" aria-hidden="true">×</span>
           </span>
-          <svg class="dlc-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V6"/><path d="M7 11l5-5 5 5"/></svg>
+          <svg class="dlc-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 7-7 7 7" /> <path d="M12 19V5" /></svg>
         </div>
 
         <div class="imm-banner nav-banner" id="nav-banner" role="status" aria-live="polite">
@@ -1651,7 +1651,7 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></svg>
             </button>
             <button class="dlp-dl" type="button" onclick="confirmDownload()" title="Download" aria-label="Download">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/><path d="M5 19h14"/></svg>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" /></svg>
             </button>
           </div>
         </div>
@@ -1730,13 +1730,13 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /></svg>
               </button>
               <button class="addr-btn" id="copy-url-btn" onclick="copyCurrentUrl()" title="Copy URL" aria-label="Copy URL">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 13.5a4.5 4.5 0 0 0 6.36 0l2.12-2.12a4.5 4.5 0 1 0-6.36-6.36L11.2 6.44"/><path d="M13.5 10.5a4.5 4.5 0 0 0-6.36 0L5.02 12.62a4.5 4.5 0 1 0 6.36 6.36l1.42-1.42"/></svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /> <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
               </button>
             </div>
 
             <div class="action-box">
               <button class="action" onclick="log('Translate page')">
-                <span class="action-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h9"/><path d="M8.5 3v2"/><path d="M6 5c0 3.8-1.5 7-3.6 8.8"/><path d="M10.2 5c0 3.4 1.8 6.3 4.4 7.9"/><path d="M13 20l3.4-8 3.4 8"/><path d="M14.2 17.2h4.4"/></svg></span>
+                <span class="action-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16" /> <path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" /> <path d="M9 20h6" /></svg></span>
                 Translate
               </button>
               <button class="action" onclick="log('Find in page')">
@@ -1744,12 +1744,12 @@
                 Find
               </button>
               <button class="action" onclick="log('Share')">
-                <span class="action-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M5 13v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6"/></svg></span>
+                <span class="action-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12" /> <path d="m17 8-5-5-5 5" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /></svg></span>
                 Share
               </button>
               <button class="action" id="pin-toggle" onclick="togglePin()">
                 <span class="action-ico">
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-6.5-5.5-6.5-10.5A6.5 6.5 0 0 1 12 4a6.5 6.5 0 0 1 6.5 6.5C18.5 15.5 12 21 12 21z"/></svg>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /> <circle cx="12" cy="10" r="3" /></svg>
                 </span>
                 <span class="action-label">Pin</span>
               </button>
@@ -1777,7 +1777,7 @@
               </div>
               <div class="menu-row" onclick="openSiteSettings()">
                 <div class="menu-left">
-                  <span class="menu-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h5.5"/><path d="M15.5 7H20"/><circle cx="12.5" cy="7" r="2.2"/><path d="M4 12h8.5"/><path d="M18.5 12H20"/><circle cx="15.5" cy="12" r="2.2"/><path d="M4 17h1.5"/><path d="M11.5 17H20"/><circle cx="8.5" cy="17" r="2.2"/></svg></span>
+                  <span class="menu-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H3" /> <path d="M12 19H3" /> <path d="M14 3v4" /> <path d="M16 17v4" /> <path d="M21 12h-9" /> <path d="M21 19h-5" /> <path d="M21 5h-7" /> <path d="M8 10v4" /> <path d="M8 12H3" /></svg></span>
                   <span class="label">Site settings</span>
                 </div>
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
@@ -1792,7 +1792,7 @@
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
                 </button>
                 <span class="dl-header-ico" aria-hidden="true">
-                  <svg viewBox="0 0 24 24"><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/><path d="M5 19h14"/></svg>
+                  <svg viewBox="0 0 24 24"><path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" /></svg>
                 </span>
                 <div class="settings-title">Downloads</div>
                 <button class="dl-clear" id="dl-clear" onclick="clearDownloads()" title="Remove all downloads">Clear</button>
@@ -1822,12 +1822,12 @@
             <div class="settings-group-label">Look and feel</div>
             <div class="settings-group">
               <div class="settings-row" onclick="toggleSetting(this,'Haptic feedback')">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0v5a6 6 0 0 1-12 0z"/><path d="M12 20h.01"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m2 8 2 2-2 2 2 2-2 2" /> <path d="m22 8-2 2 2 2-2 2 2 2" /> <rect width="8" height="14" x="8" y="5" rx="1" /></svg></span>
                 <span class="label">Haptic feedback</span>
                 <span class="switch on" role="switch" aria-checked="true"><span></span></span>
               </div>
               <div class="settings-row" onclick="toggleTheme()">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></svg></span>
                 <span class="label">Appearance</span>
                 <span class="value">System</span>
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
@@ -1844,24 +1844,24 @@
                 </div>
               </div>
               <div class="settings-row" onclick="toggleReduceTransparency()">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 0 1 18 0"/><path d="M3 12h18"/><path d="M12 3v18"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /> <path d="M2 12h20" /></svg></span>
                 <span class="label">Reduce transparency</span>
                 <span class="switch" id="reduce-switch" role="switch" aria-checked="false"><span></span></span>
               </div>
               <div class="settings-row" onclick="settingTap('Accent colour')">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="9" cy="10" r="1.6" fill="currentColor" stroke="none"/><path d="M17.5 13.25a2.25 2.25 0 0 0-4 0"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></svg></span>
                 <span class="label">Accent colour</span>
                 <span class="value">Firefox purple</span>
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
               </div>
               <div class="settings-row" onclick="settingTap('Text size')">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19l5.5-14L15 19"/><path d="M6.2 14.5h6.6"/><path d="M16 19l3-8 3 8"/><path d="M16.9 16.6h4.2"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16" /> <path d="M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2" /> <path d="M9 20h6" /></svg></span>
                 <span class="label">Text size</span>
                 <span class="value">100%</span>
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
               </div>
               <div class="settings-row" onclick="settingTap('Language')">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M4 12h16"/><path d="M12 4c2.2 2.2 3.4 5 3.4 8s-1.2 5.8-3.4 8c-2.2-2.2-3.4-5-3.4-8s1.2-5.8 3.4-8z"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /> <path d="M2 12h20" /></svg></span>
                 <span class="label">Language</span>
                 <span class="value">English (US)</span>
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
@@ -1871,29 +1871,29 @@
             <div class="settings-group-label">Search and preferences</div>
             <div class="settings-group">
               <div class="settings-row" onclick="settingTap('Default search provider')">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 5v3"/><path d="M12 16v3"/><path d="M5 12h3"/><path d="M16 12h3"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <line x1="22" x2="18" y1="12" y2="12" /> <line x1="6" x2="2" y1="12" y2="12" /> <line x1="12" x2="12" y1="6" y2="2" /> <line x1="12" x2="12" y1="22" y2="18" /></svg></span>
                 <span class="label">Preferences</span>
                 <span class="value">Default: DuckDuckGo</span>
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
               </div>
               <div class="settings-row" onclick="toggleSetting(this,'Search suggestions')">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h13"/><path d="M4 12h10"/><path d="M4 18h13"/><path d="M18 9l2 2-2 2"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h.01" /> <path d="M3 12h.01" /> <path d="M3 19h.01" /> <path d="M8 5h13" /> <path d="M8 12h13" /> <path d="M8 19h13" /></svg></span>
                 <span class="label">Search suggestions</span>
                 <span class="switch on" role="switch" aria-checked="true"><span></span></span>
               </div>
               <div class="settings-row" onclick="toggleSetting(this,'Open links in apps')">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-8 8"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6" /> <path d="M10 14 21 3" /> <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg></span>
                 <span class="label">Open links in apps</span>
                 <span class="switch on" role="switch" aria-checked="true"><span></span></span>
               </div>
               <div class="settings-row" onclick="settingTap('Default browser')">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /> <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span>
                 <span class="label">Default browser</span>
                 <span class="value">Make default</span>
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
               </div>
               <div class="settings-row" onclick="openFolderPicker()">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6a2 2 0 0 1 2-2h5l2 2h5a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M12 11v4"/><path d="M12 11l-1.6 1.6M12 11l1.6 1.6"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></svg></span>
                 <span class="label">Download folder</span>
                 <span class="value">Download/</span>
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
@@ -1903,7 +1903,7 @@
             <div class="settings-group-label">Extensions</div>
             <div class="settings-group">
               <div class="settings-row" onclick="settingTap('Installed extensions')">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4.5a2 2 0 1 1 4 0V6h3.5a.5.5 0 0 1 .5.5V10h-1.5a2 2 0 1 0 0 4H18v3.5a.5.5 0 0 1-.5.5H14v-1.5a2 2 0 1 0-4 0V18H6.5a.5.5 0 0 1-.5-.5V14H4.5a2 2 0 1 1 0-4H6V6.5a.5.5 0 0 1 .5-.5H10z"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z" /></svg></span>
                 <span class="label">Extensions</span>
                 <span class="value">2 enabled</span>
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
@@ -1913,13 +1913,13 @@
             <div class="settings-group-label">Privacy and security</div>
             <div class="settings-group">
               <div class="settings-row" onclick="settingTap('Tracking protection')">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.4-2.9 7.9-7 9-4.1-1.1-7-4.6-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /> <path d="m9 12 2 2 4-4" /></svg></span>
                 <span class="label">Tracking protection</span>
                 <span class="value">Strict</span>
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
               </div>
               <div class="settings-row" onclick="toggleSetting(this,'HTTPS-Only Mode')">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /> <path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg></span>
                 <span class="label">HTTPS-Only Mode</span>
                 <span class="switch on" role="switch" aria-checked="true"><span></span></span>
               </div>
@@ -1928,13 +1928,13 @@
             <div class="settings-group-label">About</div>
             <div class="settings-group">
               <div class="settings-row" onclick="settingTap('What’s new')">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l2.6 5.3 5.8.9-4.2 4 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4 5.8-.9z"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" /></svg></span>
                 <span class="label">What’s new</span>
                 <span class="value">Open beta</span>
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
               </div>
               <div class="settings-row" onclick="settingTap('Update channel')">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v4"/><path d="M8 15a4 4 0 0 1 8 0"/><path d="M4 15h16"/><path d="M7 11l-3 4M17 11l3 4"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z" /> <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" /> <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" /> <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" /> <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" /></svg></span>
                 <span class="label">Update channel</span>
                 <span class="value">Beta</span>
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
@@ -1951,7 +1951,7 @@
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
               </div>
               <div class="settings-row" onclick="settingTap('About')">
-                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 11v5"/><circle cx="12" cy="8.2" r=".9" fill="currentColor" stroke="none"/></svg></span>
+                <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="M12 16v-4" /> <path d="M12 8h.01" /></svg></span>
                 <span class="label">About horiZen</span>
                 <span class="value">Beta v21-11-2026-122</span>
                 <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
@@ -1973,7 +1973,7 @@
                   <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
                 </button>
                 <span class="site-globe" aria-hidden="true">
-                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17"/><path d="M12 3.5c2.6 2.4 3.9 5.4 3.9 8.5s-1.3 6.1-3.9 8.5c-2.6-2.4-3.9-5.4-3.9-8.5S9.4 5.9 12 3.5z"/></svg>
+                  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /> <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /> <path d="M2 12h20" /></svg>
                 </span>
                 <div class="settings-title">Site settings</div>
               </div>
@@ -1985,7 +1985,7 @@
                   <div class="settings-row" onclick="toggleDesktopSite()">
                     <span class="settings-ico site-ico" id="site-mode-ico">
                       <svg id="ico-mobile" viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2" /> <path d="M12 18h.01" /></svg>
-                      <svg id="ico-desktop" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4.5" width="18" height="12" rx="2"/><path d="M9 20h6"/><path d="M12 16.5V20"/></svg>
+                      <svg id="ico-desktop" viewBox="0 0 24 24" aria-hidden="true"><rect width="20" height="14" x="2" y="3" rx="2" /> <line x1="8" x2="16" y1="21" y2="21" /> <line x1="12" x2="12" y1="17" y2="21" /></svg>
                     </span>
                     <span class="label" id="site-mode-label">Mobile site</span>
                     <span class="switch" id="desktop-switch" role="switch" aria-checked="false"><span></span></span>
@@ -1995,7 +1995,7 @@
                 <div class="settings-group-label">Appearance</div>
                 <div class="settings-group">
                   <div class="settings-row" onclick="toggleTheme()">
-                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5z"/></svg></span>
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></svg></span>
                     <span class="label">Dark mode</span>
                     <span class="switch theme-switch" role="switch" aria-checked="false"><span></span></span>
                   </div>
@@ -2009,17 +2009,17 @@
                     <span class="switch on" role="switch" aria-checked="true"><span></span></span>
                   </div>
                   <div class="settings-row" onclick="toggleSetting(this,'Microphone')">
-                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11.5a6.5 6.5 0 0 0 13 0"/><path d="M12 18v3"/></svg></span>
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="7" /> <path d="M12 6v4" /></svg></span>
                     <span class="label">Microphone</span>
                     <span class="switch on" role="switch" aria-checked="true"><span></span></span>
                   </div>
                   <div class="settings-row" onclick="toggleSetting(this,'Location')">
-                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s6.5-6 6.5-10.5a6.5 6.5 0 1 0-13 0C5.5 15 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.4"/></svg></span>
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /> <circle cx="12" cy="10" r="3" /></svg></span>
                     <span class="label">Location</span>
                     <span class="switch on" role="switch" aria-checked="true"><span></span></span>
                   </div>
                   <div class="settings-row" onclick="toggleSetting(this,'Notifications')">
-                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15V10a6 6 0 0 1 12 0v5l1.5 2.5H4.5z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg></span>
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.268 21a2 2 0 0 0 3.464 0" /> <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" /></svg></span>
                     <span class="label">Notifications</span>
                     <span class="switch" role="switch" aria-checked="false"><span></span></span>
                   </div>
@@ -2028,7 +2028,7 @@
                 <div class="settings-group-label">Content</div>
                 <div class="settings-group">
                   <div class="settings-row" onclick="toggleSetting(this,'Autoplay')">
-                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M10 8.5l6 3.5-6 3.5z"/></svg></span>
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9.003a1 1 0 0 1 1.517-.859l4.997 2.997a1 1 0 0 1 0 1.718l-4.997 2.997A1 1 0 0 1 9 14.996z" /> <circle cx="12" cy="12" r="10" /></svg></span>
                     <span class="label">Autoplay</span>
                     <span class="switch on" role="switch" aria-checked="true"><span></span></span>
                   </div>
@@ -2042,7 +2042,7 @@
                 <div class="settings-group-label">Data</div>
                 <div class="settings-group">
                   <div class="settings-row" onclick="log('Clear site data')">
-                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M6.5 7l1 12h9l1-12"/></svg></span>
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg></span>
                     <span class="label">Clear site data</span>
                     <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
                   </div>
@@ -2075,27 +2075,27 @@
                 <div class="settings-group-label">Synced data</div>
                 <div class="settings-group">
                   <div class="settings-row" onclick="toggleSetting(this,'Bookmarks')">
-                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h11v17l-5.5-4-5.5 4z"/></svg></span>
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z" /></svg></span>
                     <span class="label">Bookmarks</span>
                     <span class="switch on" role="switch" aria-checked="true"><span></span></span>
                   </div>
                   <div class="settings-row" onclick="toggleSetting(this,'History')">
-                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 1.8"/></svg></span>
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="M12 6v6l4 2" /></svg></span>
                     <span class="label">History</span>
                     <span class="switch on" role="switch" aria-checked="true"><span></span></span>
                   </div>
                   <div class="settings-row" onclick="toggleSetting(this,'Logins and passwords')">
-                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8" cy="12" r="3.5"/><path d="M11.5 12H21"/><path d="M18 12v3"/><path d="M15 12v2.2"/></svg></span>
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /> <circle cx="12" cy="7" r="4" /></svg></span>
                     <span class="label">Logins &amp; passwords</span>
                     <span class="switch on" role="switch" aria-checked="true"><span></span></span>
                   </div>
                   <div class="settings-row" onclick="toggleSetting(this,'Open tabs')">
-                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="7" height="14" rx="1.8"/><rect x="14" y="5" width="7" height="14" rx="1.8"/></svg></span>
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" /> <path d="M12 3v18" /></svg></span>
                     <span class="label">Open tabs</span>
                     <span class="switch on" role="switch" aria-checked="true"><span></span></span>
                   </div>
                   <div class="settings-row" onclick="toggleSetting(this,'Add-ons')">
-                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6v3.5a1.8 1.8 0 1 0 0 3.6V20H9v-8.9a1.8 1.8 0 1 1 0-3.6z"/></svg></span>
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 17v5" /> <path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z" /></svg></span>
                     <span class="label">Add-ons</span>
                     <span class="switch on" role="switch" aria-checked="true"><span></span></span>
                   </div>
@@ -2104,7 +2104,7 @@
                 <div class="settings-group-label">Sync</div>
                 <div class="settings-group">
                   <div class="settings-row" onclick="toggleSetting(this,'Sync over mobile data')">
-                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20v-4"/><path d="M9 20v-8"/><path d="M14 20V8"/><path d="M19 20V4"/></svg></span>
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16" /> <path d="M18 17V9" /> <path d="M13 17V5" /> <path d="M8 17v-3" /></svg></span>
                     <span class="label">Sync over mobile data</span>
                     <span class="switch" role="switch" aria-checked="false"><span></span></span>
                   </div>
@@ -2115,7 +2115,7 @@
                     <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
                   </div>
                   <div class="settings-row" onclick="settingTap('Device name')">
-                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6.5" y="3" width="11" height="18" rx="2.5"/><path d="M10.5 18.5h3"/></svg></span>
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect width="14" height="20" x="5" y="2" rx="2" ry="2" /> <path d="M12 18h.01" /></svg></span>
                     <span class="label">Device name</span>
                     <span class="value">Pixel 8 · Arc</span>
                     <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
@@ -2125,12 +2125,12 @@
                 <div class="settings-group-label">Account</div>
                 <div class="settings-group">
                   <div class="settings-row" onclick="log('Manage account: accounts.firefox.com')">
-                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-8 8"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></span>
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6" /> <path d="M10 14 21 3" /> <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg></span>
                     <span class="label">Manage account</span>
                     <span class="row-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg></span>
                   </div>
                   <div class="settings-row danger" onclick="signOutAccount()">
-                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 20H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h8"/><path d="M17 8l4 4-4 4"/><path d="M21 12H10"/></svg></span>
+                    <span class="settings-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m16 17 5-5-5-5" /> <path d="M21 12H9" /> <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /></svg></span>
                     <span class="label">Sign out</span>
                   </div>
                 </div>
@@ -2562,8 +2562,8 @@
         ['Fix sheet morph on close', 'tahil', '2 days ago'],
         ['Mozilla account page + sync state', 'tahil', '3 days ago']
       ];
-      const folderIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M3 7h6l2 3h10v9H3z"/></svg>';
-      const fileIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>';
+      const folderIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" /></svg>';
+      const fileIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M10 9H8" /> <path d="M16 13H8" /> <path d="M16 17H8" /></svg>';
       return `<div class="gh">
         <div class="gh-top">
           <span class="gh-burger">☰</span>
@@ -3214,7 +3214,7 @@
         btn.title = 'History';
         btn.setAttribute('aria-label', 'History');
         btn.onclick = openHistory;
-        btn.innerHTML = '<svg class="stroke" viewBox="0 0 24 24" aria-hidden="true" style="width:20px;height:20px;stroke:var(--text);stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+        btn.innerHTML = '<svg class="stroke" viewBox="0 0 24 24" aria-hidden="true" style="width:20px;height:20px;stroke:var(--text);stroke-width:1.9;fill:none;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="10" /> <path d="M12 6v6l4 2" /></svg>';
       } else {
         btn.title = 'Tabs';
         btn.setAttribute('aria-label', 'Tabs');
@@ -3296,8 +3296,8 @@
     }
     const SUG_ICONS = {
       search: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#DE5833"/><path fill="#fff" d="M12.6 5.4a4.9 4.9 0 0 0-4.1 7.6l-.9 3.4c-.1.5.4.9.9.7l2.9-1.2a4.9 4.9 0 1 0 1.2-10.5z"/><circle cx="14.6" cy="9.7" r="1" fill="#1F3B43"/><path fill="#F5A623" d="M16.8 11.4l2.9 1.2-3 1.1z"/></svg>',
-      url: '<svg class="stroke" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>',
-      history: '<svg class="stroke" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+      url: '<svg class="stroke" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /> <path d="M2 12h20" /></svg>',
+      history: '<svg class="stroke" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" /> <path d="M12 6v6l4 2" /></svg>'
     };
     function suggestionItems(q) {
       if (!q) return [
@@ -3685,7 +3685,7 @@
     const DL_EXT = { zip:'ZIP', pdf:'PDF', png:'PNG', jpg:'JPG', jpeg:'JPG', gif:'GIF', webp:'WEBP', svg:'SVG', xpi:'XPI', apk:'APK', mp4:'MP4', txt:'TXT', json:'JSON' };
     const DL_ICON = {
       cancel: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18" /> <path d="m6 6 12 12" /></svg>',
-      open: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-8 8"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+      open: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6" /> <path d="M10 14 21 3" /> <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>',
       trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 11v6" /> <path d="M14 11v6" /> <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /> <path d="M3 6h18" /> <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>',
       retry: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" /></svg>'
     };
@@ -4100,7 +4100,7 @@
       if (!downloads.length) {
         summary.textContent = 'Nothing downloaded yet';
         list.innerHTML = '<div class="dl-empty">' +
-          '<span class="dl-empty-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/><path d="M5 19h14"/></svg></span>' +
+          '<span class="dl-empty-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" /></svg></span>' +
           '<b>No downloads yet</b>' +
           '<p>Files you download appear here. Try the demo server to see the prompt and the live chip.</p>' +
           '<button class="dl-empty-btn" type="button" onclick="visit(\'files.example\',\'Files\',\'F\',\'#4f93a8\')">Browse files.example</button>' +
@@ -4215,13 +4215,13 @@
 
     /* ---------- Context menu: link / image / file actions ---------- */
     const CTX_ICONS = {
-      open: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-8 8"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>',
+      open: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6" /> <path d="M10 14 21 3" /> <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>',
       tab: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" /> <path d="M3 9h18" /> <path d="M9 21V9" /></svg>',
-      download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v10"/><path d="M8 10l4 4 4-4"/><path d="M5 19h14"/></svg>',
-      copy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10.5 13.5a4.5 4.5 0 0 0 6.36 0l2.12-2.12a4.5 4.5 0 1 0-6.36-6.36L11.2 6.44"/><path d="M13.5 10.5a4.5 4.5 0 0 0-6.36 0L5.02 12.62a4.5 4.5 0 1 0 6.36 6.36l1.42-1.42"/></svg>',
-      share: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4"/><path d="M8 8l4-4 4 4"/><path d="M5 13v6a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-6"/></svg>',
-      save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h11l3 3v11H5z"/><path d="M9 5v5h6V5"/><path d="M9 19v-5h6v5"/></svg>',
-      image: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M4 17l5-5 4 4 3-3 4 4"/></svg>'
+      download: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /> <path d="m7 10 5 5 5-5" /></svg>',
+      copy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /> <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>',
+      share: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12" /> <path d="m17 8-5-5-5 5" /> <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /></svg>',
+      save: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /> <path d="M14 2v5a1 1 0 0 0 1 1h5" /> <path d="M10 9H8" /> <path d="M16 13H8" /> <path d="M16 17H8" /></svg>',
+      image: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /> <circle cx="9" cy="9" r="2" /> <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></svg>'
     };
     function ctxInfoFor(el) {
       if (!el || !el.closest) return null;
