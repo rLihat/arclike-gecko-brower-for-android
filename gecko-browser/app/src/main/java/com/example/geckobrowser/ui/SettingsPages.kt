@@ -109,7 +109,7 @@ private val settingsEntries = listOf(
     SettingsEntry("Text size", "Adjust page and UI text scale", "look", "textSize"),
     SettingsEntry("Language", "App and content language", "look", "globe"),
     SettingsEntry("Haptic feedback", "Short acknowledgements for gestures and actions", "look", "grid"),
-    SettingsEntry("Search provider", "Default engine for typed queries", "search", "find"),
+    SettingsEntry("Search provider", "Default engine for typed queries", "search", "engine"),
     SettingsEntry("Search suggestions", "Live suggestions as you type", "search", "find"),
     SettingsEntry("Open links in apps", "Hand app links off to installed apps", "search", "open"),
     SettingsEntry("Default browser", "Set horiZen as the default browser", "search", "globe"),
@@ -251,7 +251,7 @@ private fun SearchResults(vm: BrowserViewModel, c: ArcColors, query: String) {
                 "grid" -> Ico.grid
                 "textSize" -> Ico.textSize
                 "globe" -> Ico.globe
-                "find" -> Ico.find
+                "engine" -> Ico.engine
                 "open" -> Ico.open
                 "lock" -> Ico.lock
                 "close" -> Ico.close
@@ -301,7 +301,7 @@ private fun SearchPill(value: String, onChange: (String) -> Unit, modifier: Modi
             Modifier.fillMaxSize().padding(horizontal = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-        Glyph(Ico.find, c.muted, size = 18.dp, strokeWidth = 2f)
+        Glyph(Ico.search, c.muted, size = 18.dp, strokeWidth = 2f)
         Spacer(Modifier.width(10.dp))
         Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
             if (value.isEmpty()) {
@@ -499,12 +499,31 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
                                 .padding(vertical = 8.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(
-                                if (key == "v1") "V1 ●" else label,
-                                color = if (selected) Color.White else c.text,
-                                fontSize = 12.sp,
-                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                            )
+                            if (key == "v1") {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Box(
+                                        Modifier
+                                            .size(10.dp)
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(c.surface)
+                                            .border(1.dp, c.stroke, RoundedCornerShape(3.dp)),
+                                    )
+                                    Spacer(Modifier.width(5.dp))
+                                    Text(
+                                        "V1",
+                                        color = if (selected) Color.White else c.text,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    label,
+                                    color = if (selected) Color.White else c.text,
+                                    fontSize = 12.sp,
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                )
+                            }
                         }
                     }
                 }
@@ -561,7 +580,7 @@ private fun SearchPreferencesPage(vm: BrowserViewModel) {
     val defaultBrowserVersion = vm.defaultBrowserVersion
 
     PageHeader("Search and preferences", { vm.updateSettingsRoute("hub") }) {
-        Glyph(Ico.find, c.text, size = 19.dp, strokeWidth = 1.8f)
+        Glyph(Ico.userCog, c.text, size = 19.dp, strokeWidth = 1.8f)
     }
     Column(
         Modifier
@@ -574,7 +593,7 @@ private fun SearchPreferencesPage(vm: BrowserViewModel) {
         SettingsGroup {
             SettingsRow(
                 "Default search engine",
-                icon = { Glyph(Ico.find, c.text, size = 20.dp, strokeWidth = 1.9f) },
+                icon = { Glyph(Ico.engine, c.text, size = 20.dp, strokeWidth = 1.9f) },
                 value = vm.currentEngine.name,
                 onClick = { engineExpanded = !engineExpanded },
                 trailing = {
@@ -815,7 +834,7 @@ private fun EngineList(
 private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
     val c = LocalArc.current
     PageHeader("Privacy and security", { vm.updateSettingsRoute("hub") }) {
-        Glyph(Ico.lock, c.text, size = 19.dp, strokeWidth = 1.8f)
+        Glyph(Ico.shieldCheck, c.text, size = 19.dp, strokeWidth = 1.8f)
     }
     Column(
         Modifier
@@ -840,7 +859,7 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
             )
             SettingsRow(
                 "Cookie banners",
-                icon = { Glyph(Ico.shield, c.text, size = 19.dp, strokeWidth = 2f) },
+                icon = { Glyph(Ico.cookie, c.text, size = 19.dp, strokeWidth = 2f) },
                 trailing = {
                     ArcSwitch(vm.cookieBannerHandling) { vm.toggleCookieBannerHandling() }
                 },
@@ -891,7 +910,7 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
 private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
     val c = LocalArc.current
     PageHeader("About", onBack) {
-        Glyph(Ico.globe, c.text, size = 19.dp, strokeWidth = 1.6f)
+        Glyph(Ico.info, c.text, size = 19.dp, strokeWidth = 1.8f)
     }
     Column(
         Modifier
@@ -908,8 +927,8 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
         Spacer(Modifier.height(22.dp))
 
         SettingsGroup {
-            SettingsRow("Version", icon = { Glyph(Ico.grid, c.text, size = 19.dp, strokeWidth = 1.7f) }, value = com.example.geckobrowser.BuildConfig.VERSION_NAME, onClick = null)
-            SettingsRow("GeckoView", icon = { Glyph(Ico.globe, c.text, size = 19.dp, strokeWidth = 1.7f) }, value = "138", onClick = null)
+            SettingsRow("Version", icon = { Glyph(Ico.packageIcon, c.text, size = 19.dp, strokeWidth = 1.7f) }, value = com.example.geckobrowser.BuildConfig.VERSION_NAME, onClick = null)
+            SettingsRow("GeckoView", icon = { Glyph(Ico.squareCode, c.text, size = 19.dp, strokeWidth = 1.7f) }, value = "138", onClick = null)
         }
 
         SectionLabel("Updates")
@@ -931,7 +950,7 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
             )
             SettingsRow(
                 "Check for updates",
-                icon = { Glyph(Ico.rotateCwFadingClock, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                icon = { Glyph(Ico.searchCheck, c.text, size = 20.dp, strokeWidth = 1.8f) },
                 value = when {
                     vm.updateProgress >= 0f -> "Downloading..."
                     vm.updateChecking -> "Checking..."

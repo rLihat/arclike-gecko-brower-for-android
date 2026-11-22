@@ -461,34 +461,53 @@ private fun WebHost(
             // Two-finger pinch-in mirrors the mockup: the fingers must start
             // 90dp apart, the span has to fall under 0.82x, and the detector
             // fires at most once per gesture. Pinching out does nothing.
-            val scaleDetector = ScaleGestureDetector(
-                ctx,
-                object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
-                    private var startSpan = 0f
-                    private var consumed = false
+            val pinchListener = object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+                private var startSpan = 0f
+                private var consumed = false
+                private var crossed = false
+                private var lastPanAt = 0L
 
-                    override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
-                        consumed = false
-                        startSpan = if (pinchEnabledState.value) detector.currentSpan else 0f
-                        return startSpan >= 90f * density
-                    }
+                override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                    consumed = false
+                    crossed = false
+                    startSpan = if (pinchEnabledState.value) detector.currentSpan else 0f
+                    return startSpan >= 90f * density
+                }
 
-                    override fun onScale(detector: ScaleGestureDetector): Boolean {
-                        if (consumed || startSpan <= 0f) return false
-                        if (detector.currentSpan < startSpan * 0.82f) {
-                            consumed = true
-                            if (pinchEnabledState.value) pinchState.value()
-                        }
-                        return false
+                override fun onScale(detector: ScaleGestureDetector): Boolean {
+                    if (consumed || startSpan <= 0f) return false
+                    // Only record that the threshold was crossed. Firing here would
+                    // hide the chrome while the page is still being panned by this
+                    // same gesture; wait until the fingers settle in onScaleEnd.
+                    if (detector.currentSpan < startSpan * 0.82f) crossed = true
+                    return false
+                }
+
+                override fun onScaleEnd(detector: ScaleGestureDetector) {
+                    if (crossed && !consumed && startSpan > 0f && pinchEnabledState.value &&
+                        SystemClock.uptimeMillis() - lastPanAt >= 250L
+                    ) {
+                        consumed = true
+                        pinchState.value()
                     }
-                },
-            )
+                }
+
+                fun notePan() { lastPanAt = SystemClock.uptimeMillis() }
+            }
+            val scaleDetector = ScaleGestureDetector(ctx, pinchListener)
             GeckoView(ctx).apply {
                 readyState.value(this)
                 setBackgroundColor(background.toArgb())
                 session?.let { setSession(it) }
                 setOnTouchListener { view, event ->
                     scaleDetector.onTouchEvent(event)
+                    // A one-finger pan means the page is still moving; don't let a
+                    // pinch that ends right after it hide the chrome.
+                    if (event.actionMasked == MotionEvent.ACTION_MOVE &&
+                        event.pointerCount == 1
+                    ) {
+                        pinchListener.notePan()
+                    }
                     if (event.actionMasked == MotionEvent.ACTION_DOWN) {
                         val density = view.resources.displayMetrics.density.coerceAtLeast(0.1f)
                         val width = view.width.toFloat().coerceAtLeast(1f)
@@ -1431,7 +1450,7 @@ private fun BoxScope.NavNoticeHost(vm: BrowserViewModel) {
             contentAlignment = Alignment.Center,
         ) {
             Glyph(
-                if (n.forward) Ico.forward else Ico.back,
+                if (n.forward) Ico.chevronRight else Ico.chevronLeft,
                 c.accent,
                 size = 15.dp,
                 strokeWidth = 2f,
@@ -2735,7 +2754,7 @@ private fun BoxScope.NavPill(
                     ) {
                         PillButton(onClick = { vm.openAccount() }) { PillAvatar("M", 26.dp) }
                         PillButton(onClick = { vm.openSettings() }) {
-                            Text("⚙", color = c.text, fontSize = 21.sp)
+                            Glyph(Ico.cog, c.text, size = 24.dp, strokeWidth = 1.9f)
                         }
                         PillButton(
                             onClick = { vm.toggleMenu() },

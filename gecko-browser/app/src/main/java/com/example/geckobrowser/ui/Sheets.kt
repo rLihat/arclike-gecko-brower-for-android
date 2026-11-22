@@ -758,8 +758,8 @@ fun MenuSheet(vm: BrowserViewModel) {
                 .padding(horizontal = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            AddressButton(Ico.back, tab?.canGoBack == true) { vm.goBack() }
-            AddressButton(Ico.forward, tab?.canGoForward == true) { vm.goForward() }
+            AddressButton(Ico.chevronLeft, tab?.canGoBack == true) { vm.goBack() }
+            AddressButton(Ico.chevronRight, tab?.canGoForward == true) { vm.goForward() }
             Text(
                 vm.domain,
                 color = c.text,

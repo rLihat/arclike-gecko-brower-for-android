@@ -165,7 +165,7 @@ private fun ExtensionMenuRow(vm: BrowserViewModel, item: ExtensionItem) {
                     .clickable { vm.openExtensionOptions(item) },
                 contentAlignment = Alignment.Center,
             ) {
-                Glyph(Ico.grid, c.muted, size = 17.dp, strokeWidth = 1.8f)
+                Glyph(Ico.gear, c.muted, size = 17.dp, strokeWidth = 1.8f)
             }
         }
         Glyph(Ico.chevronRight, c.muted, size = 16.dp, strokeWidth = 1.9f)

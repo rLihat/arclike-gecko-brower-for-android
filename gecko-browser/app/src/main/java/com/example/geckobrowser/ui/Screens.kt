@@ -222,7 +222,7 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     contentAlignment = Alignment.Center,
                 ) { Glyph(Ico.chevronLeft, c.text, size = 20.dp, strokeWidth = 2.2f) }
             },
-            icon = { Glyph(Ico.globe, c.text, size = 19.dp, strokeWidth = 1.8f) },
+            icon = { Glyph(Ico.panelTop, c.text, size = 19.dp, strokeWidth = 1.8f) },
         )
         Column(
             Modifier
@@ -256,7 +256,7 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     )
                     SettingsRow(
                         "Trackers blocked",
-                        icon = { Glyph(Ico.grid, c.text, size = 19.dp, strokeWidth = 1.7f) },
+                        icon = { Glyph(Ico.shieldCheck, c.text, size = 19.dp, strokeWidth = 1.7f) },
                         value = vm.blockedCount.toString(),
                     )
                 }
@@ -272,7 +272,7 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
             SettingsGroup {
                 PermissionRow(vm, host, PermissionKind.Camera, "Camera", Ico.camera)
                 PermissionRow(vm, host, PermissionKind.Microphone, "Microphone", Ico.mic)
-                PermissionRow(vm, host, PermissionKind.Location, "Location", Ico.globe)
+                PermissionRow(vm, host, PermissionKind.Location, "Location", Ico.mapPin)
                 PermissionRow(vm, host, PermissionKind.Notifications, "Notifications", Ico.bell)
             }
 

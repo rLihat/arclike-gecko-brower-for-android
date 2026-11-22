@@ -898,7 +898,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         trackingExceptions.addAll(snapshot.trackingExceptions)
         // Runtime-wide font prefs are ready before the first session opens.
         runtime.settings.setFontInflationEnabled(true)
-        runtime.settings.setFontSizeFactor(zoomByHost[hostOfActive()]?.div(100f) ?: 1f)
+        runtime.settings.setFontSizeFactor(
+            (zoomByHost[hostOfActive()] ?: 100).coerceIn(100, 200) / 100f
+        )
         applyContentBlocking()
     }
 
@@ -3016,7 +3018,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun changeZoom(delta: Int) {
-        val next = (zoom + delta).coerceIn(50, 200)
+        val next = (zoom + delta).coerceIn(100, 200)
         zoom = next
         applyZoom(next)
         val host = hostOfActive()
@@ -3038,7 +3040,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun applyZoom(percent: Int) {
         runtime.settings.setFontInflationEnabled(true)
-        runtime.settings.setFontSizeFactor(percent.coerceIn(50, 200) / 100f)
+        runtime.settings.setFontSizeFactor(percent.coerceIn(100, 200) / 100f)
     }
 
     private fun hostOfActive(): String {
@@ -3049,7 +3051,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun syncZoomForHost(url: String) {
         val host = hostOf(url)
-        val saved = zoomByHost[host] ?: 100
+        val saved = (zoomByHost[host] ?: 100).coerceIn(100, 200)
         if (saved != zoom) {
             zoom = saved
             applyZoom(saved)
@@ -3058,7 +3060,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun syncZoomForActive() {
         val host = hostOfActive()
-        val saved = if (host.isBlank()) 100 else zoomByHost[host] ?: 100
+        val saved = if (host.isBlank()) 100 else (zoomByHost[host] ?: 100).coerceIn(100, 200)
         zoom = saved
         applyZoom(saved)
     }
