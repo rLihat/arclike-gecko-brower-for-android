@@ -270,10 +270,10 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 modifier = Modifier.padding(start = 6.dp, bottom = 6.dp),
             )
             SettingsGroup {
-                PermissionRow(vm, host, PermissionKind.Camera, "Camera", Ico.pin)
-                PermissionRow(vm, host, PermissionKind.Microphone, "Microphone", Ico.person)
+                PermissionRow(vm, host, PermissionKind.Camera, "Camera", Ico.camera)
+                PermissionRow(vm, host, PermissionKind.Microphone, "Microphone", Ico.mic)
                 PermissionRow(vm, host, PermissionKind.Location, "Location", Ico.globe)
-                PermissionRow(vm, host, PermissionKind.Notifications, "Notifications", Ico.find)
+                PermissionRow(vm, host, PermissionKind.Notifications, "Notifications", Ico.bell)
             }
 
             SectionLabel("Data")

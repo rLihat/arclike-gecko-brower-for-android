@@ -269,7 +269,7 @@ fun TabSwitcher(
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                Glyph(if (grid) Ico.tabs else Ico.grid, c.text, size = 22.dp, strokeWidth = 1.9f)
+                Glyph(if (grid) Ico.grid3x2 else Ico.stretchVertical, c.text, size = 22.dp, strokeWidth = 1.9f)
             }
         }
 

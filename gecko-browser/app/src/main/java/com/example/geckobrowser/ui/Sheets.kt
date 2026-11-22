@@ -798,7 +798,7 @@ fun MenuSheet(vm: BrowserViewModel) {
             if (pinKey.isNotEmpty()) {
                 MenuAction(
                     if (pinned) "Unpin" else "Pin",
-                    Ico.pin,
+                    if (pinned) Ico.pinOff else Ico.pin,
                     accent = pinned,
                 ) {
                     vm.togglePinForActiveUrl()
@@ -832,14 +832,14 @@ fun MenuSheet(vm: BrowserViewModel) {
                 Modifier.fillMaxWidth().height(44.dp).padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Glyph(Ico.find, c.muted, size = 19.dp, strokeWidth = 1.9f)
+                Glyph(Ico.lens, c.muted, size = 19.dp, strokeWidth = 1.9f)
                 Spacer(Modifier.width(11.dp))
                 Text("Zoom", color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
                 Box(
                     Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(c.chip)
                         .clickable { vm.changeZoom(-10) },
                     contentAlignment = Alignment.Center,
-                ) { Text("−", color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Medium) }
+                ) { Glyph(Ico.zoomOut, c.text, size = 15.dp, strokeWidth = 2f) }
                 Text(
                     "${vm.zoom}%",
                     color = c.text,
@@ -851,7 +851,7 @@ fun MenuSheet(vm: BrowserViewModel) {
                     Modifier.size(28.dp).clip(RoundedCornerShape(9.dp)).background(c.chip)
                         .clickable { vm.changeZoom(10) },
                     contentAlignment = Alignment.Center,
-                ) { Text("+", color = c.text, fontSize = 17.sp, fontWeight = FontWeight.Medium) }
+                ) { Glyph(Ico.zoomIn, c.text, size = 15.dp, strokeWidth = 2f) }
             }
 
             Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
@@ -885,7 +885,7 @@ fun MenuSheet(vm: BrowserViewModel) {
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Glyph(Ico.lock, c.muted, size = 19.dp, strokeWidth = 1.8f)
+                Glyph(Ico.panelTop, c.muted, size = 19.dp, strokeWidth = 1.8f)
                 Spacer(Modifier.width(11.dp))
                 Text("Site settings", color = c.text, fontSize = 14.sp, modifier = Modifier.weight(1f))
                 Glyph(Ico.chevronRight, c.muted, size = 16.dp, strokeWidth = 1.9f)

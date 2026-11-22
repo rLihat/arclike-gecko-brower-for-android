@@ -201,7 +201,7 @@ private fun CategoryGrid(vm: BrowserViewModel, c: ArcColors) {
         CategoryTile(
             title = "Search and preferences",
             description = "Default search provider and suggestions",
-            icon = { Glyph(Ico.find, c.text, size = 24.dp, strokeWidth = 1.8f) },
+            icon = { Glyph(Ico.userCog, c.text, size = 24.dp, strokeWidth = 1.8f) },
             onClick = { vm.updateSettingsRoute("search") },
         )
         CategoryTile(
@@ -213,7 +213,7 @@ private fun CategoryGrid(vm: BrowserViewModel, c: ArcColors) {
         CategoryTile(
             title = "Privacy and security",
             description = "Fine-tune how your data is handled",
-            icon = { Glyph(Ico.lock, c.text, size = 24.dp, strokeWidth = 1.8f) },
+            icon = { Glyph(Ico.shieldCheck, c.text, size = 24.dp, strokeWidth = 1.8f) },
             onClick = { vm.updateSettingsRoute("privacy") },
         )
         CategoryTile(
@@ -426,7 +426,7 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
             }
             SettingsRow(
                 "Accent colour",
-                icon = { Glyph(Ico.grid, c.text, size = 19.dp, strokeWidth = 1.7f) },
+                icon = { Glyph(Ico.palette, c.text, size = 19.dp, strokeWidth = 1.7f) },
                 value = AccentPresets.firstOrNull { it.key == vm.accentKey }?.label ?: "Dynamic",
                 onClick = { accentPicker = !accentPicker },
                 trailing = {
@@ -481,7 +481,11 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
                 }
             }
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(c.menuCard).padding(horizontal = 12.dp, vertical = 10.dp)) {
-                Text("Frosted glass", color = c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Glyph(Ico.opacity, c.text, size = 16.dp, strokeWidth = 1.9f)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Frosted glass", color = c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                }
                 Spacer(Modifier.height(8.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     listOf("auto" to "Auto", "on" to "On", "off" to "Off", "v1" to "V1").forEach { (key, label) ->
@@ -507,7 +511,7 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
             }
             SettingsRow(
                 "Reduce transparency",
-                icon = { Glyph(Ico.contrast, c.text, size = 20.dp, strokeWidth = 1.9f) },
+                icon = { Glyph(Ico.layersMinus, c.text, size = 20.dp, strokeWidth = 1.9f) },
                 trailing = {
                     ArcSwitch(vm.reduceTransparency) { vm.updateReduceTransparency(it) }
                 },
@@ -521,7 +525,7 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
             )
             SettingsRow(
                 "Language",
-                icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.7f) },
+                icon = { Glyph(Ico.languages, c.text, size = 20.dp, strokeWidth = 1.7f) },
                 value = "English (US)",
                 onClick = { vm.showToast("Language: English (US)") },
             )
@@ -530,7 +534,7 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
         SettingsGroup {
             SettingsRow(
                 "Haptic feedback",
-                icon = { Glyph(Ico.grid, c.text, size = 21.dp, strokeWidth = 1.9f) },
+                icon = { Glyph(Ico.vibrate, c.text, size = 21.dp, strokeWidth = 1.9f) },
                 trailing = {
                     ArcSwitch(vm.hapticFeedback) { vm.toggleHapticFeedback() }
                 },
@@ -606,7 +610,7 @@ private fun SearchPreferencesPage(vm: BrowserViewModel) {
             }
             SettingsRow(
                 "Search suggestions",
-                icon = { Glyph(Ico.find, c.text, size = 20.dp, strokeWidth = 1.9f) },
+                icon = { Glyph(Ico.lightbulb, c.text, size = 20.dp, strokeWidth = 1.9f) },
                 trailing = { ArcSwitch(vm.suggestionsEnabled) { vm.toggleSearchSuggestions() } },
                 onClick = { vm.toggleSearchSuggestions() },
             )
@@ -633,7 +637,7 @@ private fun SearchPreferencesPage(vm: BrowserViewModel) {
             )
             SettingsRow(
                 "Default browser",
-                icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.7f) },
+                icon = { Glyph(Ico.badgeCheck, c.text, size = 20.dp, strokeWidth = 1.7f) },
                 value = if (defaultBrowserVersion >= 0 && vm.isDefaultBrowser()) "horiZen" else "Not set",
                 onClick = {
                     val intent = vm.defaultBrowserIntent()
@@ -643,7 +647,7 @@ private fun SearchPreferencesPage(vm: BrowserViewModel) {
             )
             SettingsRow(
                 "Download folder",
-                icon = { Glyph(Ico.download, c.text, size = 19.dp, strokeWidth = 1.9f) },
+                icon = { Glyph(Ico.folder, c.text, size = 19.dp, strokeWidth = 1.9f) },
                 value = if (vm.downloadSubfolder.isBlank()) "Download" else "Download/${vm.downloadSubfolder}",
                 onClick = {
                     folderText = vm.downloadSubfolder
@@ -824,7 +828,7 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
         SettingsGroup {
             SettingsRow(
                 "Tracking protection",
-                icon = { Glyph(Ico.lock, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                icon = { Glyph(Ico.shieldCheck, c.text, size = 20.dp, strokeWidth = 1.8f) },
                 value = if (vm.etpStrict) "Strict" else "Standard",
                 onClick = {
                     vm.setTrackingStrict(!vm.etpStrict)
@@ -836,7 +840,7 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
             )
             SettingsRow(
                 "Cookie banners",
-                icon = { Glyph(Ico.close, c.text, size = 19.dp, strokeWidth = 2f) },
+                icon = { Glyph(Ico.shield, c.text, size = 19.dp, strokeWidth = 2f) },
                 trailing = {
                     ArcSwitch(vm.cookieBannerHandling) { vm.toggleCookieBannerHandling() }
                 },
@@ -850,7 +854,7 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
             )
             SettingsRow(
                 "Site permissions",
-                icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.7f) },
+                icon = { Glyph(Ico.panelTop, c.text, size = 20.dp, strokeWidth = 1.7f) },
                 onClick = { vm.updateSettingsRoute("siteSettings") },
             )
         }
@@ -912,7 +916,7 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
         SettingsGroup {
             SettingsRow(
                 "Update channel",
-                icon = { Glyph(Ico.refresh, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                icon = { Glyph(Ico.diagramFlow, c.text, size = 20.dp, strokeWidth = 1.8f) },
                 value = vm.updateChannel.replaceFirstChar { it.uppercase() },
                 onClick = {
                     val next = if (vm.updateChannel == "beta") "stable" else "beta"
@@ -921,13 +925,13 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
             )
             SettingsRow(
                 "Check for updates on launch",
-                icon = { Glyph(Ico.download, c.text, size = 19.dp, strokeWidth = 1.9f) },
+                icon = { Glyph(Ico.circleFadingArrowUp, c.text, size = 19.dp, strokeWidth = 1.9f) },
                 trailing = { ArcSwitch(vm.checkOnLaunch) { vm.updateCheckOnLaunch(it) } },
                 onClick = { vm.updateCheckOnLaunch(!vm.checkOnLaunch) },
             )
             SettingsRow(
                 "Check for updates",
-                icon = { Glyph(Ico.refresh, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                icon = { Glyph(Ico.rotateCwFadingClock, c.text, size = 20.dp, strokeWidth = 1.8f) },
                 value = when {
                     vm.updateProgress >= 0f -> "Downloading..."
                     vm.updateChecking -> "Checking..."
@@ -942,13 +946,13 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
         SettingsGroup {
             SettingsRow(
                 "What's new",
-                icon = { Glyph(Ico.refresh, c.text, size = 19.dp, strokeWidth = 1.7f) },
+                icon = { Glyph(Ico.sparkles, c.text, size = 19.dp, strokeWidth = 1.7f) },
                 value = "Release notes",
                 onClick = { vm.updateSettingsRoute("releaseNotes") },
             )
             SettingsRow(
                 "Author notes",
-                icon = { Glyph(Ico.person, c.text, size = 19.dp, strokeWidth = 1.8f) },
+                icon = { Glyph(Ico.badgeInfo, c.text, size = 19.dp, strokeWidth = 1.8f) },
                 value = "Notes from the author",
                 onClick = { vm.updateSettingsRoute("authorNotes") },
             )

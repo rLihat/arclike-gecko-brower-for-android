@@ -81,6 +81,7 @@ import java.net.URL
 import java.io.FileOutputStream
 import kotlin.math.abs
 import kotlin.math.max
+import androidx.core.graphics.PathParser
 
 /** One easing curve for every open/close animation in the app. */
 internal val morphEasing = CubicBezierEasing(0.32f, 0.72f, 0f, 1f)
@@ -97,284 +98,76 @@ internal fun popupExit(reduceMotion: Boolean) = fadeOut(tween(if (reduceMotion) 
 
 private fun p(block: Path.() -> Unit) = Path().apply(block)
 
-private val IcoPlus: List<Path> = listOf(
-    p {
-        moveTo(12f, 5f); lineTo(12f, 19f)
-        moveTo(5f, 12f); lineTo(19f, 12f)
-    }
-)
-private val IcoChevronUp: List<Path> = listOf(
-    p { moveTo(6f, 14f); lineTo(12f, 8f); lineTo(18f, 14f) }
-)
-private val IcoArrowUp: List<Path> = listOf(
-    p {
-        moveTo(12f, 19f); lineTo(12f, 5f)
-        moveTo(6.5f, 10.5f); lineTo(12f, 5f); lineTo(17.5f, 10.5f)
-    }
-)
-private val IcoChevronLeft: List<Path> = listOf(
-    p { moveTo(15f, 5f); lineTo(8f, 12f); lineTo(15f, 19f) }
-)
-private val IcoChevronRight: List<Path> = listOf(
-    p { moveTo(9f, 5f); lineTo(16f, 12f); lineTo(9f, 19f) }
-)
-private val IcoChevronDown: List<Path> = listOf(
-    p { moveTo(6f, 10f); lineTo(12f, 16f); lineTo(18f, 10f) }
-)
-private val IcoClose: List<Path> = listOf(
-    p {
-        moveTo(6f, 6f); lineTo(18f, 18f)
-        moveTo(18f, 6f); lineTo(6f, 18f)
-    }
-)
-private val IcoBack: List<Path> = listOf(
-    p { moveTo(15f, 5f); lineTo(7f, 12f); lineTo(15f, 19f) }
-)
-private val IcoForward: List<Path> = listOf(
-    p { moveTo(9f, 5f); lineTo(17f, 12f); lineTo(9f, 19f) }
-)
-private val IcoRefresh: List<Path> = listOf(
-    p {
-        addArc(Rect(3.6f, 3.6f, 20.4f, 20.4f), 0f, -300f)
-        moveTo(20f, 3.5f); lineTo(20f, 9f); lineTo(14.5f, 9f)
-    }
-)
-private val IcoCopy: List<Path> = listOf(
-    p {
-        moveTo(9f, 9f); lineTo(9f, 20f); lineTo(20f, 20f); lineTo(20f, 9f); close()
-    },
-    p {
-        moveTo(5f, 5f); lineTo(5f, 16f); lineTo(9f, 16f)
-        moveTo(5f, 5f); lineTo(16f, 5f); lineTo(16f, 9f)
-    }
-)
-private val IcoGlobe: List<Path> = listOf(
-    p {
-        addOval(Rect(3.5f, 3.5f, 20.5f, 20.5f))
-        moveTo(3.5f, 12f); lineTo(20.5f, 12f)
-        moveTo(12f, 3.5f)
-        cubicTo(14.6f, 5.9f, 15.9f, 8.9f, 15.9f, 12f)
-        cubicTo(15.9f, 15.1f, 14.6f, 18.1f, 12f, 20.5f)
-        cubicTo(9.4f, 18.1f, 8.1f, 15.1f, 8.1f, 12f)
-        cubicTo(8.1f, 8.9f, 9.4f, 5.9f, 12f, 3.5f)
-        close()
-    }
-)
-private val IcoExpand: List<Path> = listOf(
-    p {
-        moveTo(9f, 4f); lineTo(4f, 4f); lineTo(4f, 9f)
-        moveTo(15f, 4f); lineTo(20f, 4f); lineTo(20f, 9f)
-        moveTo(20f, 15f); lineTo(20f, 20f); lineTo(15f, 20f)
-        moveTo(9f, 20f); lineTo(4f, 20f); lineTo(4f, 15f)
-    }
-)
-private val IcoTabs: List<Path> = listOf(
-    p {
-        addRect(Rect(8.5f, 8.5f, 19.5f, 19.5f))
-        addRect(Rect(4.5f, 4.5f, 15.5f, 15.5f))
-    }
-)
-private val IcoShare: List<Path> = listOf(
-    p {
-        moveTo(12f, 15f); lineTo(12f, 4f)
-        moveTo(8f, 8f); lineTo(12f, 4f); lineTo(16f, 8f)
-        moveTo(5f, 13f); lineTo(5f, 19f)
-        lineTo(19f, 19f); lineTo(19f, 13f)
-    }
-)
-private val IcoTranslate: List<Path> = listOf(
-    p {
-        moveTo(4f, 5f); lineTo(13f, 5f)
-        moveTo(8.5f, 3f); lineTo(8.5f, 5f)
-        moveTo(6f, 5f)
-        cubicTo(6f, 8.8f, 4.5f, 12f, 2.4f, 13.8f)
-        moveTo(10.2f, 5f)
-        cubicTo(10.2f, 8.4f, 12f, 11.3f, 14.6f, 12.9f)
-        moveTo(13f, 20f); lineTo(16.4f, 12f); lineTo(19.8f, 20f)
-        moveTo(14.2f, 17.2f); lineTo(18.6f, 17.2f)
-    }
-)
-private val IcoFind: List<Path> = listOf(
-    p {
-        addOval(Rect(4.5f, 4.5f, 16.5f, 16.5f))
-    },
-    p { moveTo(15.2f, 15.2f); lineTo(20f, 20f) }
-)
-private val IcoPuzzle: List<Path> = listOf(
-    p {
-        moveTo(10f, 4.5f)
-        arcTo(Rect(10f, 2.5f, 14f, 6.5f), 180f, -180f, false)
-        lineTo(14f, 6f)
-        lineTo(17.5f, 6f)
-        lineTo(17.5f, 10f)
-        lineTo(19.5f, 10f)
-        arcTo(Rect(17.5f, 10f, 21.5f, 14f), 270f, 180f, false)
-        lineTo(17.5f, 14f)
-        lineTo(17.5f, 18f)
-        lineTo(14f, 18f)
-        lineTo(14f, 19.5f)
-        arcTo(Rect(10f, 17.5f, 14f, 21.5f), 0f, 180f, false)
-        lineTo(10f, 18f)
-        lineTo(6.5f, 18f)
-        lineTo(6.5f, 14f)
-        lineTo(4.5f, 14f)
-        arcTo(Rect(2.5f, 10f, 6.5f, 14f), 90f, 180f, false)
-        lineTo(6.5f, 10f)
-        lineTo(6.5f, 6f)
-        lineTo(10f, 6f)
-        close()
-    }
-)
-private val IcoContrast: List<Path> = listOf(
-    p {
-        addOval(Rect(4.5f, 4.5f, 19.5f, 19.5f))
-        moveTo(12f, 4.5f); lineTo(12f, 19.5f)
-        moveTo(12f, 7.5f); lineTo(16.5f, 7.5f)
-        moveTo(12f, 12f); lineTo(16.5f, 12f)
-        moveTo(12f, 16.5f); lineTo(16.5f, 16.5f)
-    }
-)
-private val IcoMoon: List<Path> = listOf(
-    p {
-        moveTo(19.5f, 14.2f)
-        arcTo(Rect(4.5f, 4.5f, 18.5f, 18.5f), 40f, -230f, false)
-        arcTo(Rect(8.5f, 6f, 20.5f, 18f), -70f, 150f, false)
-        close()
-    }
-)
-private val IcoTextSize: List<Path> = listOf(
-    p {
-        moveTo(4f, 19f); lineTo(9.5f, 5f); lineTo(15f, 19f)
-        moveTo(6.2f, 14.5f); lineTo(12.8f, 14.5f)
-        moveTo(16f, 19f); lineTo(19f, 11f); lineTo(22f, 19f)
-        moveTo(16.9f, 16.6f); lineTo(21.1f, 16.6f)
-    }
-)
-private val IcoDownload: List<Path> = listOf(
-    p {
-        moveTo(12f, 4f); lineTo(12f, 14f)
-        moveTo(8f, 10f); lineTo(12f, 14f); lineTo(16f, 10f)
-        moveTo(4f, 19f); lineTo(20f, 19f)
-    }
-)
-private val IcoClock: List<Path> = listOf(
-    p { addOval(Rect(3.5f, 3.5f, 20.5f, 20.5f)) },
-    p { moveTo(12f, 12f); lineTo(12f, 7.5f) },
-    p { moveTo(12f, 12f); lineTo(15.5f, 14f) }
-)
-private val IcoCheck: List<Path> = listOf(
-    p {
-        moveTo(4.5f, 12.8f); lineTo(9.8f, 18.1f); lineTo(19.5f, 6.2f)
-    }
-)
-private val IcoGear: List<Path> = listOf(
-    p { addOval(Rect(8.4f, 8.4f, 15.6f, 15.6f)) },
-    p {
-        moveTo(12f, 2.8f); lineTo(12f, 6.1f)
-        moveTo(12f, 17.9f); lineTo(12f, 21.2f)
-        moveTo(2.8f, 12f); lineTo(6.1f, 12f)
-        moveTo(17.9f, 12f); lineTo(21.2f, 12f)
-        moveTo(5.5f, 5.5f); lineTo(7.8f, 7.8f)
-        moveTo(16.2f, 16.2f); lineTo(18.5f, 18.5f)
-        moveTo(18.5f, 5.5f); lineTo(16.2f, 7.8f)
-        moveTo(7.8f, 16.2f); lineTo(5.5f, 18.5f)
-    }
-)
-private val IcoGrid: List<Path> = listOf(
-    p {
-        moveTo(5.5f, 4f); lineTo(10.5f, 4f); lineTo(10.5f, 11f); lineTo(5.5f, 11f); close()
-        moveTo(13.5f, 4f); lineTo(18.5f, 4f); lineTo(18.5f, 11f); lineTo(13.5f, 11f); close()
-        moveTo(5.5f, 13f); lineTo(10.5f, 13f); lineTo(10.5f, 20f); lineTo(5.5f, 20f); close()
-        moveTo(13.5f, 13f); lineTo(18.5f, 13f); lineTo(18.5f, 20f); lineTo(13.5f, 20f); close()
-    }
-)
-private val IcoLink: List<Path> = listOf(
-    p {
-        moveTo(10.5f, 13.5f); lineTo(13.5f, 10.5f)
-        moveTo(9f, 15f)
-        lineTo(6.5f, 17.5f)
-        arcTo(Rect(3f, 14f, 10f, 21f), 180f, -90f, false)
-        lineTo(9f, 15f)
-        moveTo(15f, 9f)
-        lineTo(17.5f, 6.5f)
-        arcTo(Rect(14f, 3f, 21f, 10f), 0f, -90f, false)
-        lineTo(15f, 9f)
-    }
-)
-private val IcoTrash: List<Path> = listOf(
-    p {
-        moveTo(4f, 7f); lineTo(20f, 7f)
-        moveTo(9f, 7f); lineTo(9f, 5f); lineTo(15f, 5f); lineTo(15f, 7f)
-        moveTo(6.5f, 7f); lineTo(7.5f, 19f); lineTo(16.5f, 19f); lineTo(17.5f, 7f)
-    }
-)
-private val IcoLock: List<Path> = listOf(
-    p {
-        addRect(Rect(5f, 10.5f, 19f, 20f))
-        moveTo(8.5f, 10.5f); lineTo(8.5f, 6.5f)
-        addArc(Rect(8.5f, 2.5f, 15.5f, 11f), 180f, 180f)
-        moveTo(15.5f, 6.5f); lineTo(15.5f, 10.5f)
-        addOval(Rect(10.5f, 13.5f, 13.5f, 16.5f))
-    }
-)
-private val IcoPerson: List<Path> = listOf(
-    p {
-        addOval(Rect(8f, 4f, 16f, 12f))
-        moveTo(4.5f, 20f)
-        cubicTo(4.5f, 15.6f, 8f, 13f, 12f, 13f)
-        cubicTo(16f, 13f, 19.5f, 15.6f, 19.5f, 20f)
-    }
-)
-private val IcoPin: List<Path> = listOf(
-    p {
-        moveTo(12f, 21f)
-        cubicTo(12f, 21f, 5.5f, 15f, 5.5f, 10.5f)
-        arcTo(Rect(5.5f, 4f, 18.5f, 17f), 180f, 180f, false)
-        cubicTo(18.5f, 15f, 12f, 21f, 12f, 21f)
-        close()
-    }
-)
-private val IcoOpen: List<Path> = listOf(
-    p {
-        moveTo(14f, 4f); lineTo(20f, 4f); lineTo(20f, 10f)
-        moveTo(20f, 4f); lineTo(12f, 12f)
-        moveTo(18f, 14f); lineTo(18f, 19f)
-        lineTo(5f, 19f); lineTo(5f, 6f); lineTo(10f, 6f)
-    }
-)
-private val IcoPause: List<Path> = listOf(
-    p {
-        moveTo(8f, 5f); lineTo(8f, 19f)
-        moveTo(16f, 5f); lineTo(16f, 19f)
-    }
-)
-private val IcoPlay: List<Path> = listOf(
-    p {
-        moveTo(7f, 5f); lineTo(18f, 12f); lineTo(7f, 19f); close()
-    }
-)
-/** Firefox-style private browsing mask. */
-private val IcoPrivate: List<Path> = listOf(
-    p {
-        moveTo(2.5f, 11f)
-        cubicTo(2.5f, 7.5f, 6.5f, 5f, 12f, 5f)
-        cubicTo(17.5f, 5f, 21.5f, 7.5f, 21.5f, 11f)
-        cubicTo(21.5f, 16.5f, 17.5f, 20f, 12f, 20f)
-        cubicTo(6.5f, 20f, 2.5f, 16.5f, 2.5f, 11f)
-        close()
-        addOval(Rect(7f, 10.5f, 10f, 13.5f))
-        addOval(Rect(14f, 10.5f, 17f, 13.5f))
-        moveTo(9.5f, 16f); lineTo(14.5f, 16f)
-    }
-)
-private val IcoImage: List<Path> = listOf(
-    p {
-        moveTo(3f, 4f); lineTo(21f, 4f); lineTo(21f, 20f); lineTo(3f, 20f); close()
-        addOval(Rect(7f, 6.5f, 10f, 9.5f))
-        moveTo(3f, 17f); lineTo(8f, 12f); lineTo(12f, 16f); lineTo(15f, 13f); lineTo(21f, 19f)
-    }
-)
+/** Builds Compose paths from Lucide SVG path data. All values are on the 24dp grid. */
+private fun lucide(vararg data: String): List<Path> =
+    data.map { PathParser.createPathFromPathData(it) }
 
+private val IcoPlus: List<Path> = lucide("M5 12h14", "M12 5v14")
+private val IcoExpand: List<Path> = lucide("M8 3H5a2 2 0 0 0-2 2v3", "M21 8V5a2 2 0 0 0-2-2h-3", "M3 16v3a2 2 0 0 0 2 2h3", "M16 21h3a2 2 0 0 0 2-2v-3")
+private val IcoChevronUp: List<Path> = lucide("m18 15-6-6-6 6")
+private val IcoArrowUp: List<Path> = lucide("m5 12 7-7 7 7", "M12 19V5")
+private val IcoChevronLeft: List<Path> = lucide("m15 18-6-6 6-6")
+private val IcoChevronRight: List<Path> = lucide("m9 18 6-6-6-6")
+private val IcoChevronDown: List<Path> = lucide("m6 9 6 6 6-6")
+private val IcoClose: List<Path> = lucide("M18 6 6 18", "m6 6 12 12")
+private val IcoBack: List<Path> = lucide("m12 19-7-7 7-7", "M19 12H5")
+private val IcoForward: List<Path> = lucide("M5 12h14", "m12 5 7 7-7 7")
+private val IcoRefresh: List<Path> = lucide("M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8", "M21 3v5h-5")
+private val IcoCopy: List<Path> = lucide("M 8 8 H 22 V 22 H 8 Z", "M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2")
+private val IcoGlobe: List<Path> = lucide("M 2 12 a 10 10 0 1 0 20 0 a 10 10 0 1 0 -20 0", "M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20", "M2 12h20")
+private val IcoTabs: List<Path> = lucide("M 3 3 H 21 V 21 H 3 Z", "M3 9h18")
+private val IcoShare: List<Path> = lucide("M 15 5 a 3 3 0 1 0 6 0 a 3 3 0 1 0 -6 0", "M 3 12 a 3 3 0 1 0 6 0 a 3 3 0 1 0 -6 0", "M 15 19 a 3 3 0 1 0 6 0 a 3 3 0 1 0 -6 0", "M 8.59 13.51 L 15.42 17.49", "M 15.41 6.51 L 8.59 10.49")
+private val IcoTranslate: List<Path> = lucide("m5 8 6 6", "m4 14 6-6 2-3", "M2 5h12", "M7 2h1", "m22 22-5-10-5 10", "M14 18h6")
+private val IcoFind: List<Path> = lucide("M3 7V5a2 2 0 0 1 2-2h2", "M17 3h2a2 2 0 0 1 2 2v2", "M21 17v2a2 2 0 0 1-2 2h-2", "M7 21H5a2 2 0 0 1-2-2v-2", "M 9 12 a 3 3 0 1 0 6 0 a 3 3 0 1 0 -6 0", "m16 16-1.9-1.9")
+private val IcoContrast: List<Path> = lucide("M 2 12 a 10 10 0 1 0 20 0 a 10 10 0 1 0 -20 0", "M12 18a6 6 0 0 0 0-12v12z")
+private val IcoPuzzle: List<Path> = lucide("M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 15.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z")
+private val IcoMoon: List<Path> = lucide("M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401")
+private val IcoTextSize: List<Path> = lucide("M12 4v16", "M4 7V5a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v2", "M9 20h6")
+private val IcoDownload: List<Path> = lucide("M12 15V3", "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4", "m7 10 5 5 5-5")
+private val IcoClock: List<Path> = lucide("M 2 12 a 10 10 0 1 0 20 0 a 10 10 0 1 0 -20 0", "M12 6v6l4 2")
+private val IcoGrid: List<Path> = lucide("M15 3v18", "M3 12h18", "M9 3v18", "M 3 3 H 21 V 21 H 3 Z")
+private val IcoGear: List<Path> = lucide("M11 10.27 7 3.34", "m11 13.73-4 6.93", "M12 22v-2", "M12 2v2", "M14 12h8", "m17 20.66-1-1.73", "m17 3.34-1 1.73", "M2 12h2", "m20.66 17-1.73-1", "m20.66 7-1.73 1", "m3.34 17 1.73-1", "m3.34 7 1.73 1", "M 10 12 a 2 2 0 1 0 4 0 a 2 2 0 1 0 -4 0", "M 4 12 a 8 8 0 1 0 16 0 a 8 8 0 1 0 -16 0")
+private val IcoCheck: List<Path> = lucide("M20 6 9 17l-5-5")
+private val IcoLink: List<Path> = lucide("M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71", "M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71")
+private val IcoTrash: List<Path> = lucide("M10 11v6", "M14 11v6", "M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6", "M3 6h18", "M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2")
+private val IcoLock: List<Path> = lucide("M 3 11 H 21 V 22 H 3 Z", "M7 11V7a5 5 0 0 1 10 0v4")
+private val IcoPerson: List<Path> = lucide("M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2", "M 8 7 a 4 4 0 1 0 8 0 a 4 4 0 1 0 -8 0")
+private val IcoPin: List<Path> = lucide("M12 17v5", "M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z")
+private val IcoOpen: List<Path> = lucide("M15 3h6v6", "M10 14 21 3", "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6")
+private val IcoImage: List<Path> = lucide("M 3 3 H 21 V 21 H 3 Z", "M 7 9 a 2 2 0 1 0 4 0 a 2 2 0 1 0 -4 0", "m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21")
+private val IcoMask: List<Path> = lucide("M15 10v1", "M7.528 20.472a1.6 1.6 0 012.277 0l1.057 1.056a1.6 1.6 0 002.276 0l1.057-1.056a1.6 1.6 0 012.277 0l1.114 1.114a1.4 1.4 0 002.414-1V10a8 8 0 00-16 0v10.586a1.4 1.4 0 002.414 1z", "M9 10v1")
+private val IcoPause: List<Path> = lucide("M 14 3 H 19 V 21 H 14 Z", "M 5 3 H 10 V 21 H 5 Z")
+private val IcoPlay: List<Path> = lucide("M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z")
+private val IcoPinOff: List<Path> = lucide("M12 17v5", "M15 9.34V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H7.89", "m2 2 20 20", "M9 9v1.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h11")
+private val IcoLens: List<Path> = lucide("M15.725 7.296h.01", "M6 12a6 6 0 016-6", "M 2 12 a 10 10 0 1 0 20 0 a 10 10 0 1 0 -20 0")
+private val IcoZoomIn: List<Path> = lucide("M 3 11 a 8 8 0 1 0 16 0 a 8 8 0 1 0 -16 0", "M 21 21 L 16.65 16.65", "M 11 8 L 11 14", "M 8 11 L 14 11")
+private val IcoZoomOut: List<Path> = lucide("M 3 11 a 8 8 0 1 0 16 0 a 8 8 0 1 0 -16 0", "M 21 21 L 16.65 16.65", "M 8 11 L 14 11")
+private val IcoUserCog: List<Path> = lucide("M10 15H6a4 4 0 0 0-4 4v2", "m14.305 16.53.923-.382", "m15.228 13.852-.923-.383", "m16.852 12.228-.383-.923", "m16.852 17.772-.383.924", "m19.148 12.228.383-.923", "m19.53 18.696-.382-.924", "m20.772 13.852.924-.383", "m20.772 16.148.924.383", "M 15 15 a 3 3 0 1 0 6 0 a 3 3 0 1 0 -6 0", "M 5 7 a 4 4 0 1 0 8 0 a 4 4 0 1 0 -8 0")
+private val IcoDiagramFlow: List<Path> = lucide("M8 12h.5a3.5 3.5 0 013.5 3.5 3.5 3.5 0 003.5 3.5h.5", "M8.5 12A3.5 3.5 0 0012 8.5 3.5 3.5 0 0115.5 5h.5", "M 16 16 H 22 V 22 H 16 Z", "M 16 2 H 22 V 8 H 16 Z", "M 2 9 H 8 V 15 H 2 Z")
+private val IcoGhost: List<Path> = lucide("M15 10v1", "M7.528 20.472a1.6 1.6 0 012.277 0l1.057 1.056a1.6 1.6 0 002.276 0l1.057-1.056a1.6 1.6 0 012.277 0l1.114 1.114a1.4 1.4 0 002.414-1V10a8 8 0 00-16 0v10.586a1.4 1.4 0 002.414 1z", "M9 10v1")
+private val IcoRotateCwFadingClock: List<Path> = lucide("M12 3a9.75 9.75 0 0 1 6.74 2.74", "M18.74 5.74 21 8", "M21 8V3", "M7.5 19.794c-6-3.464-6-12.124 0-15.588", "M7.5 4.206A9 9 0 0 1 12 3", "M12 7v5l4 2", "M14 20.775A9 9 0 0 1 12 21", "M19 17.656a9 9 0 0 1-1.5 1.456", "M21 12a9 9 0 0 1-.228 2", "M21 8h-5")
+private val IcoCircleFadingArrowUp: List<Path> = lucide("M12 2a10 10 0 0 1 7.38 16.75", "m16 12-4-4-4 4", "M12 16V8", "M2.5 8.875a10 10 0 0 0-.5 3", "M2.83 16a10 10 0 0 0 2.43 3.4", "M4.636 5.235a10 10 0 0 1 .891-.857", "M8.644 21.42a10 10 0 0 0 7.631-.38")
+private val IcoLightbulb: List<Path> = lucide("M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5", "M9 18h6", "M10 22h4")
+private val IcoOpacity: List<Path> = lucide("M12 3h.01", "M12 9h.01", "M15 6h.01", "M18 3h.01", "M21 6v13a2 2 0 0 1-2 2H6", "M3 12h.01", "M3 18h.01", "M3 6h.01", "M6 15h.01", "M6 3h.01", "M6 9h.01", "M9 12h.01", "M9 6h.01")
+private val IcoLayersMinus: List<Path> = lucide("M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 .83.18 2 2 0 0 0 .83-.18l8.58-3.9a1 1 0 0 0 0-1.832z", "M16 17h6", "M2.003 11.995a1 1 0 0 0 .597.915l8.58 3.91a2 2 0 0 0 .83.18", "M2.003 16.995a1 1 0 0 0 .597.915l8.58 3.91a2 2 0 0 0 .83.18 2 2 0 0 0 .83-.18l2.11-.96", "M22.018 12.004a1 1 0 0 1-.598.916l-.177.08")
+private val IcoBadgeInfo: List<Path> = lucide("M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z", "M 12 16 L 12 12", "M 12 8 L 12.01 8")
+private val IcoBadgeCheck: List<Path> = lucide("M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z", "m16 9-5.5 5.5L8 12")
+private val IcoMic: List<Path> = lucide("M12 19v3", "M19 10v2a7 7 0 0 1-14 0v-2", "M 9 2 H 15 V 15 H 9 Z")
+private val IcoPanelTop: List<Path> = lucide("M 3 3 H 21 V 21 H 3 Z", "M3 9h18")
+private val IcoStretchVertical: List<Path> = lucide("M 4 2 H 10 V 22 H 4 Z", "M 14 2 H 20 V 22 H 14 Z")
+private val IcoGrid3x2: List<Path> = lucide("M15 3v18", "M3 12h18", "M9 3v18", "M 3 3 H 21 V 21 H 3 Z")
+private val IcoPalette: List<Path> = lucide("M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z", "M 13 6.5 a 0.5 0.5 0 1 0 1 0 a 0.5 0.5 0 1 0 -1 0", "M 17 10.5 a 0.5 0.5 0 1 0 1 0 a 0.5 0.5 0 1 0 -1 0", "M 6 12.5 a 0.5 0.5 0 1 0 1 0 a 0.5 0.5 0 1 0 -1 0", "M 8 7.5 a 0.5 0.5 0 1 0 1 0 a 0.5 0.5 0 1 0 -1 0")
+private val IcoVibrate: List<Path> = lucide("m2 8 2 2-2 2 2 2-2 2", "m22 8-2 2 2 2-2 2 2 2", "M 8 5 H 16 V 19 H 8 Z")
+private val IcoShieldCheck: List<Path> = lucide("M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z", "m9 12 2 2 4-4")
+private val IcoShield: List<Path> = lucide("M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z")
+private val IcoSparkles: List<Path> = lucide("M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z", "M20 2v4", "M22 4h-4", "M 2 20 a 2 2 0 1 0 4 0 a 2 2 0 1 0 -4 0")
+private val IcoInfo: List<Path> = lucide("M 2 12 a 10 10 0 1 0 20 0 a 10 10 0 1 0 -20 0", "M12 16v-4", "M12 8h.01")
+private val IcoFolder: List<Path> = lucide("M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z")
+private val IcoExternalLink: List<Path> = lucide("M15 3h6v6", "M10 14 21 3", "M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6")
+private val IcoChevronRightSmall: List<Path> = lucide("m9 18 6-6-6-6")
+private val IcoCamera: List<Path> = lucide("M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z", "M 9 13 a 3 3 0 1 0 6 0 a 3 3 0 1 0 -6 0")
+private val IcoBell: List<Path> = lucide("M10.268 21a2 2 0 0 0 3.464 0", "M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326")
+private val IcoLanguages: List<Path> = lucide("m5 8 6 6", "m4 14 6-6 2-3", "M2 5h12", "M7 2h1", "m22 22-5-10-5 10", "M14 18h6")
 @Composable
 fun Glyph(
     paths: List<Path>,
@@ -433,6 +226,34 @@ object Ico {
     val mask = IcoPrivate
     val pause = IcoPause
     val play = IcoPlay
+    val pinOff = IcoPinOff
+    val lens = IcoLens
+    val zoomIn = IcoZoomIn
+    val zoomOut = IcoZoomOut
+    val userCog = IcoUserCog
+    val diagramFlow = IcoDiagramFlow
+    val rotateCwFadingClock = IcoRotateCwFadingClock
+    val circleFadingArrowUp = IcoCircleFadingArrowUp
+    val lightbulb = IcoLightbulb
+    val opacity = IcoOpacity
+    val layersMinus = IcoLayersMinus
+    val badgeInfo = IcoBadgeInfo
+    val badgeCheck = IcoBadgeCheck
+    val mic = IcoMic
+    val panelTop = IcoPanelTop
+    val stretchVertical = IcoStretchVertical
+    val grid3x2 = IcoGrid3x2
+    val palette = IcoPalette
+    val vibrate = IcoVibrate
+    val shieldCheck = IcoShieldCheck
+    val shield = IcoShield
+    val sparkles = IcoSparkles
+    val info = IcoInfo
+    val folder = IcoFolder
+    val externalLink = IcoExternalLink
+    val camera = IcoCamera
+    val bell = IcoBell
+    val languages = IcoLanguages
 }
 
 /* -------------------------------------------------------- download tiles */
