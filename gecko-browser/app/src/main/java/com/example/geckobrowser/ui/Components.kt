@@ -52,6 +52,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
@@ -100,7 +101,7 @@ private fun p(block: Path.() -> Unit) = Path().apply(block)
 
 /** Builds Compose paths from Lucide SVG path data. All values are on the 24dp grid. */
 private fun lucide(vararg data: String): List<Path> =
-    data.map { PathParser.createPathFromPathData(it) }
+    data.map { PathParser.createPathFromPathData(it).asComposePath() }
 
 private val IcoPlus: List<Path> = lucide("M5 12h14", "M12 5v14")
 private val IcoExpand: List<Path> = lucide("M8 3H5a2 2 0 0 0-2 2v3", "M21 8V5a2 2 0 0 0-2-2h-3", "M3 16v3a2 2 0 0 0 2 2h3", "M16 21h3a2 2 0 0 0 2-2v-3")
@@ -223,7 +224,7 @@ object Ico {
     val pin = IcoPin
     val open = IcoOpen
     val image = IcoImage
-    val mask = IcoPrivate
+    val mask = IcoMask
     val pause = IcoPause
     val play = IcoPlay
     val pinOff = IcoPinOff
