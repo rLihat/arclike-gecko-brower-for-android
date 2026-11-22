@@ -53,6 +53,8 @@ import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
 
 /** One tab: its GeckoSession lives in [TabManager], this is the data Compose sees. */
 data class TabInfo(
@@ -181,12 +183,21 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private var geckoView: GeckoView? = null
     private var nextPromptId = 1L
 
-    private val promptObjects = HashMap<Long, GeckoSession.PromptDelegate.BasePrompt>()
+    // Gecko may deliver delegate callbacks off the main thread while answers come
+    // from Compose on it. All prompt bookkeeping is concurrent so a burst of
+    // requests can't corrupt a plain HashMap or strand a pending GeckoResult.
+    private val promptObjects =
+        ConcurrentHashMap<Long, GeckoSession.PromptDelegate.BasePrompt>()
     private val promptResults =
-        HashMap<Long, GeckoResult<GeckoSession.PromptDelegate.PromptResponse>>()
+        ConcurrentHashMap<Long, GeckoResult<GeckoSession.PromptDelegate.PromptResponse>>()
     private val extensionInstallResults =
-        HashMap<Long, GeckoResult<WebExtension.PermissionPromptResponse>>()
-    private val runtimePermissionCallbacks = HashMap<Long, (Boolean) -> Unit>()
+        ConcurrentHashMap<Long, GeckoResult<WebExtension.PermissionPromptResponse>>()
+    private val runtimePermissionCallbacks = ConcurrentHashMap<Long, (Boolean) -> Unit>()
+    /** Ids whose dismiss()/confirm() we initiated; Gecko-side dismissal is the rest. */
+    private val answeringPromptIds = ConcurrentHashMap.newKeySet<Long>()
+    /** Runtime permission requests held while the system dialog is already up. */
+    private val pendingPermissionRequests =
+        ConcurrentLinkedQueue<Pair<List<String>, (Boolean) -> Unit>>()
 
     private sealed class PermissionTarget {
         class Content(
@@ -556,7 +567,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     private val trackingExceptions = HashSet<String>()
     private val blockedByTab = HashMap<Long, Int>()
-    private val popupDismissJobs = HashMap<Long, Job>()
+    private val popupDismissJobs = ConcurrentHashMap<Long, Job>()
     private val offlineRetries = HashMap<Long, Int>()
     private val offlineFailedUrl = HashMap<Long, String>()
     private val offlineJobs = HashMap<Long, Job>()
@@ -1429,7 +1440,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 if (tabId < 0 || tabId != activeId) {
                     completePrompt(id, prompt.dismiss())
                 } else {
-                    clearShownPrompt()
+                    clearShownPrompt(id)
                     browserPrompt = BrowserPromptState.Alert(
                         id = id,
                         tabId = tabId,
@@ -1451,7 +1462,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 if (tabId < 0 || tabId != activeId) {
                     completePrompt(id, prompt.dismiss())
                 } else {
-                    clearShownPrompt()
+                    clearShownPrompt(id)
                     browserPrompt = BrowserPromptState.Button(
                         id = id,
                         tabId = tabId,
@@ -1473,7 +1484,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 if (tabId < 0 || tabId != activeId) {
                     completePrompt(id, prompt.dismiss())
                 } else {
-                    clearShownPrompt()
+                    clearShownPrompt(id)
                     browserPrompt = BrowserPromptState.Text(
                         id = id,
                         tabId = tabId,
@@ -1503,7 +1514,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                             selected = choice.selected,
                         )
                     }
-                    clearShownPrompt()
+                    clearShownPrompt(id)
                     browserPrompt = BrowserPromptState.Choice(
                         id = id,
                         tabId = tabId,
@@ -1527,7 +1538,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 if (tabId < 0 || tabId != activeId) {
                     completePrompt(id, prompt.dismiss())
                 } else {
-                    clearShownPrompt()
+                    clearShownPrompt(id)
                     browserPrompt = BrowserPromptState.Auth(
                         id = id,
                         tabId = tabId,
@@ -1568,11 +1579,16 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 if (id != activeId || overlay != Overlay.None || fullscreen) {
                     return GeckoResult.fromValue(prompt.confirm(AllowOrDeny.DENY))
                 }
+                // Only one popup can own the pill. Release the previous result
+                // without calling confirm() back into Gecko from inside its own
+                // delegate — a page spamming popups would otherwise recurse.
+                abandonPopupNotice()
                 val promptId = nextPromptId++
                 val result = registerPrompt(promptId, prompt)
                 popupBlocked = PopupNotice(
                     id = promptId,
                     host = hostOf(prompt.targetUri ?: activeTab?.url.orEmpty()),
+                    tabId = id,
                 )
                 compactPill = false
                 dismissPopupAfterDwell(promptId)
@@ -1737,14 +1753,23 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         promptResults[id] = result
         prompt.setDelegate(object : GeckoSession.PromptDelegate.PromptInstanceDelegate {
             override fun onPromptDismiss(prompt: GeckoSession.PromptDelegate.BasePrompt) {
-                // Keep the pending result: our own answer callbacks still have to
-                // complete it after dismiss() has already fired this callback.
                 promptObjects.remove(id)
                 if (browserPrompt?.id == id) browserPrompt = null
                 // A popup the page withdrew shouldn't leave its pill behind.
                 if (popupBlocked?.id == id) {
                     popupBlocked = null
                     popupDismissJobs.remove(id)?.cancel()
+                }
+                // When Gecko dismisses a prompt on its own (navigation, tab close,
+                // a page withdrawing it), nobody else will complete the result.
+                // Our own answer helpers mark the id first, so they keep the real
+                // response and this only cleans up genuinely orphaned prompts.
+                if (answeringPromptIds.add(id)) {
+                    try {
+                        completePrompt(id, null)
+                    } finally {
+                        answeringPromptIds.remove(id)
+                    }
                 }
             }
         })
@@ -1765,23 +1790,41 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    private fun clearShownPrompt() {
-        val current = browserPrompt ?: return
-        cancelPromptById(current.id)
+    /**
+     * Answers every prompt still outstanding so a burst of requests can't leave
+     * pending GeckoResults behind. [exceptId] is the prompt that just arrived and
+     * must survive this sweep.
+     */
+    private fun clearShownPrompt(exceptId: Long? = null) {
+        val ids = (promptObjects.keys + promptResults.keys + extensionInstallResults.keys).distinct()
+        ids.forEach { id ->
+            if (id != exceptId) cancelPromptById(id)
+        }
     }
 
     private fun cancelPromptById(id: Long) {
-        val prompt = promptObjects[id]
-        val response = prompt?.let { runCatching { it.dismiss() }.getOrNull() }
-        completePrompt(id, response)
-        val ext = extensionInstallResults.remove(id)
-        ext?.let { runCatching { it.complete(WebExtension.PermissionPromptResponse(false, false)) } }
-        if (browserPrompt?.id == id) browserPrompt = null
+        answeringPromptIds.add(id)
+        try {
+            val prompt = promptObjects[id]
+            val response = prompt?.let { runCatching { it.dismiss() }.getOrNull() }
+            completePrompt(id, response)
+            val ext = extensionInstallResults.remove(id)
+            ext?.let { runCatching { it.complete(WebExtension.PermissionPromptResponse(false, false)) } }
+            if (browserPrompt?.id == id) browserPrompt = null
+            if (filePickerRequest?.id == id) filePickerRequest = null
+        } finally {
+            answeringPromptIds.remove(id)
+        }
     }
 
     fun answerAlert(id: Long) {
-        val prompt = promptObjects[id]
-        completePrompt(id, prompt?.let { runCatching { it.dismiss() }.getOrNull() })
+        answeringPromptIds.add(id)
+        try {
+            val prompt = promptObjects[id]
+            completePrompt(id, prompt?.let { runCatching { it.dismiss() }.getOrNull() })
+        } finally {
+            answeringPromptIds.remove(id)
+        }
     }
 
     /* --------------------------------------------------------------- popups */
@@ -1799,18 +1842,35 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun answerPopup(id: Long, allow: Boolean) {
         if (popupBlocked?.id == id) popupBlocked = null
         popupDismissJobs.remove(id)?.cancel()
-        val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.PopupPrompt
-        val response = prompt?.let {
-            runCatching {
-                it.confirm(if (allow) AllowOrDeny.ALLOW else AllowOrDeny.DENY)
-            }.getOrNull()
+        answeringPromptIds.add(id)
+        try {
+            val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.PopupPrompt
+            val response = prompt?.let {
+                runCatching {
+                    it.confirm(if (allow) AllowOrDeny.ALLOW else AllowOrDeny.DENY)
+                }.getOrNull()
+            }
+            completePrompt(id, response ?: prompt?.dismiss())
+        } finally {
+            answeringPromptIds.remove(id)
         }
-        completePrompt(id, response ?: prompt?.dismiss())
     }
 
     /** Quietly drops the popup notice, denying the request. */
     fun dismissPopupNotice() {
         popupBlocked?.let { answerPopup(it.id, allow = false) }
+    }
+
+    /**
+     * Releases the held popup without answering it through Gecko. Used from
+     * inside the popup delegate, where calling confirm() could re-enter and
+     * recurse on a page that opens popups in a tight loop.
+     */
+    private fun abandonPopupNotice() {
+        val popup = popupBlocked ?: return
+        popupBlocked = null
+        popupDismissJobs.remove(popup.id)?.cancel()
+        completePrompt(popup.id, null)
     }
 
     /* ------------------------------------------------------------ selection */
@@ -2406,51 +2466,76 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun answerButton(id: Long, confirm: Boolean) {
-        val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.ButtonPrompt
-        val response = prompt?.let {
-            runCatching { it.confirm(if (confirm) 0 else 1) }.getOrNull()
+        answeringPromptIds.add(id)
+        try {
+            val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.ButtonPrompt
+            val response = prompt?.let {
+                runCatching { it.confirm(if (confirm) 0 else 1) }.getOrNull()
+            }
+            completePrompt(id, response ?: prompt?.dismiss())
+        } finally {
+            answeringPromptIds.remove(id)
         }
-        completePrompt(id, response ?: prompt?.dismiss())
     }
 
     fun answerText(id: Long, text: String) {
-        val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.TextPrompt
-        val response = prompt?.let { runCatching { it.confirm(text) }.getOrNull() }
-        completePrompt(id, response ?: prompt?.dismiss())
+        answeringPromptIds.add(id)
+        try {
+            val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.TextPrompt
+            val response = prompt?.let { runCatching { it.confirm(text) }.getOrNull() }
+            completePrompt(id, response ?: prompt?.dismiss())
+        } finally {
+            answeringPromptIds.remove(id)
+        }
     }
 
     fun answerChoice(id: Long, optionId: String) {
-        val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.ChoicePrompt
-        val choice = prompt?.choices?.firstOrNull { it.id == optionId }
-        val response = when {
-            prompt == null -> null
-            choice != null -> runCatching { prompt.confirm(choice) }.getOrNull()
-            else -> prompt.dismiss()
+        answeringPromptIds.add(id)
+        try {
+            val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.ChoicePrompt
+            val choice = prompt?.choices?.firstOrNull { it.id == optionId }
+            val response = when {
+                prompt == null -> null
+                choice != null -> runCatching { prompt.confirm(choice) }.getOrNull()
+                else -> prompt.dismiss()
+            }
+            completePrompt(id, response ?: prompt?.dismiss())
+        } finally {
+            answeringPromptIds.remove(id)
         }
-        completePrompt(id, response ?: prompt?.dismiss())
     }
 
     fun answerAuth(id: Long, username: String, password: String) {
-        val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.AuthPrompt
-        val response = if (prompt != null && (username.isNotBlank() || password.isNotBlank())) {
-            runCatching { prompt.confirm(username, password) }.getOrNull()
-        } else {
-            prompt?.dismiss()
+        answeringPromptIds.add(id)
+        try {
+            val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.AuthPrompt
+            val response = if (prompt != null && (username.isNotBlank() || password.isNotBlank())) {
+                runCatching { prompt.confirm(username, password) }.getOrNull()
+            } else {
+                prompt?.dismiss()
+            }
+            completePrompt(id, response ?: prompt?.dismiss())
+        } finally {
+            answeringPromptIds.remove(id)
         }
-        completePrompt(id, response ?: prompt?.dismiss())
     }
 
     fun answerFilePick(id: Long, uri: Uri?) {
         val request = filePickerRequest
         if (request == null || request.id != id) return
         filePickerRequest = null
-        val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.FilePrompt
-        val response = if (prompt != null && uri != null) {
-            runCatching { prompt.confirm(application, uri) }.getOrNull()
-        } else {
-            prompt?.dismiss()
+        answeringPromptIds.add(id)
+        try {
+            val prompt = promptObjects[id] as? GeckoSession.PromptDelegate.FilePrompt
+            val response = if (prompt != null && uri != null) {
+                runCatching { prompt.confirm(application, uri) }.getOrNull()
+            } else {
+                prompt?.dismiss()
+            }
+            completePrompt(id, response ?: prompt?.dismiss())
+        } finally {
+            answeringPromptIds.remove(id)
         }
-        completePrompt(id, response ?: prompt?.dismiss())
     }
 
     fun cancelFilePick(id: Long) {
@@ -2482,6 +2567,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun dismissPromptsForTab(tabId: Long) {
         val current = browserPrompt
         if (current != null && current.tabId == tabId) cancelPrompt()
+        val popup = popupBlocked
+        if (popup != null && popup.tabId == tabId) dismissPopupNotice()
         val file = filePickerRequest
         if (file != null && promptObjects[file.id] != null) cancelFilePick(file.id)
         if (permissionPrompt != null) cancelPermissionPrompt()
@@ -2513,6 +2600,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun askPermission(kind: PermissionKind, host: String, target: PermissionTarget) {
+        // One site question fits in the pill. Answer the previous one (deny) so
+        // its GeckoResult/MediaCallback isn't left hanging by an overwrite.
+        cancelPermissionPrompt()
         val id = nextPromptId++
         permissionTargets[id] = target
         permissionPrompt = PermissionPromptState(id, kind, host)
@@ -2569,13 +2659,23 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         if (androidPermissionRequest != null) {
-            // One system request at a time.
-            onResult(false)
+            // The system dialog is a single slot; queue the rest instead of
+            // denying them, so a burst of requests is serialized not lost.
+            pendingPermissionRequests.add(missing to onResult)
             return
         }
+        startPermissionRequest(missing, onResult)
+    }
+
+    private fun startPermissionRequest(missing: List<String>, onResult: (Boolean) -> Unit) {
         val id = nextPromptId++
         runtimePermissionCallbacks[id] = onResult
         androidPermissionRequest = AndroidPermissionRequest(id, missing)
+    }
+
+    private fun drainPermissionQueue() {
+        val next = pendingPermissionRequests.poll() ?: return
+        startPermissionRequest(next.first, next.second)
     }
 
     fun onAndroidPermissionsResult(result: Map<String, Boolean>) {
@@ -2584,12 +2684,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         val callback = runtimePermissionCallbacks.remove(request.id) ?: return
         val granted = request.permissions.all { result[it] == true }
         callback(granted)
+        drainPermissionQueue()
     }
 
     fun onAndroidPermissionsCanceled() {
         val request = androidPermissionRequest ?: return
         androidPermissionRequest = null
         runtimePermissionCallbacks.remove(request.id)?.invoke(false)
+        drainPermissionQueue()
     }
 
     private fun permissionKind(permission: Int): PermissionKind? = when (permission) {
@@ -4511,6 +4613,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             permissionTargets.remove(it.id)
         }
         permissionPrompt = null
+        // Release anything still pending so a teardown can't leak GeckoResults.
+        clearShownPrompt()
+        answeringPromptIds.clear()
+        pendingPermissionRequests.clear()
+        runtimePermissionCallbacks.clear()
         pendingDownload?.body?.closeQuietly()
         pendingDownload = null
         filePickerRequest = null

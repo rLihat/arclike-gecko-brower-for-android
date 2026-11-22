@@ -22,6 +22,8 @@ data class PermissionPromptState(
 data class PopupNotice(
     val id: Long,
     val host: String,
+    /** Tab the popup came from, so closing that tab can deny it. */
+    val tabId: Long = -1L,
 )
 
 /**
