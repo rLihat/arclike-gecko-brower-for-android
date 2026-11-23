@@ -30,14 +30,16 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.Canvas
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalScrollbar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -218,10 +220,26 @@ fun TabSwitcher(
                     }
                 }
             }
-                VerticalScrollbar(
-                    adapter = rememberScrollbarAdapter(gridState),
-                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
-                )
+                // Thin 3dp scrollbar; only drawn when the grid actually overflows.
+                val info = gridState.layoutInfo
+                val total = info.totalItemsCount
+                val visible = info.visibleItemsInfo.size
+                if (total > visible && visible > 0) {
+                    val thumbFraction = (visible.toFloat() / total).coerceIn(0.08f, 1f)
+                    val progress = (gridState.firstVisibleItemIndex.toFloat() /
+                        (total - visible).coerceAtLeast(1)).coerceIn(0f, 1f)
+                    Canvas(
+                        Modifier.align(Alignment.CenterEnd).fillMaxHeight().width(3.dp).padding(vertical = 8.dp),
+                    ) {
+                        val thumbH = size.height * thumbFraction
+                        drawRoundRect(
+                            color = c.muted.copy(alpha = 0.45f),
+                            topLeft = Offset(0f, progress * (size.height - thumbH)),
+                            size = Size(size.width, thumbH),
+                            cornerRadius = CornerRadius(1.5.dp.toPx()),
+                        )
+                    }
+                }
             }
         } else {
             LazyRow(
