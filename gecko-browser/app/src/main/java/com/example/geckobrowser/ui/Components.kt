@@ -544,7 +544,6 @@ fun Modifier.swipeActions(
     }
 }
 
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PillButton(
     onClick: () -> Unit,
@@ -557,19 +556,19 @@ fun PillButton(
     content: @Composable () -> Unit,
 ) {
     val c = LocalArc.current
-    val interactionSource = remember { MutableInteractionSource() }
     var longFired by remember { mutableStateOf(false) }
-    // The release after a long press can still look like a click; reset on the
-    // next press so a held button never also opens search.
-    LaunchedEffect(interactionSource) {
-        interactionSource.interactions.collect { interaction ->
-            if (interaction is PressInteraction.Press) longFired = false
-        }
-    }
     Box(
         Modifier
             .size(46.dp)
             .clip(CircleShape)
+            .pointerInput(Unit) {
+                if (onLongClick != null) {
+                    detectTapGestures(onLongPress = {
+                        longFired = true
+                        onLongClick()
+                    })
+                }
+            }
             .swipeActions(
                 onUp = onSwipeUp,
                 onDown = onSwipeDown,
@@ -577,15 +576,13 @@ fun PillButton(
                 onRight = onSwipeRight,
                 strictHorizontal = strictHorizontal,
             )
-            .combinedClickable(
-                interactionSource = interactionSource,
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = {
+                    // The release after a long press can still look like a click;
+                    // swallow it so the chooser is not replaced by a search.
                     if (longFired) longFired = false else onClick()
-                },
-                onLongClick = {
-                    longFired = true
-                    onLongClick?.invoke()
                 },
             ),
         contentAlignment = Alignment.Center,
