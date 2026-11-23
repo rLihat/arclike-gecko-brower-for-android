@@ -2841,41 +2841,11 @@ private fun BoxScope.NavPill(
                     }
                 }
             }
-        if (showNewTabChooser) {
-            Row(
-                Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 86.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(c.menuCard)
-                    .then(rememberGlass(c.navSurface, fps = 15))
-                    .border(1.dp, c.stroke, RoundedCornerShape(18.dp)),
-            ) {
-                Text(
-                    "New tab",
-                    color = c.text,
-                    fontSize = 13.sp,
-                    modifier = Modifier
-                        .clickable { vm.createTab(false); showNewTabChooser = false }
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                )
-                Box(Modifier.width(1.dp).height(22.dp).background(c.hairline))
-                Text(
-                    "Private tab",
-                    color = privatePurple,
-                    fontSize = 13.sp,
-                    modifier = Modifier
-                        .clickable { vm.createTab(true); showNewTabChooser = false }
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                )
-            }
         }
-        }
-            Box(
+        Box(
             Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 86.dp),
-            contentAlignment = Alignment.BottomCenter,
+                .padding(bottom = 20.dp),
         ) {
             AnimatedVisibility(
                 visible = showNewTabChooser,
@@ -2885,16 +2855,20 @@ private fun BoxScope.NavPill(
                 Row(
                     Modifier
                         .fillMaxWidth(0.7f)
-                        .clip(RoundedCornerShape(18.dp))
+                        .height(54.dp)
+                        .clip(RoundedCornerShape(27.dp))
                         .background(c.menuCard)
                         .then(rememberGlass(c.navSurface, fps = 15))
-                        .border(1.dp, c.stroke, RoundedCornerShape(18.dp)),
+                        .border(1.dp, c.stroke, RoundedCornerShape(27.dp)),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(c.chip),
-                        contentAlignment = Alignment.Center) {
-                        Glyph(Ico.plus, c.text, size = 16.dp, strokeWidth = 2f)
-                    }
+                    Box(
+                        Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(c.chip),
+                        contentAlignment = Alignment.Center,
+                    ) { Glyph(Ico.plus, c.text, size = 17.dp, strokeWidth = 2.2f) }
                     Spacer(Modifier.width(9.dp))
                     Text(
                         "New tab", color = c.text, fontSize = 13.sp,
@@ -2910,6 +2884,14 @@ private fun BoxScope.NavPill(
                     )
                 }
             }
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { showNewTabChooser = false },
+            )
         }
 }
 }
