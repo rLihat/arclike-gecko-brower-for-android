@@ -2874,7 +2874,47 @@ private fun BoxScope.NavPill(
             }
         }
         }
-    }
+            Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 86.dp),
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            AnimatedVisibility(
+                visible = showNewTabChooser,
+                enter = popupEnter(reduceMotion),
+                exit = popupExit(reduceMotion),
+            ) {
+                Row(
+                    Modifier
+                        .fillMaxWidth(0.7f)
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(c.menuCard)
+                        .then(rememberGlass(c.navSurface, fps = 15))
+                        .border(1.dp, c.stroke, RoundedCornerShape(18.dp)),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(32.dp).clip(RoundedCornerShape(9.dp)).background(c.chip),
+                        contentAlignment = Alignment.Center) {
+                        Glyph(Ico.plus, c.text, size = 16.dp, strokeWidth = 2f)
+                    }
+                    Spacer(Modifier.width(9.dp))
+                    Text(
+                        "New tab", color = c.text, fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clickable { vm.createTab(false); showNewTabChooser = false },
+                    )
+                    Box(Modifier.width(1.dp).height(22.dp).background(c.hairline))
+                    Spacer(Modifier.width(9.dp))
+                    Text(
+                        "Private tab", color = privatePurple, fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.clickable { vm.createTab(true); showNewTabChooser = false },
+                    )
+                }
+            }
+        }
+}
 }
 
 private fun hostLetter(tab: TabInfo): String {
