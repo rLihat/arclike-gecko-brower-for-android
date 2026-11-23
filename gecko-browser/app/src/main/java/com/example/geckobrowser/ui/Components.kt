@@ -19,6 +19,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -540,6 +541,7 @@ fun Modifier.swipeActions(
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 fun PillButton(
     onClick: () -> Unit,
@@ -552,23 +554,10 @@ fun PillButton(
     content: @Composable () -> Unit,
 ) {
     val c = LocalArc.current
-    // A fresh lambda is created on every recomposition; keying the detector on
-    // it restarted the gesture mid-hold, so long press never completed. Keep
-    // the key stable and read the current callback through state instead.
-    val longClickState = rememberUpdatedState(onLongClick)
-    var longFired by remember { mutableStateOf(false) }
     Box(
         Modifier
             .size(46.dp)
             .clip(CircleShape)
-            .pointerInput(Unit) {
-                if (longClickState.value != null) {
-                    detectTapGestures(onLongPress = {
-                        longFired = true
-                        longClickState.value?.invoke()
-                    })
-                }
-            }
             .swipeActions(
                 onUp = onSwipeUp,
                 onDown = onSwipeDown,
@@ -576,14 +565,11 @@ fun PillButton(
                 onRight = onSwipeRight,
                 strictHorizontal = strictHorizontal,
             )
-            .clickable(
+            .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = {
-                    // The release after a long press also looks like a click;
-                    // swallow it so the chooser isn't replaced by a search.
-                    if (longFired) longFired = false else onClick()
-                },
+                onClick = onClick,
+                onLongClick = onLongClick,
             ),
         contentAlignment = Alignment.Center,
     ) { content() }

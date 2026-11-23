@@ -410,6 +410,7 @@ fun BrowserApp(
                         .fillMaxWidth(0.78f)
                         .clip(RoundedCornerShape(18.dp))
                         .background(c.surface)
+                        .then(rememberGlass(c.navSurface, fps = 15))
                         .padding(18.dp),
                 ) {
                     Text("Close private tabs?", color = c.text, fontSize = 14.sp,
@@ -1043,6 +1044,7 @@ private fun ChromeOverlay(
                         .fillMaxWidth(0.78f)
                         .clip(RoundedCornerShape(18.dp))
                         .background(c.surface)
+                        .then(rememberGlass(c.navSurface, fps = 15))
                         .padding(18.dp),
                 ) {
                     Text("Close private tabs?", color = c.text, fontSize = 14.sp,
@@ -1433,6 +1435,7 @@ private fun BoxScope.NavNoticeHost(vm: BrowserViewModel) {
             }
             .clip(RoundedCornerShape(29.dp))
             .background(c.menuCard)
+            .then(rememberGlass(c.navSurface, fps = 15))
             .border(1.dp, c.stroke, RoundedCornerShape(29.dp)),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
@@ -2844,6 +2847,7 @@ private fun BoxScope.NavPill(
                     .padding(bottom = 86.dp)
                     .clip(RoundedCornerShape(18.dp))
                     .background(c.menuCard)
+                    .then(rememberGlass(c.navSurface, fps = 15))
                     .border(1.dp, c.stroke, RoundedCornerShape(18.dp)),
             ) {
                 Text(
