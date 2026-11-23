@@ -383,12 +383,11 @@ fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
             },
         )
         Box(Modifier.weight(1f).fillMaxWidth().imePadding()) {
-            Column(Modifier.fillMaxSize()) {
 
 
         Column(
             Modifier
-                .weight(1f)
+                .fillMaxHeight()
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 40.dp),
@@ -426,7 +425,6 @@ fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp),
                 )
             }
-        }
     }
     }
     val ids = pendingDelete
