@@ -23,6 +23,7 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -39,6 +40,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -77,6 +79,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
@@ -554,6 +557,15 @@ fun PillButton(
     content: @Composable () -> Unit,
 ) {
     val c = LocalArc.current
+    val interactionSource = remember { MutableInteractionSource() }
+    var longFired by remember { mutableStateOf(false) }
+    // The release after a long press can still look like a click; reset on the
+    // next press so a held button never also opens search.
+    LaunchedEffect(interactionSource) {
+        interactionSource.interactions.collect { interaction ->
+            if (interaction is PressInteraction.Press) longFired = false
+        }
+    }
     Box(
         Modifier
             .size(46.dp)
@@ -566,10 +578,15 @@ fun PillButton(
                 strictHorizontal = strictHorizontal,
             )
             .combinedClickable(
-                interactionSource = remember { MutableInteractionSource() },
+                interactionSource = interactionSource,
                 indication = null,
-                onClick = onClick,
-                onLongClick = onLongClick,
+                onClick = {
+                    if (longFired) longFired = false else onClick()
+                },
+                onLongClick = {
+                    longFired = true
+                    onLongClick?.invoke()
+                },
             ),
         contentAlignment = Alignment.Center,
     ) { content() }
