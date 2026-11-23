@@ -249,21 +249,21 @@ private fun SearchResults(vm: BrowserViewModel, c: ArcColors, query: String) {
         filtered.forEach { entry ->
             val ico = when (entry.icon) {
                 "contrast" -> Ico.contrast
-                "grid" -> Ico.grid
+                "grid" -> Ico.grid3x2
                 "textSize" -> Ico.textSize
-                "globe" -> Ico.globe
+                "globe" -> Ico.panelTop
                 "engine" -> Ico.engine
                 "open" -> Ico.open
-                "lock" -> Ico.lock
-                "close" -> Ico.close
+                "lock" -> Ico.shieldCheck
+                "close" -> Ico.cookie
                 "clock" -> Ico.clock
                 "trash" -> Ico.trash
                 "puzzle" -> Ico.puzzle
-                "refresh" -> Ico.refresh
+                "refresh" -> Ico.searchCheck
                 "download" -> Ico.download
-                "copy" -> Ico.copy
-                "person" -> Ico.person
-                else -> Ico.grid
+                "copy" -> Ico.sparkles
+                "person" -> Ico.badgeInfo
+                else -> Ico.grid3x2
             }
             CategoryTile(
                 title = entry.label,

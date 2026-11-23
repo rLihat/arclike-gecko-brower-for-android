@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -134,12 +135,8 @@ fun HistoryScreen(vm: BrowserViewModel, onBack: () -> Unit) {
             },
         )
 
-        GlassSearchPill(
-            value = query,
-            placeholder = "Search history",
-            onChange = { query = it },
-            modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp),
-        )
+        Box(Modifier.weight(1f).fillMaxWidth().imePadding()) {
+            Column(Modifier.fillMaxSize()) {
 
         if (clearing && hasHistory) {
             Column(
@@ -224,6 +221,14 @@ fun HistoryScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     }
                 }
             }
+        }
+            }
+            GlassSearchPill(
+                value = query,
+                placeholder = "Search history",
+                onChange = { query = it },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp),
+            )
         }
     }
     }

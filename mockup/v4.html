@@ -166,7 +166,6 @@
     /* Hand the surface over quickly so the pill outline never lingers over the panel */
     .bottom-bar.menu-open,
     .bottom-bar.search-open {
-      transition: width .35s cubic-bezier(0.4, 0, 1, 1), transform .35s cubic-bezier(0.4, 0, 1, 1) .08s,
                   background .14s ease, border-color .14s ease, box-shadow .14s ease, opacity .3s ease;
     }
     /* Stay surface-free while a panel shrinks back into the pill, so the two
@@ -201,11 +200,9 @@
     .bottom-bar.menu-open .nav-menu-btn svg { transform: rotate(540deg); }
     /* The private glyph replaces the plus; no spin animation is needed. */
 
-    #nav-search svg { transition: transform .35s cubic-bezier(0.4, 0, 1, 1); }
     .bottom-bar.search-open {
       width: 58px; background: transparent; border-color: transparent; box-shadow: none;
       -webkit-backdrop-filter: none; backdrop-filter: none;
-      transform: translate(calc(-50% + var(--sx, 0px)), var(--sy, 0px));
     }
     .bottom-bar.search-open .nav-set { padding: 0; }
     .bottom-bar.search-open #nav-tabs,
@@ -3317,8 +3314,6 @@
       const targetX = finalLeft + offX + finalInputWidth - 36;
       const targetY = finalTop + offY + input.height / 2;
       const closedY = phone.bottom - borderBottom - 18 - size / 2;
-      bar.style.setProperty('--sx', (targetX - phoneCenterX) + 'px');
-      bar.style.setProperty('--sy', (targetY - closedY) + 'px');
     }
     function openSearch(prefill) {
       // Search can be opened from the tab switcher too: dismissing the previews

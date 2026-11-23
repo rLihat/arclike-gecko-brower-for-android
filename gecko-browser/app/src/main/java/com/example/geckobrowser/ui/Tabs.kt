@@ -184,7 +184,7 @@ fun TabSwitcher(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                gridItems(entries, key = { it?.id ?: -1L }) { entry ->
+                gridItems(entries, key = { it?.id ?: -1L }, span = { GridItemSpan(if (it == null) 2 else 1) }) { entry ->
                     if (entry == null) {
                         Text(
                             "PRIVATE",

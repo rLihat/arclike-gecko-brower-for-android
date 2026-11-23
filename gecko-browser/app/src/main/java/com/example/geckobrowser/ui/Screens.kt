@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -381,12 +382,8 @@ fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 }
             },
         )
-        GlassSearchPill(
-            value = query,
-            placeholder = "Search downloads",
-            onChange = { query = it },
-            modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
-        )
+        Box(Modifier.weight(1f).fillMaxWidth().imePadding()) {
+            Column(Modifier.fillMaxSize()) {
 
 
         Column(
@@ -421,6 +418,14 @@ fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 }
             }
         }
+            GlassSearchPill(
+                value = query,
+                placeholder = "Search downloads",
+                onChange = { query = it },
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp),
+            )
+        }
+    }
     }
     val ids = pendingDelete
     if (ids != null) {

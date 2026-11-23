@@ -944,7 +944,7 @@ private fun ChromeOverlay(
         val extensionsChipVisible = overlay == Overlay.Menu
         ExtensionChip(
             visible = extensionsChipVisible,
-            onClick = { vm.openExtensionMenu() },
+            onClick = { vm.openAccount() },
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 6.dp, bottom = 24.dp),
@@ -1297,12 +1297,7 @@ private fun ExtensionChip(
                 .clickable { onClick() },
             contentAlignment = Alignment.Center,
         ) {
-            Glyph(
-                Ico.puzzle,
-                c.text,
-                size = 24.dp,
-                strokeWidth = 1.9f,
-            )
+            PillAvatar("M", 26.dp)
         }
     }
 }
@@ -2608,22 +2603,22 @@ private fun BoxScope.NavPill(
 
     val targetW = when (mode) {
         PillMode.Compact -> chipWidth.coerceIn(minChip, maxChip)
-        PillMode.Search -> 58.dp
+        PillMode.Search -> screenW * 0.7f
         else -> screenW * 0.7f
     }
     val targetH = if (mode == PillMode.Compact) 34.dp else 58.dp
     val targetBottom = when (mode) {
         PillMode.Compact -> 9.dp
-        PillMode.Search -> searchBottom
+        PillMode.Search -> 18.dp
         else -> 18.dp
     }
-    val targetX = if (mode == PillMode.Search) searchX else 0.dp
+    val targetX = 0.dp
 
     val w by animateDpAsState(targetW, tween(380, easing = morphEasing), label = "pillW")
     val h by animateDpAsState(targetH, tween(380, easing = morphEasing), label = "pillH")
     val bottom by animateDpAsState(targetBottom, tween(380, easing = morphEasing), label = "pillBottom")
     val x by animateDpAsState(targetX, tween(380, easing = morphEasing), label = "pillX")
-    val alpha by animateFloatAsState(if (visible) 1f else 0f, tween(160), label = "pillAlpha")
+    val alpha by animateFloatAsState(if (visible && !searchMode) 1f else 0f, tween(160), label = "pillAlpha")
     // Keep the last accent so the underglow fades out on an empty tab instead
     // of snapping off.
     var lastGlow by remember { mutableStateOf<Color?>(null) }
@@ -2752,7 +2747,7 @@ private fun BoxScope.NavPill(
                         horizontalArrangement = Arrangement.SpaceEvenly,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        PillButton(onClick = { vm.openAccount() }) { PillAvatar("M", 26.dp) }
+                        PillButton(onClick = { vm.openExtensionMenu() }) { Glyph(Ico.puzzle, c.text, size = 24.dp, strokeWidth = 1.9f) }
                         PillButton(onClick = { vm.openSettings() }) {
                             Glyph(Ico.cog, c.text, size = 24.dp, strokeWidth = 1.9f)
                         }
