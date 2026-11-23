@@ -418,12 +418,14 @@ fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 }
             }
         }
-            GlassSearchPill(
-                value = query,
-                placeholder = "Search downloads",
-                onChange = { query = it },
-                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp),
-            )
+            Box(Modifier.fillMaxSize()) {
+                GlassSearchPill(
+                    value = query,
+                    placeholder = "Search downloads",
+                    onChange = { query = it },
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 18.dp),
+                )
+            }
         }
     }
     }
