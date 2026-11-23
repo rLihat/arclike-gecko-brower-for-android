@@ -2621,7 +2621,11 @@ private fun BoxScope.NavPill(
     val h by animateDpAsState(targetH, tween(380, easing = morphEasing), label = "pillH")
     val bottom by animateDpAsState(targetBottom, tween(380, easing = morphEasing), label = "pillBottom")
     val x by animateDpAsState(targetX, tween(380, easing = morphEasing), label = "pillX")
-    val alpha by animateFloatAsState(if (visible && !searchMode) 1f else 0f, tween(160), label = "pillAlpha")
+    val alpha by animateFloatAsState(
+        if (showNewTabChooser) 1f else (if (visible && !searchMode) 1f else 0f),
+        tween(160),
+        label = "pillAlpha",
+    )
     // Keep the last accent so the underglow fades out on an empty tab instead
     // of snapping off.
     var lastGlow by remember { mutableStateOf<Color?>(null) }
