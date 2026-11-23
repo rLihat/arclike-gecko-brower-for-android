@@ -19,8 +19,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.layout.Arrangement
@@ -544,7 +544,6 @@ fun Modifier.swipeActions(
 }
 
 @Composable
-@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 fun PillButton(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
@@ -553,7 +552,6 @@ fun PillButton(
     onSwipeLeft: (() -> Unit)? = null,
     onSwipeRight: (() -> Unit)? = null,
     strictHorizontal: Boolean = false,
-    detectSwipes: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val c = LocalArc.current
@@ -562,20 +560,29 @@ fun PillButton(
         Modifier
             .size(46.dp)
             .clip(CircleShape)
-            .then(if (detectSwipes) {
-                Modifier.swipeActions(
-                    onUp = onSwipeUp,
-                    onDown = onSwipeDown,
-                    onLeft = onSwipeLeft,
-                    onRight = onSwipeRight,
-                    strictHorizontal = strictHorizontal,
-                )
-            } else Modifier)
-            .combinedClickable(
+            .pointerInput(Unit) {
+                if (onLongClick != null) {
+                    detectTapGestures(onLongPress = {
+                        longFired = true
+                        onLongClick()
+                    })
+                }
+            }
+            .swipeActions(
+                onUp = onSwipeUp,
+                onDown = onSwipeDown,
+                onLeft = onSwipeLeft,
+                onRight = onSwipeRight,
+                strictHorizontal = strictHorizontal,
+            )
+            .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = onClick,
-                onLongClick = onLongClick,
+                onClick = {
+                    // The release after a long press can still look like a click;
+                    // swallow it so the chooser is not replaced by a search.
+                    if (longFired) longFired = false else onClick()
+                },
             ),
         contentAlignment = Alignment.Center,
     ) { content() }
