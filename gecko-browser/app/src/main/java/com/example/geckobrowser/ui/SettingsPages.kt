@@ -506,29 +506,10 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
                                         Modifier
                                             .size(14.dp)
                                             .clip(RoundedCornerShape(4.dp))
-                                            .background(
-                                                Brush.linearGradient(
-                                                    listOf(
-                                                        Color.White.copy(alpha = 0.30f),
-                                                        c.surface.copy(alpha = 0.55f),
-                                                        Color.White.copy(alpha = 0.12f),
-                                                    )
-                                                )
-                                            )
-                                            .border(
-                                                1.dp,
-                                                Color.White.copy(alpha = 0.40f),
-                                                RoundedCornerShape(4.dp),
-                                            ),
-                                    ) {
-                                        Box(
-                                            Modifier
-                                                .align(Alignment.TopStart)
-                                                .fillMaxWidth()
-                                                .height(1.dp)
-                                                .background(Color.White.copy(alpha = 0.55f)),
-                                        )
-                                    }
+                                            .background(c.navSurface)
+                                            .then(rememberGlass(c.navSurface, fps = 15, maxEdge = 170, radius = 6))
+                                            .border(1.dp, c.stroke, RoundedCornerShape(4.dp)),
+                                    )
                                     Spacer(Modifier.width(5.dp))
                                     Text(
                                         "V1",

@@ -1,4 +1,4 @@
-package com.example.geckobrowser
+﻿package com.example.geckobrowser
 
 import android.Manifest
 import android.app.Application
@@ -3755,7 +3755,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun dismissPrivateNotice() {
         privateNotice = false
-        closePrivateTabs()
+        // Swiping the notification away only hides the notice; tabs stay open.
     }
 
     var closePrivateConfirm by mutableStateOf(false)

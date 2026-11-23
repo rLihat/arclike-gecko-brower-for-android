@@ -23,6 +23,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -270,11 +272,13 @@ class DownloadService : Service() {
                 }
                 val stream = input ?: throw IOException("No response stream")
                 output = FileOutputStream(part, append)
+                activeStreams[id] = stream to output
                 val buffer = ByteArray(64 * 1024)
                 var written = startOffset
                 var lastUi = 0L
                 var lastNote = 0L
                 while (true) {
+                    currentCoroutineContext().ensureActive()
                     val read = stream.read(buffer)
                     if (read < 0) break
                     output.write(buffer, 0, read)
@@ -321,6 +325,7 @@ class DownloadService : Service() {
                 } catch (_: Throwable) {
                     // The stream is already gone.
                 }
+                activeStreams.remove(id)
                 jobs.remove(id)
                 stopIfIdle()
             }
@@ -414,6 +419,12 @@ class DownloadService : Service() {
     private fun pauseDownload(id: Long) {
         DownloadCenter.update(id) {
             if (it.status == DownloadStatus.Downloading) it.copy(status = DownloadStatus.Paused) else it
+        }
+        // Closing the streams unblocks a read() that may otherwise never return.
+        // The status is already Paused, so the error handler won't flip it to Failed.
+        activeStreams.remove(id)?.let { (input, output) ->
+            runCatching { output.close() }
+            runCatching { input.close() }
         }
         jobs.remove(id)?.cancel()
         DownloadCenter.persistAsync(applicationContext)
@@ -572,6 +583,7 @@ class DownloadService : Service() {
         data class DownloadRequest(val name: String, val mime: String, val url: String, val size: Long)
 
         private val requests = ConcurrentHashMap<Long, DownloadRequest>()
+        private val activeStreams = ConcurrentHashMap<Long, Pair<InputStream, OutputStream>>()
         private val handedOff = ConcurrentHashMap<Long, InputStream>()
 
         /** Queues a download and starts the foreground service for it. */

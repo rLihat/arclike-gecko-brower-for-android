@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -52,6 +53,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
@@ -278,6 +281,46 @@ object Ico {
     val cog = IcoCog
 }
 
+/** The glass search field used by settings, history and downloads. */
+@Composable
+fun GlassSearchPill(
+    value: String,
+    placeholder: String,
+    onChange: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val c = LocalArc.current
+    Box(
+        modifier
+            .fillMaxWidth(0.7f)
+            .height(58.dp)
+            .clip(RoundedCornerShape(29.dp))
+            .background(c.navSurface)
+            .then(rememberGlass(c.navSurface, fps = 20, maxEdge = 170, radius = 6)),
+    ) {
+        if (LocalFrost.current && LocalHazeState.current != null) GlassFill(dark = c.dark)
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Glyph(Ico.search, c.muted, size = 18.dp, strokeWidth = 2f)
+            Spacer(Modifier.width(10.dp))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                if (value.isEmpty()) {
+                    Text(placeholder, color = c.muted, fontSize = 14.sp)
+                }
+                BasicTextField(
+                    value = value,
+                    onValueChange = onChange,
+                    singleLine = true,
+                    textStyle = TextStyle(color = c.text, fontSize = 14.sp),
+                    cursorBrush = SolidColor(c.accent),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+    }
+}
 /* -------------------------------------------------------- download tiles */
 
 enum class FileKind { Zip, Pdf, Image, Xpi, Other }

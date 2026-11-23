@@ -321,12 +321,13 @@ fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
     var selected by remember { mutableStateOf(emptySet<Long>()) }
     var pendingDelete by remember { mutableStateOf<Set<Long>?>(null) }
     var alsoDeleteFile by remember { mutableStateOf(true) }
-    val active = vm.downloads.filter { it.status == DownloadStatus.Downloading }
-    val paused = vm.downloads.filter { it.status == DownloadStatus.Paused }
+    var query by remember { mutableStateOf("") }
+    val active = vm.downloads.filter { it.status == DownloadStatus.Downloading && it.name.contains(query, ignoreCase = true) }
+    val paused = vm.downloads.filter { it.status == DownloadStatus.Paused && it.name.contains(query, ignoreCase = true) }
     val finished = vm.downloads.filter {
         it.status == DownloadStatus.Done ||
             it.status == DownloadStatus.Failed ||
-            it.status == DownloadStatus.Canceled
+            it.status == DownloadStatus.Canceled && it.name.contains(query, ignoreCase = true)
     }
 
     ScreenHaze(enabled = LocalFrost.current) {
@@ -380,6 +381,13 @@ fun DownloadsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 }
             },
         )
+        GlassSearchPill(
+            value = query,
+            placeholder = "Search downloads",
+            onChange = { query = it },
+            modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 8.dp),
+        )
+
 
         Column(
             Modifier

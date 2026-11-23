@@ -199,8 +199,8 @@
     .bottom-bar .nav-btn { transition: transform .3s cubic-bezier(0.4, 0, 1, 1), opacity .25s ease, width .35s cubic-bezier(0.4, 0, 1, 1), margin .35s cubic-bezier(0.4, 0, 1, 1); }
     .nav-menu-btn svg { transition: transform .35s cubic-bezier(0.4, 0, 1, 1); }
     .bottom-bar.menu-open .nav-menu-btn svg { transform: rotate(540deg); }
-    /* The + cross spins back into view when the menu closes, same direction as the arrow */
-    .bottom-bar.menu-open #nav-search svg { transform: rotate(315deg); }
+    /* The private glyph replaces the plus; no spin animation is needed. */
+
     #nav-search svg { transition: transform .35s cubic-bezier(0.4, 0, 1, 1); }
     .bottom-bar.search-open {
       width: 58px; background: transparent; border-color: transparent; box-shadow: none;
@@ -212,7 +212,7 @@
     .bottom-bar.search-open .nav-menu-btn {
       opacity: 0; width: 0; margin: 0; pointer-events: none; overflow: hidden;
     }
-    .bottom-bar.search-open #nav-search svg { transform: rotate(315deg); }
+
     .nav-btn {
       width: 46px; height: 46px; border: none; background: transparent; color: var(--text); border-radius: 23px; cursor: pointer;
       display: flex; align-items: center; justify-content: center; padding: 0; touch-action: none;

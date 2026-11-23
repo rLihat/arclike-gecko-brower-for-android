@@ -2631,8 +2631,8 @@ private fun BoxScope.NavPill(
     val glowAlpha by animateFloatAsState(if (glow != null) 1f else 0f, tween(240), label = "pillGlow")
 
     val chevronRotation by animateFloatAsState(if (menuMode) 540f else 0f, tween(380), label = "chev")
-    // The + spins 315° into the × that closes the search field.
-    val searchRotation by animateFloatAsState(if (searchMode) 315f else 0f, tween(380), label = "spin")
+    // Private tabs use the ghost glyph; the old plus-to-X spin is gone.
+
     // In the menu the pill stays visible as a capsule in the sheet's base:
     // chip fill and a hairline stroke, handed over slowly.
     val capsuleBg by animateColorAsState(
@@ -2803,8 +2803,8 @@ private fun BoxScope.NavPill(
                                 }
                             },
                             onSwipeUp = {
-                                if (vm.overlay == Overlay.Tabs || vm.tabs.isEmpty()) vm.openNewTabSearch()
-                                else vm.openMenu()
+                                vm.openMenu()
+                                
                             },
                             onSwipeDown = { vm.closeOverlay() },
                             onSwipeLeft = { if (vm.tabs.size > 1) { vm.switchTab(1); if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress) } },

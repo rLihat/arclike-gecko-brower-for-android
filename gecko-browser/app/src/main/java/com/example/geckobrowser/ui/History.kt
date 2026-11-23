@@ -134,39 +134,12 @@ fun HistoryScreen(vm: BrowserViewModel, onBack: () -> Unit) {
             },
         )
 
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp)
-                .padding(top = 4.dp)
-                .height(42.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .background(c.menuCard)
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Glyph(Ico.find, c.muted, size = 16.dp, strokeWidth = 2f)
-            Spacer(Modifier.width(9.dp))
-            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-                if (query.isEmpty()) {
-                    Text("Search history", color = c.muted, fontSize = 13.sp)
-                }
-                BasicTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    singleLine = true,
-                    textStyle = TextStyle(color = c.text, fontSize = 13.sp),
-                    cursorBrush = SolidColor(c.accent),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            if (query.isNotEmpty()) {
-                Box(
-                    Modifier.size(22.dp).clip(CircleShape).clickable { query = "" },
-                    contentAlignment = Alignment.Center,
-                ) { Glyph(Ico.close, c.muted, size = 12.dp, strokeWidth = 2.2f) }
-            }
-        }
+        GlassSearchPill(
+            value = query,
+            placeholder = "Search history",
+            onChange = { query = it },
+            modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp),
+        )
 
         if (clearing && hasHistory) {
             Column(

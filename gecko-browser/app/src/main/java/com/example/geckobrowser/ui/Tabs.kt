@@ -29,12 +29,15 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.rememberScrollbarAdapter
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.VerticalScrollbar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -86,6 +89,7 @@ fun TabSwitcher(
     val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
     val tabs = vm.tabs
     val state = rememberLazyListState()
+    val gridState = rememberLazyGridState()
     val activeIndex = tabs.indexOfFirst { it.id == vm.activeId }.coerceAtLeast(0)
     var grid by remember { mutableStateOf(false) }
     var selecting by remember { mutableStateOf(false) }
@@ -167,9 +171,11 @@ fun TabSwitcher(
                     }
                 }
             }
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize().padding(top = 56.dp, bottom = 76.dp),
+            Box(Modifier.fillMaxSize().padding(top = 56.dp, bottom = 76.dp)) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    state = gridState,
+                    modifier = Modifier.fillMaxSize(),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(
                     start = 16.dp, end = 16.dp, top = 0.dp, bottom = 16.dp,
                 ),
@@ -211,6 +217,11 @@ fun TabSwitcher(
                         )
                     }
                 }
+            }
+                VerticalScrollbar(
+                    adapter = rememberScrollbarAdapter(gridState),
+                    modifier = Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(end = 2.dp),
+                )
             }
         } else {
             LazyRow(
