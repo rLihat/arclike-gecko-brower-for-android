@@ -544,6 +544,7 @@ fun Modifier.swipeActions(
 }
 
 @Composable
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 fun PillButton(
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null,
