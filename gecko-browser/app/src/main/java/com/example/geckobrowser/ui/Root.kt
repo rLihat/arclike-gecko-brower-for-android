@@ -2804,13 +2804,10 @@ private fun BoxScope.NavPill(
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                 }
                             },
-                            onSwipeUp = {
-                                vm.openMenu()
-                                
-                            },
                             onSwipeDown = { vm.closeOverlay() },
                             onSwipeLeft = { if (vm.tabs.size > 1) { vm.switchTab(1); if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress) } },
                             onSwipeRight = { if (vm.tabs.size > 1) { vm.switchTab(-1); if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress) } },
+                            detectSwipes = false,
                         ) {
                             if (vm.pipLoading) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
