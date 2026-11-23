@@ -2842,58 +2842,62 @@ private fun BoxScope.NavPill(
                 }
             }
         }
-        Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 20.dp),
-        ) {
+            
+}
+        Box(Modifier.fillMaxSize()) {
             AnimatedVisibility(
                 visible = showNewTabChooser,
                 enter = popupEnter(reduceMotion),
                 exit = popupExit(reduceMotion),
+                modifier = Modifier.fillMaxSize(),
             ) {
-                Row(
+                // Mockup style: the plus-pill chip, "New tab" and the purple
+                // "Private tab" — the chooser lives in a download-popup-style
+                // overlay sibling of the pill, tap outside to dismiss.
+                Box(
                     Modifier
-                        .fillMaxWidth(0.7f)
-                        .height(54.dp)
-                        .clip(RoundedCornerShape(27.dp))
-                        .background(c.menuCard)
-                        .then(rememberGlass(c.navSurface, fps = 15))
-                        .border(1.dp, c.stroke, RoundedCornerShape(27.dp)),
-                    verticalAlignment = Alignment.CenterVertically,
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 20.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { showNewTabChooser = false },
                 ) {
-                    Box(
+                    Row(
                         Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(c.chip),
-                        contentAlignment = Alignment.Center,
-                    ) { Glyph(Ico.plus, c.text, size = 17.dp, strokeWidth = 2.2f) }
-                    Spacer(Modifier.width(9.dp))
-                    Text(
-                        "New tab", color = c.text, fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clickable { vm.createTab(false); showNewTabChooser = false },
-                    )
-                    Box(Modifier.width(1.dp).height(22.dp).background(c.hairline))
-                    Spacer(Modifier.width(9.dp))
-                    Text(
-                        "Private tab", color = privatePurple, fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clickable { vm.createTab(true); showNewTabChooser = false },
-                    )
+                            .fillMaxWidth(0.7f)
+                            .height(54.dp)
+                            .clip(RoundedCornerShape(27.dp))
+                            .background(c.menuCard)
+                            .then(rememberGlass(c.navSurface, fps = 15))
+                            .border(1.dp, c.stroke, RoundedCornerShape(27.dp)),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            Modifier
+                                .size(36.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(c.chip),
+                            contentAlignment = Alignment.Center,
+                        ) { Glyph(Ico.plus, c.text, size = 17.dp, strokeWidth = 2.2f) }
+                        Spacer(Modifier.width(9.dp))
+                        Text(
+                            "New tab", color = c.text, fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable { vm.createTab(false); showNewTabChooser = false },
+                        )
+                        Box(Modifier.width(1.dp).height(22.dp).background(c.hairline))
+                        Spacer(Modifier.width(9.dp))
+                        Text(
+                            "Private tab", color = privatePurple, fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.clickable { vm.createTab(true); showNewTabChooser = false },
+                        )
+                    }
                 }
             }
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                    ) { showNewTabChooser = false },
-            )
         }
-}
+
 }
 
 private fun hostLetter(tab: TabInfo): String {
