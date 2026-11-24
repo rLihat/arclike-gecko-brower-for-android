@@ -1554,7 +1554,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 // http/https links may be verified/default-handleable by an installed
                 // app (App Links). Firefox opens those in the app; we do the same.
                 if (scheme == "http" || scheme == "https") {
-                    if (openLinksMode != "off") {
+                    // App Links are for links the user tapped inside a page. A
+                    // direct load (search, typed URL, reload) must stay in this
+                    // GeckoView: on phones with an app registered for the
+                    // engine's host we were handing the search to that app and
+                    // denying the load, which left a brand-new blank tab.
+                    if (!request.isDirectNavigation && openLinksMode != "off") {
                         val app = appNameForLink(raw)
                         if (app != null) {
                             if (openLinksMode == "on") {
@@ -1564,7 +1569,6 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                             }
                             return GeckoResult.deny()
                         }
-                        return GeckoResult.allow()
                     }
                     return GeckoResult.allow()
                 }
