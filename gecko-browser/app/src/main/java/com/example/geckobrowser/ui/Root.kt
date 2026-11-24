@@ -796,7 +796,9 @@ private fun ChromeOverlay(
             ) {
                 // The frosted page lives only inside the panel's rounded clip.
                 // Its translucent tint sits above the snapshot, so the rest of
-                // the window keeps the live, sharp page.
+                // the window keeps the live, sharp page. Without a snapshot the
+                // panel must still be opaque: a translucent tint over the live
+                // page turned the sheet's text into a layer cake.
                 if (!closing && frostOn && lastSheet in frostedSheets) {
                     val frozen = backdrop
                     if (frozen != null) {
@@ -806,8 +808,10 @@ private fun ChromeOverlay(
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize(),
                         )
+                        Box(Modifier.fillMaxSize().background(c.sheetFrost))
+                    } else {
+                        Box(Modifier.fillMaxSize().background(c.sheet))
                     }
-                    Box(Modifier.fillMaxSize().background(c.sheetFrost))
                 }
                 Box(
                     Modifier
@@ -914,6 +918,63 @@ private fun ChromeOverlay(
                 },
                 onBounds = { pillRect = it },
             )
+        }
+
+        // Plus long-press chooser. It lives outside the pill so hiding the pill
+        // cannot take the chooser down with it; a full-screen tap-catcher
+        // dismisses it and the chip sits directly above where the pill was.
+        if (vm.plusChooserOpen) {
+            val privatePurpleChooser = Color(0xFF9059FF)
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                    ) { vm.plusChooserOpen = false },
+            ) {
+                Row(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 22.dp)
+                        .fillMaxWidth(0.86f)
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(26.dp))
+                        .background(c.menuCard)
+                        .then(rememberGlass(c.navSurface, fps = 15))
+                        .border(1.dp, c.stroke, RoundedCornerShape(26.dp))
+                        .padding(horizontal = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(20.dp))
+                            .clickable {
+                                vm.plusChooserOpen = false
+                                vm.createTab(false)
+                            }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("New tab", color = c.text, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Box(Modifier.width(1.dp).height(22.dp).background(c.hairline))
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(20.dp))
+                            .clickable {
+                                vm.plusChooserOpen = false
+                                vm.createTab(true)
+                            }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("Private tab", color = privatePurpleChooser, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
         }
 
         // The live download chip sits in the free gutter beside the 70% pill.
@@ -2847,57 +2908,7 @@ private fun BoxScope.NavPill(
                 }
             }
         }
-            
-}
-        // Plus long-press chooser: a full-screen tap-catcher with the chip
-        // anchored to the bottom, directly above the nav pill.
-        if (vm.plusChooserOpen) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                    ) { vm.plusChooserOpen = false },
-            ) {
-                Row(
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(bottom = 22.dp)
-                        .fillMaxWidth(0.86f)
-                        .height(52.dp)
-                        .clip(RoundedCornerShape(26.dp))
-                        .background(c.menuCard)
-                        .then(rememberGlass(c.navSurface, fps = 15))
-                        .border(1.dp, c.stroke, RoundedCornerShape(26.dp))
-                        .padding(horizontal = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(20.dp))
-                            .clickable { vm.createTab(false); vm.plusChooserOpen = false }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("New tab", color = c.text, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                    Box(Modifier.width(1.dp).height(22.dp).background(c.hairline))
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(20.dp))
-                            .clickable { vm.createTab(true); vm.plusChooserOpen = false }
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("Private tab", color = privatePurple, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-        }
-
+    }
 }
 
 private fun hostLetter(tab: TabInfo): String {

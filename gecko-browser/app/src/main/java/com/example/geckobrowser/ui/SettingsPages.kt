@@ -642,6 +642,12 @@ private fun SearchPreferencesPage(vm: BrowserViewModel) {
         SectionLabel("Preferences")
         SettingsGroup {
             SettingsRow(
+                "Containers",
+                icon = { Glyph(Ico.userCog, c.text, size = 19.dp, strokeWidth = 1.8f) },
+                value = vm.containers.size.toString(),
+                onClick = { vm.updateSettingsRoute("containers") },
+            )
+            SettingsRow(
                 "Open links in apps",
                 icon = { Glyph(Ico.open, c.text, size = 19.dp, strokeWidth = 1.9f) },
                 value = when (vm.openLinksMode) {
@@ -1012,7 +1018,7 @@ fun ContainersPreferencesPage(vm: BrowserViewModel) {
             leading = {
                 Box(
                     Modifier.size(34.dp).clip(CircleShape)
-                        .clickable { vm.updateSettingsRoute("hub") },
+                        .clickable { vm.updateSettingsRoute("search") },
                     contentAlignment = Alignment.Center,
                 ) { Glyph(Ico.chevronLeft, c.text, size = 20.dp, strokeWidth = 2.2f) }
             },

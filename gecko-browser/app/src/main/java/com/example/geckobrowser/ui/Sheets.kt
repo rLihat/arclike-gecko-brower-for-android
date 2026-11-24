@@ -12,6 +12,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,14 +20,21 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -1457,6 +1465,70 @@ private fun MenuItem(c: ArcColors, text: String, color: Color = Color.Unspecifie
 
 /** Open-tabs section shown when the sheet is expanded. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
+/**
+ * Swipe a row sideways to delete it, with the red wash + trash hint that the
+ * downloads list uses. The row slides out before the delete lands, so the list
+ * never jumps while the finger is still on the glass.
+ */
+@Composable
+private fun SwipeDismissTab(
+    key: Any,
+    c: ArcColors,
+    onDismiss: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val offsetX = remember(key) { Animatable(0f) }
+    val density = LocalDensity.current
+    val threshold = with(density) { 72.dp.toPx() }
+    val exit = with(density) { 320.dp.toPx() }
+    val progress = (kotlin.math.abs(offsetX.value) / threshold).coerceIn(0f, 1f)
+
+    Box(Modifier.fillMaxWidth()) {
+        Box(
+            Modifier
+                .matchParentSize()
+                .clip(RoundedCornerShape(12.dp))
+                .background(c.press.copy(alpha = 0.16f * progress)),
+        )
+        Box(
+            Modifier
+                .matchParentSize()
+                .padding(horizontal = 16.dp),
+            contentAlignment = if (offsetX.value < 0f) Alignment.CenterEnd else Alignment.CenterStart,
+        ) {
+            Glyph(Ico.trash, c.press, size = 18.dp, strokeWidth = 2f, modifier = Modifier.alpha(progress))
+        }
+        Box(
+            Modifier
+                .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+                .pointerInput(key) {
+                    detectHorizontalDragGestures(
+                        onHorizontalDrag = { change, drag ->
+                            change.consume()
+                            scope.launch {
+                                offsetX.snapTo((offsetX.value + drag).coerceIn(-exit, exit))
+                            }
+                        },
+                        onDragEnd = {
+                            if (kotlin.math.abs(offsetX.value) >= threshold) {
+                                val target = if (offsetX.value < 0f) -exit else exit
+                                scope.launch {
+                                    offsetX.animateTo(target, tween(160))
+                                    onDismiss()
+                                }
+                            } else {
+                                scope.launch { offsetX.animateTo(0f, tween(220)) }
+                            }
+                        },
+                        onDragCancel = { scope.launch { offsetX.animateTo(0f, tween(220)) } },
+                    )
+                },
+        ) { content() }
+    }
+}
+
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun OpenTabsSection(vm: BrowserViewModel, c: ArcColors) {
     val tabs = vm.activeSpaceTabs.filter { it.url.isNotBlank() }
@@ -1494,30 +1566,26 @@ private fun OpenTabsSection(vm: BrowserViewModel, c: ArcColors) {
             val host = BrowserViewModel.hostOf(tab.url)
             val active = tab.id == vm.activeId
             Box(Modifier.fillMaxWidth()) {
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .then(if (active) Modifier.border(2.dp, faviconAccent(host) ?: c.accent, RoundedCornerShape(12.dp)) else Modifier)
-                        .combinedClickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = { if (menuTab == null) vm.openTabOfSpace(vm.activeSpaceId, tab.id) },
-                            onLongClick = { menuTab = tab },
-                        )
-                        .swipeActions(
-                            onLeft = { vm.closeTab(tab.id) },
-                            onRight = { vm.closeTab(tab.id) },
-                            threshold = 56.dp,
-                            strictHorizontal = true,
-                        )
-                        .padding(horizontal = 12.dp, vertical = 11.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SiteFavicon(host, host.ifBlank { tab.title.take(1) }, 20.dp)
-                    Spacer(Modifier.width(8.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(tab.title.ifBlank { "New tab" }, color = c.text, fontSize = 14.sp, maxLines = 1)
+                SwipeDismissTab(key = tab.id, c = c, onDismiss = { vm.closeTab(tab.id) }) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .then(if (active) Modifier.border(2.dp, faviconAccent(host) ?: c.accent, RoundedCornerShape(12.dp)) else Modifier)
+                            .combinedClickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { if (menuTab == null) vm.openTabOfSpace(vm.activeSpaceId, tab.id) },
+                                onLongClick = { menuTab = tab },
+                            )
+                            .padding(horizontal = 12.dp, vertical = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        SiteFavicon(host, host.ifBlank { tab.title.take(1) }, 20.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(tab.title.ifBlank { "New tab" }, color = c.text, fontSize = 14.sp, maxLines = 1)
+                        }
                     }
                 }
                 if (menuTab?.id == tab.id) {
@@ -1577,6 +1645,7 @@ private fun TabContextMenu(vm: BrowserViewModel, tab: TabInfo, c: ArcColors, onD
         it.spaceId == vm.activeSpaceId && it.type == PinType.PIN &&
             it.deletedAt == null && vm.pinKeyOf(it.url) == key
     }
+    var folderMode by remember { mutableStateOf(false) }
     Popup(onDismissRequest = onDismiss, alignment = Alignment.TopStart) {
         Column(
             Modifier
@@ -1588,40 +1657,78 @@ private fun TabContextMenu(vm: BrowserViewModel, tab: TabInfo, c: ArcColors, onD
                 .border(1.dp, c.stroke, RoundedCornerShape(16.dp))
                 .padding(6.dp),
         ) {
-            Text(
-                title,
-                color = c.muted,
-                fontSize = 10.5.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 7.dp, bottom = 6.dp),
-            )
-            CtxRow(Ico.refresh, "Reload") {
-                vm.selectTab(tab.id); vm.reload(); onDismiss()
-            }
-            CtxRow(Ico.folder, "Add to folder") {
-                val folder = vm.pinNodes.firstOrNull {
-                    it.spaceId == vm.activeSpaceId && it.type == PinType.FOLDER && it.deletedAt == null
-                } ?: vm.createFolder(null)
-                if (folder != null) {
-                    vm.addPinNode(PinType.PIN, url = tab.url, title = title, parentId = folder.id)
-                    vm.showToast("Added to folder")
+            if (folderMode) {
+                // Step two: pick an existing folder or create a new one.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { folderMode = false }
+                        .padding(horizontal = 8.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Glyph(Ico.chevronLeft, c.muted, size = 15.dp, strokeWidth = 2.2f)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Add to folder", color = c.muted, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
                 }
-                onDismiss()
-            }
-            CtxRow(if (pinnedNode != null) Ico.pinOff else Ico.pin,
-                if (pinnedNode != null) "Unpin" else "Pin") {
-                if (pinnedNode != null) vm.deletePinNode(pinnedNode.id)
-                else vm.addPinNode(PinType.PIN, url = tab.url, title = title)
-                onDismiss()
-            }
-            CtxRow(Ico.sparkles, if (essential != null) "Remove from Essentials" else "Add to Essentials") {
-                if (essential != null) vm.removeEssential(essential.id)
-                else vm.createEssential(tab.url, title)
-                onDismiss()
-            }
-            CtxRow(Ico.close, "Remove", tint = c.press) {
-                vm.closeTab(tab.id); onDismiss()
+                val folders = vm.pinNodes
+                    .filter {
+                        it.spaceId == vm.activeSpaceId && it.type == PinType.FOLDER &&
+                            it.deletedAt == null
+                    }
+                    .sortedWith(compareBy({ it.depth }, { it.sortIndex }))
+                Column(Modifier.heightIn(max = 240.dp).verticalScroll(rememberScrollState())) {
+                    if (folders.isEmpty()) {
+                        Text(
+                            "No folders yet",
+                            color = c.muted, fontSize = 12.sp,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        )
+                    }
+                    folders.forEach { folder ->
+                        CtxRow(Ico.folder, folder.title.ifBlank { "Folder" }, indent = 10.dp * folder.depth) {
+                            vm.addPinNode(PinType.PIN, url = tab.url, title = title, parentId = folder.id)
+                            vm.showToast("Added to ${folder.title}")
+                            onDismiss()
+                        }
+                    }
+                }
+                Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
+                CtxRow(Ico.plus, "New folder") {
+                    val created = vm.createFolder(null)
+                    if (created != null) {
+                        vm.addPinNode(PinType.PIN, url = tab.url, title = title, parentId = created.id)
+                        vm.showToast("Added to folder")
+                    }
+                    onDismiss()
+                }
+            } else {
+                Text(
+                    title,
+                    color = c.muted,
+                    fontSize = 10.5.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 7.dp, bottom = 6.dp),
+                )
+                CtxRow(Ico.refresh, "Reload") {
+                    vm.selectTab(tab.id); vm.reload(); onDismiss()
+                }
+                CtxRow(Ico.folder, "Add to folder") { folderMode = true }
+                CtxRow(if (pinnedNode != null) Ico.pinOff else Ico.pin,
+                    if (pinnedNode != null) "Unpin" else "Pin") {
+                    if (pinnedNode != null) vm.deletePinNode(pinnedNode.id)
+                    else vm.addPinNode(PinType.PIN, url = tab.url, title = title)
+                    onDismiss()
+                }
+                CtxRow(Ico.sparkles, if (essential != null) "Remove from Essentials" else "Add to Essentials") {
+                    if (essential != null) vm.removeEssential(essential.id)
+                    else vm.createEssential(tab.url, title)
+                    onDismiss()
+                }
+                CtxRow(Ico.close, "Remove", tint = c.press) {
+                    vm.closeTab(tab.id); onDismiss()
+                }
             }
         }
     }
@@ -1632,6 +1739,7 @@ private fun CtxRow(
     icon: List<androidx.compose.ui.graphics.Path>,
     label: String,
     tint: Color? = null,
+    indent: androidx.compose.ui.unit.Dp = 0.dp,
     onClick: () -> Unit,
 ) {
     val c = LocalArc.current
@@ -1643,6 +1751,7 @@ private fun CtxRow(
             .padding(horizontal = 10.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        if (indent > 0.dp) Spacer(Modifier.width(indent))
         Glyph(icon, tint ?: c.muted, size = 17.dp, strokeWidth = 1.8f)
         Spacer(Modifier.width(10.dp))
         Text(label, color = c.text, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)

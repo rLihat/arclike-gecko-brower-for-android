@@ -82,8 +82,9 @@ class FxaSync(private val context: Context) {
         val profile = account().getProfile(false)
         prefs.edit().putString(KEY_EMAIL, profile.email).apply()
         true
-    } catch (e: FxaException) {
-        android.util.Log.e("HZ-FxA", "completeOauthFlow failed: ${e.message}", e)
+    } catch (e: Throwable) {
+        lastError = e.message ?: e.javaClass.simpleName
+        android.util.Log.e("HZ-FxA", "completeOauthFlow failed: $lastError", e)
         false
     }
 
@@ -153,7 +154,9 @@ class FxaSync(private val context: Context) {
 
     companion object {
         const val SCOPE_PROFILE = "profile"
-        const val SCOPE_OLDSYNC = "identity.mozilla.com/apps/oldsync"
+        // Firefox Accounts expects the full URL form; the bare host form is
+        // rejected by the authorization server ("Unexpected error").
+        const val SCOPE_OLDSYNC = "https://identity.mozilla.com/apps/oldsync"
         private const val COLLECTION_ID = "spaces"
         private const val RECORD_ID = "spaces"
         private const val KEY_STATE = "fxa_state"

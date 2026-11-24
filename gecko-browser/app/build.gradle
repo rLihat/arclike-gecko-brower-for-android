@@ -26,8 +26,8 @@ android {
         // Registered FxA OAuth client (Mozilla Android Components sample client
         // used as the dev default; replace with the app's registered client).
         buildConfigField "String", "FXA_CLIENT_ID", '"3c49430b43dfba77"'
-        // Registered redirect for the A-C reference client is scheme-less.
-        buildConfigField "String", "FXA_REDIRECT_URI", '"accounts.firefox.com/oauth/success/3c49430b43dfba77"'
+        // Registered redirect for the A-C reference client (absolute https URL).
+        buildConfigField "String", "FXA_REDIRECT_URI", '"https://accounts.firefox.com/oauth/success/3c49430b43dfba77"'
     }
 
     signingConfigs {

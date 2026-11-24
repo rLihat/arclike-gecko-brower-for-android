@@ -79,8 +79,17 @@ fun FxaSignInDialog(vm: BrowserViewModel) {
                                 val parsed = Uri.parse(u)
                                 val code = parsed.getQueryParameter("code")
                                 val state = parsed.getQueryParameter("state")
-                                if (code == null || state == null) return false
-                                vm.completeFxaSignIn(code, state)
+                                if (code != null && state != null) {
+                                    vm.completeFxaSignIn(code, state)
+                                    return true
+                                }
+                                // An error redirect (or a stray success page load)
+                                // should close the window instead of leaving the
+                                // user stuck on a provider error screen.
+                                val error = parsed.getQueryParameter("error_description")
+                                    ?: parsed.getQueryParameter("error")
+                                if (error != null) vm.fxaLastError = error
+                                vm.fxaAuthUrl = null
                                 return true
                             }
 

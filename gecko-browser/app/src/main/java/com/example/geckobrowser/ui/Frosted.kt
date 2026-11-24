@@ -50,7 +50,8 @@ internal class FrostScratch {
     internal var bitmap: Bitmap? = null
 
     internal fun release() {
-        bitmap?.recycle()
+        // A pending PixelCopy may still be writing into `bitmap`; recycling it
+        // here can kill RenderThread. Dropping the reference is enough.
         bitmap = null
         surface = null
     }
@@ -69,7 +70,7 @@ internal suspend fun captureFrost(
     maxEdge: Int = 220,
     radius: Int = 9,
 ): ImageBitmap? {
-    val frame = withTimeoutOrNull(220) {
+    val frame = withTimeoutOrNull(600) {
         val surface = findPageSurface(window.decorView)
         when {
             pageVisible && surface != null -> {
@@ -217,10 +218,11 @@ private suspend fun captureSurface(
         val handler = Handler(Looper.getMainLooper())
         try {
             PixelCopy.request(view, rect, bitmap, { result ->
-                if (!cont.isActive) {
-                    bitmap.recycle()
-                    return@request
-                }
+                // The request owns `bitmap` until this callback fires. Never
+                // recycle it here on a cancelled coroutine: RenderThread may
+                // still be writing into it, and freeing it first aborts the
+                // process ("cannot access an invalid/free'd bitmap").
+                if (!cont.isActive) return@request
                 if (result == PixelCopy.SUCCESS) {
                     cont.resume(bitmap)
                 } else {
@@ -232,7 +234,9 @@ private suspend fun captureSurface(
             bitmap.recycle()
             cont.resume(null)
         }
-        cont.invokeOnCancellation { bitmap.recycle() }
+        // A timeout cancels us while PixelCopy is pending; dropping the
+        // reference is safe (the request keeps the pixels alive), recycling is
+        // not.
     }
 }
 
@@ -250,10 +254,10 @@ private suspend fun captureWindow(window: Window): Bitmap? {
         val handler = Handler(Looper.getMainLooper())
         try {
             PixelCopy.request(window, bitmap, { result ->
-                if (!cont.isActive) {
-                    bitmap.recycle()
-                    return@request
-                }
+                // Same rule as captureSurface: PixelCopy may still be writing
+                // into `bitmap` when the coroutine is cancelled by the timeout,
+                // so let the request finish and the GC reclaim it.
+                if (!cont.isActive) return@request
                 if (result == PixelCopy.SUCCESS && !looksBlank(bitmap)) {
                     cont.resume(bitmap)
                 } else {
@@ -265,7 +269,6 @@ private suspend fun captureWindow(window: Window): Bitmap? {
             bitmap.recycle()
             cont.resume(null)
         }
-        cont.invokeOnCancellation { bitmap.recycle() }
     }
 }
 

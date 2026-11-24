@@ -259,8 +259,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     val activeSpaceTabs: List<TabInfo> get() = tabsOfSpace(tabs, activeSpaceId)
 
     /** Mozilla-account sync (spaces, essentials, pins — never passwords). */
-    val fxaSignedIn: Boolean get() = fxaSync.isSignedIn
-    val fxaEmail: String? get() = fxaSync.email
+    // `fxaSync` keeps its own state in prefs, which Compose cannot observe, so
+    // mirror the parts the UI needs in real snapshot state.
+    var fxaSignedIn by mutableStateOf(fxaSync.isSignedIn)
+        private set
+    var fxaEmail by mutableStateOf(fxaSync.email)
+        private set
     var syncStatus by mutableStateOf("Not synced")
 
     /** Set while the in-app sign-in WebView is open. */
@@ -284,6 +288,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             val ok = fxaSync.completeSignIn(code, state)
             withContext(Dispatchers.Main) {
                 fxaAuthUrl = null
+                fxaSignedIn = fxaSync.isSignedIn
+                fxaEmail = fxaSync.email
+                fxaLastError = fxaSync.lastError
                 syncStatus = if (ok) "Signed in" else "Sign-in failed"
                 showToast(if (ok) "Mozilla account connected" else "Could not sign in")
             }
@@ -311,6 +318,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun signOutFxa() {
         fxaSync.signOut()
+        fxaSignedIn = false
+        fxaEmail = null
+        fxaLastError = null
         syncStatus = "Not synced"
     }
 
@@ -3261,6 +3271,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             Intent.ACTION_VIEW -> {
                 val url = intent.dataString ?: return
                 if (fxaSync.handleIntent(intent.data)) {
+                    fxaSignedIn = fxaSync.isSignedIn
+                    fxaEmail = fxaSync.email
+                    fxaLastError = fxaSync.lastError
                     showToast("Mozilla account connected")
                     return
                 }
