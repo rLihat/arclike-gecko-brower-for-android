@@ -53,10 +53,14 @@
     border-radius: 30px 30px 0 0;
     box-shadow: var(--shadow);
     display: flex; flex-direction: column;
-    transition: height 440ms cubic-bezier(0.22,1,0.36,1), padding 320ms cubic-bezier(0.22,1,0.36,1);
+    transition: height 440ms cubic-bezier(0.22,1,0.36,1), padding 320ms cubic-bezier(0.22,1,0.36,1), border-radius 440ms;
   }
   .sheet.full { height: 100%; border-radius: 0; padding-top: 44px; }
   .sheet.full .handle { display: none; }
+  .sheet.full .field, .sheet.full .essentials { animation: content-lift 360ms cubic-bezier(0.22,1,0.36,1) both; }
+  .sheet.full .field { animation-delay: 20ms; }
+  .sheet.full .essentials { animation-delay: 70ms; }
+  @keyframes content-lift { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
   .handle { width: 36px; height: 4px; border-radius: 3px; background: rgba(0,0,0,0.18); margin: 0 auto 8px; cursor: pointer; }
 
   .field { position: relative; height: 54px; flex: 0 0 54px; display: flex; align-items: center; }
@@ -238,7 +242,7 @@
 </div>
 
 <p class="notes">
-  Zen-style sidebar in the <code>47%</code> search sheet; expanding the space card animates it to fill the screen and morphs the down chevron into an up arrow. The <code>Pins</code> header is plain text (no space name), starts collapsed and stays tappable. Open tabs have a text-only <code>Clear</code> button that always reads "Clear": first tap closes every tab except the current one, second tap closes that too. Hold a tab (or right-click) for Reload / Remove / Add to folder (with a create-folder option) / Pin or unpin / Add or remove to Essentials. In edit, the <code>🖌️</code> button and name field are one row (default name "Space"); the emoji row beneath is gone. Swipe switches space without a popup. Phase 1: no split view, glance, containers or network sync.
+  Zen-style sidebar in the <code>47%</code> search sheet; expanding the space card animates it to fill the screen and morphs the down chevron into an up arrow. The <code>Pins</code> header is plain text (no space name), starts collapsed and stays tappable. Open tabs have a text-only <code>Clear</code> button that always reads "Clear": first tap closes every tab except the current one, second tap closes that too. Hold a tab (or right-click) for Reload / Remove / Add to folder (with a create-folder option) / Pin (or Unpin, with the pin-off icon, when pinned) / Add to Essentials (or Remove from Essentials when already there) — labels and icons track state. In edit, the <code>🖌️</code> button and name field are one row (default name "Space"); the emoji row beneath is gone. Swipe switches space without a popup. Phase 1: no split view, glance, containers or network sync.
 </p>
 
 <script>
@@ -518,6 +522,8 @@ const CTX_ICONS = {
   remove: '<path d="M18 6 6 18M6 6l12 12"/>',
   folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
   pin: '<path d="M12 17v5"/><path d="M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.8a2 2 0 0 0-1.1-1.8l-1.8-.9A2 2 0 0 1 15 10.8V7a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2z"/>',
+  unpin: '<path d="M12 17v5"/><path d="M15 9.3V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H7.9"/><path d="m2 2 20 20"/><path d="M9 9v1.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V16a1 1 0 0 0 1 1h11"/>',
+  essentialOff: '<path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M3 3l18 18"/>',
   essential: '<path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M19 16l.7 1.8L21.5 18.5l-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/>',
   plus: '<path d="M5 12h14M12 5v14"/>',
   back: '<path d="m15 18-6-6 6-6"/>'
@@ -539,12 +545,15 @@ function openTabMenu(i, x, y) {
   const t = spaces[active].tabs[i];
   if (!t) return;
   tabTarget = i;
+  const folders = spaces[active].pins.filter(p => Array.isArray(p.children));
+  const pinned = folders.some(f => f.children.some(c => c[2] === t[2]));
+  const essential = ESSENTIALS.some(e => e[2] === t[2]);
   $('tabCtx').innerHTML = '<div class="ctx-head">' + t[2] + '</div>' +
     ctxRow('reload', 'Reload') +
     '<div class="ctx-sep"></div>' +
-    ctxRow('folder', 'Add to folder') +
-    ctxRow('pin', 'Pin / unpin') +
-    ctxRow('essential', 'Add / remove to Essentials') +
+    (folders.length ? ctxRow('folder', 'Add to folder') : ctxRow('newfolder', 'Create folder')) +
+    (pinned ? ctxRow('unpin', 'Unpin') : ctxRow('pin', 'Pin')) +
+    (essential ? ctxRow('essentialRemove', 'Remove from Essentials') : ctxRow('essential', 'Add to Essentials')) +
     '<div class="ctx-sep"></div>' +
     ctxRow('remove', 'Remove');
   placeCtx(x, y);
@@ -566,17 +575,16 @@ $('tabCtx').onclick = e => {
   const r = btn.getBoundingClientRect();
   if (act === 'reload') { hint('Reloaded ' + t[2]); closeTabMenu(); }
   else if (act === 'remove') { sp.tabs.splice(tabTarget,1); selectedTab = -1; hint('Tab removed'); closeTabMenu(); }
-  else if (act === 'pin') {
+  else if (act === 'pin' || act === 'unpin') {
     const folders = sp.pins.filter(p => Array.isArray(p.children));
-    const pinned = folders.some(f => f.children.some(c => c[2] === t[2]));
-    if (pinned) { folders.forEach(f => f.children = f.children.filter(c => c[2] !== t[2])); hint('Unpinned'); }
+    if (act === 'unpin') { folders.forEach(f => f.children = f.children.filter(c => c[2] !== t[2])); hint('Unpinned'); }
     else if (folders.length) { folders[0].children.push([t[0],t[1],t[2]]); hint('Pinned to ' + folders[0].t); }
     else hint('No folder to pin into');
     closeTabMenu();
-  } else if (act === 'essential') {
+  } else if (act === 'essential' || act === 'essentialRemove') {
     const at = ESSENTIALS.findIndex(en => en[2] === t[2]);
-    if (at >= 0) { ESSENTIALS.splice(at,1); hint('Removed from Essentials'); }
-    else { ESSENTIALS.push([t[0],t[1],t[2]]); hint('Added to Essentials'); }
+    if (act === 'essentialRemove') { if (at >= 0) ESSENTIALS.splice(at,1); hint('Removed from Essentials'); }
+    else { if (at < 0) ESSENTIALS.push([t[0],t[1],t[2]]); hint('Added to Essentials'); }
     closeTabMenu();
   } else if (act === 'folder') { openFolderMenu(r.left, r.top); }
   else if (act === 'back') { openTabMenu(tabTarget, r.left, r.top); }
