@@ -1015,7 +1015,7 @@ fun AccountScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     contentAlignment = Alignment.Center,
                 ) { Glyph(Ico.chevronLeft, c.text, size = 20.dp, strokeWidth = 2.2f) }
             },
-            icon = { PillAvatar("M", 24.dp) },
+            icon = { AccountAvatar(vm.fxaAvatar, vm.fxaEmail, 24.dp) },
         )
         Column(
             Modifier
@@ -1032,9 +1032,16 @@ fun AccountScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     .padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                PillAvatar("M", 62.dp)
+                AccountAvatar(vm.fxaAvatar, vm.fxaDisplayName ?: vm.fxaEmail, 62.dp)
                 Spacer(Modifier.height(12.dp))
-                Text(vm.fxaEmail ?: "Not signed in", color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    vm.fxaDisplayName?.takeIf { it.isNotBlank() } ?: vm.fxaEmail ?: "Not signed in",
+                    color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                )
+                if (!vm.fxaDisplayName.isNullOrBlank() && !vm.fxaEmail.isNullOrBlank()) {
+                    Spacer(Modifier.height(3.dp))
+                    Text(vm.fxaEmail ?: "", color = c.muted, fontSize = 12.sp)
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(if (vm.fxaSignedIn) "Signed in · spaces sync active" else "Sign in to sync Spaces across devices",
                     color = c.muted, fontSize = 12.sp)
@@ -1053,6 +1060,13 @@ fun AccountScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     }
                     Spacer(Modifier.height(8.dp))
                     Text(vm.syncStatus, color = c.muted, fontSize = 11.5.sp)
+                    vm.syncError?.let { err ->
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            err, color = Color(0xFFE05252), fontSize = 11.sp,
+                            textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 } else {
                     Box(
                         Modifier

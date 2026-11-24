@@ -33,6 +33,10 @@ class FxaSync(private val context: Context) {
 
     val email: String? get() = prefs.getString(KEY_EMAIL, null)
 
+    val avatarUrl: String? get() = prefs.getString(KEY_AVATAR, null)
+
+    val displayName: String? get() = prefs.getString(KEY_DISPLAY_NAME, null)
+
     val redirectUrl: String get() = BuildConfig.FXA_REDIRECT_URI
 
     var lastError: String? = null
@@ -79,8 +83,7 @@ class FxaSync(private val context: Context) {
     fun completeSignIn(code: String, state: String): Boolean = try {
         account().completeOauthFlow(code, state)
         saveState()
-        val profile = account().getProfile(false)
-        prefs.edit().putString(KEY_EMAIL, profile.email).apply()
+        refreshProfile()
         true
     } catch (e: Throwable) {
         lastError = e.message ?: e.javaClass.simpleName
@@ -88,11 +91,28 @@ class FxaSync(private val context: Context) {
         false
     }
 
+    /** Pulls email, display name and avatar URL into local prefs. */
+    fun refreshProfile() {
+        if (!isSignedIn) return
+        try {
+            val profile = account().getProfile(true)
+            prefs.edit()
+                .putString(KEY_EMAIL, profile.email)
+                .putString(KEY_DISPLAY_NAME, profile.displayName)
+                .putString(KEY_AVATAR, profile.avatar)
+                .apply()
+        } catch (e: Throwable) {
+            lastError = e.message ?: e.javaClass.simpleName
+            android.util.Log.e("HZ-FxA", "getProfile failed: $lastError", e)
+        }
+    }
+
     fun signOut() {
         try { account()?.disconnect() } catch (_: Throwable) {}
         account?.close()
         account = null
-        prefs.edit().remove(KEY_STATE).remove(KEY_EMAIL).remove(KEY_LAST_SYNC).apply()
+        prefs.edit().remove(KEY_STATE).remove(KEY_EMAIL).remove(KEY_AVATAR)
+            .remove(KEY_DISPLAY_NAME).remove(KEY_LAST_SYNC).apply()
     }
 
     private fun saveState() {
@@ -113,7 +133,11 @@ class FxaSync(private val context: Context) {
         if (!isSignedIn) return null
         return try {
             val info = account().getAccessToken(SCOPE_OLDSYNC, null)
-            val key = info.key?.k ?: return null
+            val key = info.key?.k ?: run {
+                lastError = "No sync key for this account"
+                android.util.Log.e("HZ-FxA", lastError)
+                return null
+            }
             val tokenServer = account().getTokenServerEndpointUrl().trimEnd('/')
             val collection = "workspaces"
             val syncId = COLLECTION_ID
@@ -147,7 +171,9 @@ class FxaSync(private val context: Context) {
             }
             lastSyncAt = System.currentTimeMillis()
             if (remote != null) SpaceSyncSnapshot.merge(snapshot, remote) else snapshot
-        } catch (_: Throwable) {
+        } catch (e: Throwable) {
+            lastError = e.message ?: e.javaClass.simpleName
+            android.util.Log.e("HZ-FxA", "sync failed: $lastError", e)
             null
         }
     }
@@ -161,6 +187,8 @@ class FxaSync(private val context: Context) {
         private const val RECORD_ID = "spaces"
         private const val KEY_STATE = "fxa_state"
         private const val KEY_EMAIL = "fxa_email"
+        private const val KEY_AVATAR = "fxa_avatar"
+        private const val KEY_DISPLAY_NAME = "fxa_display_name"
         private const val KEY_LAST_SYNC = "fxa_last_sync"
 
         private const val B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"

@@ -890,3 +890,43 @@ fun PillAvatar(text: String = "M", size: Dp = 26.dp) {
         Text(text, color = c.accent, fontSize = (size.value * 0.44f).sp, fontWeight = FontWeight.SemiBold)
     }
 }
+
+/** Mozilla-account portrait, falling back to the account initial. */
+@Composable
+fun AccountAvatar(url: String?, name: String?, size: Dp = 26.dp) {
+    val c = LocalArc.current
+    val bitmap by produceState<Bitmap?>(initialValue = null, url) {
+        value = if (url.isNullOrBlank()) null else withContext(Dispatchers.IO) {
+            runCatching {
+                val conn = URL(url).openConnection() as HttpURLConnection
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
+                conn.inputStream.use { BitmapFactory.decodeStream(it) }
+            }.getOrNull()
+        }
+    }
+    val image = bitmap?.asImageBitmap()
+    Box(
+        Modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(if (c.dark) Color(0xFF2E363B) else Color(0xFFE4E4E1)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (image != null) {
+            Image(
+                bitmap = image,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Text(
+                (name ?: "M").trim().take(1).uppercase(),
+                color = c.accent,
+                fontSize = (size.value * 0.44f).sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+    }
+}

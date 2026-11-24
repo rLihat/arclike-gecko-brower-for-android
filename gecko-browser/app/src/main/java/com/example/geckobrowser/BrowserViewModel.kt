@@ -265,7 +265,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var fxaEmail by mutableStateOf(fxaSync.email)
         private set
+    var fxaAvatar by mutableStateOf(fxaSync.avatarUrl)
+        private set
+    var fxaDisplayName by mutableStateOf(fxaSync.displayName)
+        private set
     var syncStatus by mutableStateOf("Not synced")
+    var syncError by mutableStateOf<String?>(null)
+        private set
 
     /** Set while the in-app sign-in WebView is open. */
     var fxaAuthUrl by mutableStateOf<String?>(null)
@@ -290,14 +296,25 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 fxaAuthUrl = null
                 fxaSignedIn = fxaSync.isSignedIn
                 fxaEmail = fxaSync.email
+                fxaAvatar = fxaSync.avatarUrl
+                fxaDisplayName = fxaSync.displayName
                 fxaLastError = fxaSync.lastError
-                syncStatus = if (ok) "Signed in" else "Sign-in failed"
+                syncStatus = if (ok) "Syncing…" else "Sign-in failed"
                 showToast(if (ok) "Mozilla account connected" else "Could not sign in")
+                // Signing in should visibly do something: push/pull spaces now
+                // instead of waiting for the user to find the Sync button.
+                if (ok) syncSpacesNow()
             }
         }
     }
 
     fun syncSpacesNow() {
+        if (!fxaSync.isSignedIn) {
+            syncStatus = "Not synced"
+            return
+        }
+        syncError = null
+        syncStatus = "Syncing…"
         scope.launch(Dispatchers.IO) {
             val snapshot = SpaceSyncSnapshot(spaces, essentials, pinNodes)
             val merged = fxaSync.syncNow(snapshot)
@@ -310,7 +327,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                     syncStatus = "Synced just now"
                     showToast("Spaces synced")
                 } else {
-                    syncStatus = if (fxaSignedIn) "Sync failed" else "Not synced"
+                    syncStatus = "Sync failed"
+                    syncError = fxaSync.lastError
                 }
             }
         }
@@ -320,7 +338,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         fxaSync.signOut()
         fxaSignedIn = false
         fxaEmail = null
+        fxaAvatar = null
+        fxaDisplayName = null
         fxaLastError = null
+        syncError = null
         syncStatus = "Not synced"
     }
 
@@ -1303,6 +1324,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         refreshExtensions()
         if (checkOnLaunch) checkForUpdates()
         bootstrappedState = true
+        if (fxaSync.isSignedIn) {
+            withContext(Dispatchers.IO) { fxaSync.refreshProfile() }
+            fxaEmail = fxaSync.email
+            fxaAvatar = fxaSync.avatarUrl
+            fxaDisplayName = fxaSync.displayName
+            fxaLastError = fxaSync.lastError
+            syncSpacesNow()
+        }
         pendingIntent?.let { pending ->
             pendingIntent = null
             handleIntent(pending)
@@ -3277,8 +3306,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 if (fxaSync.handleIntent(intent.data)) {
                     fxaSignedIn = fxaSync.isSignedIn
                     fxaEmail = fxaSync.email
+                    fxaAvatar = fxaSync.avatarUrl
+                    fxaDisplayName = fxaSync.displayName
                     fxaLastError = fxaSync.lastError
                     showToast("Mozilla account connected")
+                    syncSpacesNow()
                     return
                 }
                 val scheme = runCatching { Uri.parse(url).scheme?.lowercase(Locale.US) }.getOrNull()

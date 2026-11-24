@@ -181,11 +181,11 @@ private fun accountCard(vm: BrowserViewModel, c: ArcColors) {
             .padding(14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            PillAvatar("M", 40.dp)
+            AccountAvatar(vm.fxaAvatar, vm.fxaDisplayName ?: vm.fxaEmail, 40.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text("Mozilla account", color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                Text("Sync tabs, history & passwords", color = c.muted, fontSize = 12.sp)
+                Text("Sync spaces, pins & containers", color = c.muted, fontSize = 12.sp)
             }
             Glyph(Ico.chevronRight, c.muted, size = 16.dp, strokeWidth = 1.9f)
         }

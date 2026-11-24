@@ -1015,6 +1015,8 @@ private fun ChromeOverlay(
         ExtensionChip(
             visible = extensionsChipVisible,
             onClick = { vm.openAccount() },
+            avatarUrl = vm.fxaAvatar,
+            name = vm.fxaDisplayName ?: vm.fxaEmail,
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 6.dp, bottom = 24.dp),
@@ -1353,6 +1355,8 @@ private fun DownloadChip(
 private fun ExtensionChip(
     visible: Boolean,
     onClick: () -> Unit,
+    avatarUrl: String? = null,
+    name: String? = null,
     modifier: Modifier = Modifier,
 ) {
     val c = LocalArc.current
@@ -1368,7 +1372,7 @@ private fun ExtensionChip(
                 .clickable { onClick() },
             contentAlignment = Alignment.Center,
         ) {
-            PillAvatar("M", 26.dp)
+            AccountAvatar(avatarUrl, name, 26.dp)
         }
     }
 }
