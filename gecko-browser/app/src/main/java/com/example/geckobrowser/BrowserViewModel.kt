@@ -263,7 +263,30 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     val fxaEmail: String? get() = fxaSync.email
     var syncStatus by mutableStateOf("Not synced")
 
-    fun beginFxaSignIn(): String? = fxaSync.beginSignIn()
+    /** Set while the in-app sign-in WebView is open. */
+    var fxaAuthUrl by mutableStateOf<String?>(null)
+    val fxaRedirectUrl: String get() = fxaSync.redirectUrl
+
+    fun beginFxaSignIn() {
+        scope.launch(Dispatchers.IO) {
+            val url = fxaSync.beginSignIn()
+            withContext(Dispatchers.Main) {
+                fxaAuthUrl = url
+                if (url == null) showToast("Sign-in unavailable")
+            }
+        }
+    }
+
+    fun completeFxaSignIn(code: String, state: String) {
+        scope.launch(Dispatchers.IO) {
+            val ok = fxaSync.completeSignIn(code, state)
+            withContext(Dispatchers.Main) {
+                fxaAuthUrl = null
+                syncStatus = if (ok) "Signed in" else "Sign-in failed"
+                showToast(if (ok) "Mozilla account connected" else "Could not sign in")
+            }
+        }
+    }
 
     fun syncSpacesNow() {
         scope.launch(Dispatchers.IO) {
@@ -402,17 +425,31 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     /* ------------------------------------------------------------ essentials (phase 1) */
 
+    /** Essentials of the active space only — each space has its own row. */
     val essentialsSorted: List<Essential>
-        get() = essentials.filter { it.deletedAt == null }.sortedBy { it.sortIndex }
+        get() = essentials.filter { it.deletedAt == null && it.spaceId == activeSpaceId }
+            .sortedBy { it.sortIndex }
 
-    /** Adds an essential; false when the [Essential.MAX] cap is reached. */
-    fun createEssential(url: String, title: String): Boolean {
+    /** The active tab's Essential in the current space, if it has one. */
+    val activeTabEssential: Essential?
+        get() {
+            val key = activePinKey
+            return essentials.firstOrNull {
+                it.deletedAt == null && it.spaceId == activeSpaceId && pinKeyOf(it.url) == key
+            }
+        }
+
+    /** Adds an essential to [spaceId]; false when the [Essential.MAX] cap is reached. */
+    fun createEssential(url: String, title: String, spaceId: java.util.UUID = activeSpaceId): Boolean {
         val key = pinKeyOf(url)
         if (key.isBlank()) return false
-        if (essentials.any { it.deletedAt == null && pinKeyOf(it.url) == key }) return false
-        if (essentials.count { it.deletedAt == null } >= Essential.MAX) return false
+        if (essentials.any {
+                it.deletedAt == null && it.spaceId == spaceId && pinKeyOf(it.url) == key
+            }) return false
+        if (essentials.count { it.deletedAt == null && it.spaceId == spaceId } >= Essential.MAX) return false
         essentials = essentials + Essential(
             id = UUID.randomUUID(),
+            spaceId = spaceId,
             url = url,
             title = title,
         )

@@ -2,6 +2,7 @@
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -73,6 +74,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -226,6 +228,23 @@ fun SearchSheet(
             .fillMaxSize()
             .padding(horizontal = 16.dp),
     ) {
+        // v5 grab handle — hidden once the card fills the screen.
+        if (!expanded) {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(12.dp)
+                    .clickable { vm.closeOverlay() },
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                Box(
+                    Modifier
+                        .size(36.dp, 4.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(c.muted.copy(alpha = 0.45f)),
+                )
+            }
+        }
         Box(
             Modifier
                 .fillMaxWidth()
@@ -493,6 +512,51 @@ fun SearchSheet(
                             Glyph(Ico.clock, c.muted, size = 14.dp, strokeWidth = 1.8f)
                             Spacer(Modifier.width(8.dp))
                         }
+                        Glyph(Ico.chevronLeft, c.muted, size = 15.dp, strokeWidth = 2f,
+                            modifier = Modifier.rotate(180f))
+                    }
+                }
+            }
+        }
+
+        // v5: a resting sheet shows four quick suggestions, not a blank panel.
+        AnimatedVisibility(
+            visible = rows.isEmpty() && !engineMenu && !expanded,
+            enter = fadeIn(tween(160)),
+            exit = fadeOut(tween(110)),
+        ) {
+            Column(Modifier.fillMaxWidth()) {
+                listOf(
+                    Triple("Search with ${engine.name}", "", true),
+                    Triple("github.com", "github.com", false),
+                    Triple("docs.google.com", "docs.google.com", false),
+                    Triple("addons.mozilla.org", "addons.mozilla.org", false),
+                ).forEach { (label, url, isSearch) ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable {
+                                if (isSearch) {
+                                    focus.requestFocus()
+                                    keyboard?.show()
+                                } else {
+                                    vm.submit(url)
+                                }
+                            }
+                            .padding(horizontal = 10.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        SiteFavicon(if (isSearch) engine.host else url, label.take(1), 20.dp)
+                        Spacer(Modifier.width(12.dp))
+                        Text(label, color = c.text, fontSize = 14.sp,
+                            modifier = Modifier.weight(1f), maxLines = 1,
+                            overflow = TextOverflow.Ellipsis)
+                        if (!isSearch) {
+                            Text(url, color = c.muted, fontSize = 11.sp, maxLines = 1,
+                                overflow = TextOverflow.Ellipsis)
+                        }
+                        Spacer(Modifier.width(8.dp))
                         Glyph(Ico.chevronLeft, c.muted, size = 15.dp, strokeWidth = 2f,
                             modifier = Modifier.rotate(180f))
                     }
@@ -787,23 +851,34 @@ fun MenuSheet(vm: BrowserViewModel) {
             MenuAction("Translate", Ico.translate) { vm.openTranslate() }
             MenuAction("Find", Ico.find) { vm.openFind() }
             MenuAction("Share", Ico.share) { vm.shareCurrentUrl() }
-            val pinKey = vm.activePinKey
-            val pinned = vm.isActiveTabPinned
-            if (pinKey.isNotEmpty()) {
-                MenuAction(
-                    if (pinned) "Unpin" else "Pin",
-                    if (pinned) Ico.pinOff else Ico.pin,
-                    accent = pinned,
-                ) {
-                    vm.togglePinForActiveUrl()
-                    if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+
+        // Pinning is now "Add to Essentials", scoped to the current space.
+        Spacer(Modifier.height(6.dp))
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(c.menuCard)
+                .padding(vertical = 2.dp, horizontal = 4.dp),
+        ) {
+            val essential = vm.activeTabEssential
+            MenuItem(
+                c,
+                if (essential != null) "Remove from Essentials" else "Add to Essentials",
+                color = if (essential != null) c.press else Color.Unspecified,
+            ) {
+                if (essential != null) {
+                    vm.removeEssential(essential.id)
+                } else {
+                    val url = vm.activeTab?.url.orEmpty()
+                    if (url.isBlank()) {
+                        vm.showToast("Open a site first")
+                    } else if (!vm.createEssential(url, vm.activeTab?.title.orEmpty())) {
+                        vm.showToast("Essentials full for this space")
+                    }
                 }
-            } else {
-                MenuAction(
-                    "Pin",
-                    Ico.pin,
-                    enabled = false,
-                ) { /* pin needs a site; no-op on home */ }
+                if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
             }
         }
 
@@ -959,6 +1034,11 @@ private fun SpaceRow(vm: BrowserViewModel, c: ArcColors, expanded: Boolean, onTo
     val idx = spaces.indexOfFirst { it.id == vm.activeSpaceId }.coerceIn(0, spaces.lastIndex)
     val space = spaces[idx]
     var showManager by remember { mutableStateOf(false) }
+    // v5: the card and its disc grow as the sheet fills the screen; the chevron
+    // morphs from down (collapsed) to up (expanded).
+    val cardH by animateDpAsState(if (expanded) 58.dp else 46.dp, tween(380), label = "spaceCardH")
+    val discSize by animateDpAsState(if (expanded) 38.dp else 32.dp, tween(380), label = "spaceDisc")
+    val chevronAngle by animateFloatAsState(if (expanded) 0f else 180f, tween(300), label = "spaceChevron")
     val nameAlpha = remember { androidx.compose.animation.core.Animatable(1f) }
     LaunchedEffect(space.id) {
         nameAlpha.animateTo(0f, tween(160, easing = LinearEasing))
@@ -967,7 +1047,7 @@ private fun SpaceRow(vm: BrowserViewModel, c: ArcColors, expanded: Boolean, onTo
     Row(
         Modifier
             .fillMaxWidth()
-            .height(46.dp)
+            .height(cardH)
             .swipeActions(
                 onLeft = { vm.switchSpace(spaces[(idx + spaces.size - 1) % spaces.size].id) },
                 onRight = { vm.switchSpace(spaces[(idx + 1) % spaces.size].id) },
@@ -976,7 +1056,7 @@ private fun SpaceRow(vm: BrowserViewModel, c: ArcColors, expanded: Boolean, onTo
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = { if (!expanded) onToggle() },
+                onClick = { onToggle() },
                 onLongClick = { showManager = true },
             )
             .semantics { contentDescription = "Space ${space.name}, swipe left/right to switch spaces" },
@@ -984,8 +1064,8 @@ private fun SpaceRow(vm: BrowserViewModel, c: ArcColors, expanded: Boolean, onTo
     ) {
         Box(
             Modifier
-                .size(32.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .size(discSize)
+                .clip(RoundedCornerShape(if (expanded) 11.dp else 8.dp))
                 .background(Brush.horizontalGradient(listOf(Color(space.colorA), Color(space.colorB)))),
             contentAlignment = Alignment.Center,
         ) {
@@ -998,18 +1078,6 @@ private fun SpaceRow(vm: BrowserViewModel, c: ArcColors, expanded: Boolean, onTo
             val pins = vm.pinsOfActiveSpace.count { it.type == PinType.PIN }
             Text("$pins pins · ${vm.activeSpaceTabs.size} open", color = c.muted, fontSize = 11.5.sp, maxLines = 1)
         }
-        // One dot per space, active dot is a 16dp pill.
-        val dots = minOf(spaces.size, 5)
-        repeat(dots) { i ->
-            val active = if (idx < dots) i == idx else i == dots - 1
-            Box(
-                Modifier
-                    .size(if (active) 16.dp else 6.dp)
-                    .padding(3.dp)
-                    .clip(CircleShape)
-                    .background(if (active) Color(space.colorA) else c.chip),
-            )
-        }
         Spacer(Modifier.width(8.dp))
         Box(
             Modifier
@@ -1017,7 +1085,10 @@ private fun SpaceRow(vm: BrowserViewModel, c: ArcColors, expanded: Boolean, onTo
                 .clip(RoundedCornerShape(10.dp))
                 .clickable(onClick = onToggle),
             contentAlignment = Alignment.Center,
-        ) { Glyph(Ico.chevronUp, c.muted, size = 16.dp, strokeWidth = 2f) }
+        ) {
+            Glyph(Ico.chevronUp, c.muted, size = 16.dp, strokeWidth = 2f,
+                modifier = Modifier.rotate(chevronAngle))
+        }
     }
     if (showManager) SpaceManager(vm, spaces, space.id) { showManager = false }
 }
@@ -1039,114 +1110,200 @@ private fun SpaceManager(
     var container by remember(selectedId) { mutableStateOf(selected?.container ?: "none") }
     var cA by remember(selectedId) { mutableLongStateOf(selected?.colorA ?: DEFAULT_SPACE_C1) }
     var cB by remember(selectedId) { mutableLongStateOf(selected?.colorB ?: DEFAULT_SPACE_C2) }
-    Dialog(onDismissRequest = onDismiss) {
-        Column(
-            Modifier
-                .widthIn(max = 330.dp)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(c.menuCard)
-                .padding(14.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text("Spaces", color = c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(8.dp))
-            // Existing spaces: tap to select for editing.
-            Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                spaces.take(6).forEach { sp ->
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+    ) {
+        // v5: bottom sheet, not a cramped centred dialog.
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.38f))
+                    .clickable(onClick = onDismiss),
+            )
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .background(c.sheet)
+                    .verticalScroll(rememberScrollState())
+                    .padding(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 24.dp),
+            ) {
+                Box(
+                    Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .size(36.dp, 4.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(c.muted.copy(alpha = 0.45f)),
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    if (selected == null) "New space" else "Edit · ${selected.name}",
+                    color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                )
+                Spacer(Modifier.height(12.dp))
+                // A disc per space; tap one to edit it.
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    spaces.take(6).forEach { sp ->
+                        val on = sp.id == selectedId
+                        Box(
+                            Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(9.dp))
+                                .background(Brush.horizontalGradient(listOf(Color(sp.colorA), Color(sp.colorB))))
+                                .border(2.dp, if (on) c.accent else Color.Transparent, RoundedCornerShape(9.dp))
+                                .clickable {
+                                    selectedId = sp.id
+                                    name = sp.name; icon = sp.icon; container = sp.container; cA = sp.colorA; cB = sp.colorB
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) { Glyph(spaceIcon(sp.icon), Color.White, size = 15.dp, strokeWidth = 2f) }
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                // Name field with its brush button in one row (mockup v5).
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(c.chip)
+                        .padding(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Box(
                         Modifier
                             .size(36.dp)
                             .clip(RoundedCornerShape(9.dp))
-                            .background(Brush.horizontalGradient(listOf(Color(sp.colorA), Color(sp.colorB))))
-                            .clickable {
-                                selectedId = sp.id
-                                name = sp.name; icon = sp.icon; container = sp.container; cA = sp.colorA; cB = sp.colorB
-                            },
+                            .background(c.sheet),
                         contentAlignment = Alignment.Center,
-                    ) { Glyph(spaceIcon(sp.icon), Color.White, size = 15.dp, strokeWidth = 2f) }
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            BasicTextField(
-                value = name,
-                onValueChange = { name = it },
-                singleLine = true,
-                textStyle = TextStyle(color = c.text, fontSize = 14.sp),
-                cursorBrush = SolidColor(c.accent),
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(c.chip).padding(10.dp),
-            )
-            Spacer(Modifier.height(8.dp))
-            Text("Icon", color = c.muted, fontSize = 11.5.sp, modifier = Modifier.fillMaxWidth())
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                SpaceIcons.take(8).forEach { key ->
-                    Box(
-                        Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(9.dp))
-                            .background(if (key == icon) c.chipStrong else Color.Transparent)
-                            .clickable { icon = key },
-                        contentAlignment = Alignment.Center,
-                    ) { Glyph(spaceIcon(key), if (key == icon) c.accent else c.muted, size = 16.dp, strokeWidth = 2f) }
-                }
-            }
-            Text("Container", color = c.muted, fontSize = 11.5.sp, modifier = Modifier.fillMaxWidth())
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                ContainerPresets.forEach { p ->
-                    Box(
-                        Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(9.dp))
-                            .background(if (container == p.key) Color(p.color) else c.chip)
-                            .clickable { container = p.key },
-                        contentAlignment = Alignment.Center,
-                    ) { Text(p.label.take(1), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
-                }
-            }
-            Text("Colour", color = c.muted, fontSize = 11.5.sp, modifier = Modifier.fillMaxWidth())
-            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                SpacePalettes.take(7).forEach { p ->
-                    Box(
-                        Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(9.dp))
-                            .background(Brush.horizontalGradient(listOf(Color(p.c1), Color(p.c2))))
-                            .clickable { cA = p.c1; cB = p.c2 },
+                    ) { Glyph(Ico.sparkles, c.accent, size = 18.dp, strokeWidth = 2f) }
+                    Spacer(Modifier.width(6.dp))
+                    BasicTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        singleLine = true,
+                        textStyle = TextStyle(color = c.text, fontSize = 14.sp),
+                        cursorBrush = SolidColor(c.accent),
+                        modifier = Modifier.weight(1f).padding(end = 6.dp),
                     )
                 }
-            }
-            Spacer(Modifier.height(6.dp))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                ManagerButton("New") {
-                    val sp = vm.createSpace(name.ifBlank { "Space" }, name.take(1).uppercase(), cA, cB, icon, container)
-                    vm.switchSpace(sp.id); onDismiss()
+                Spacer(Modifier.height(12.dp))
+                Text("Icon", color = c.muted, fontSize = 11.5.sp)
+                Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SpaceIcons.take(8).forEach { key ->
+                        val on = key == icon
+                        Box(
+                            Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(9.dp))
+                                .background(if (on) c.chipStrong else c.chip)
+                                .border(2.dp, if (on) c.accent else Color.Transparent, RoundedCornerShape(9.dp))
+                                .clickable { icon = key },
+                            contentAlignment = Alignment.Center,
+                        ) { Glyph(spaceIcon(key), if (on) c.accent else c.muted, size = 16.dp, strokeWidth = 2f) }
+                    }
                 }
-                ManagerButton("Save") { selected?.let { vm.updateSpace(it.id, name, name.take(1), icon, container, cA, cB) }; onDismiss() }
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                ManagerButton("◀") { selected?.let { vm.moveSpace(it.id, -1) } }
-                ManagerButton("▶") { selected?.let { vm.moveSpace(it.id, 1) } }
-                ManagerButton(if (selected?.collapsed == true) "Expand" else "Collapse") {
-                    selected?.let { vm.toggleSpaceCollapsed(it.id) }
+                Spacer(Modifier.height(10.dp))
+                Text("Container", color = c.muted, fontSize = 11.5.sp)
+                Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ContainerPresets.forEach { p ->
+                        val on = p.key == container
+                        Box(
+                            Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(if (on) Color(p.color) else c.chip)
+                                .border(2.dp, if (on) c.accent else Color.Transparent, CircleShape)
+                                .clickable { container = p.key },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(p.label.take(1), color = if (on) Color.White else c.text,
+                                fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text("Colour", color = c.muted, fontSize = 11.5.sp)
+                Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    SpacePalettes.take(7).forEach { p ->
+                        val on = p.c1 == cA && p.c2 == cB
+                        Box(
+                            Modifier
+                                .size(34.dp)
+                                .clip(CircleShape)
+                                .background(Brush.horizontalGradient(listOf(Color(p.c1), Color(p.c2))))
+                                .border(2.dp, if (on) c.accent else Color.Transparent, CircleShape)
+                                .clickable { cA = p.c1; cB = p.c2 },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.weight(1.2f)) {
+                        ManagerButton("Save", primary = true) {
+                            if (selected == null) {
+                                val sp = vm.createSpace(
+                                    name.ifBlank { "Space" }, name.take(1).uppercase(), cA, cB, icon, container,
+                                )
+                                vm.switchSpace(sp.id)
+                            } else {
+                                vm.updateSpace(selected.id, name, name.take(1), icon, container, cA, cB)
+                            }
+                            onDismiss()
+                        }
+                    }
+                    Box(Modifier.weight(1f)) {
+                        ManagerButton("+ New") {
+                            // Blank draft: the next Save creates a new space.
+                            selectedId = java.util.UUID(0, 0)
+                            name = "Space"; icon = "plus"; container = "none"
+                            cA = DEFAULT_SPACE_C1; cB = DEFAULT_SPACE_C2
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.weight(1f)) { ManagerButton("◀ Left") { selected?.let { vm.moveSpace(it.id, -1) } } }
+                    Box(Modifier.weight(1f)) { ManagerButton("Right ▶") { selected?.let { vm.moveSpace(it.id, 1) } } }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.weight(1f)) {
+                        ManagerButton("Delete", color = c.press) { selected?.let { vm.deleteSpace(it.id) }; onDismiss() }
+                    }
+                    Box(Modifier.weight(1f)) { ManagerButton("Cancel") { onDismiss() } }
                 }
             }
-            ManagerButton("Delete", color = c.press) { selected?.let { vm.deleteSpace(it.id) }; onDismiss() }
         }
     }
 }
 
 @Composable
-private fun ManagerButton(text: String, color: Color = Color.Unspecified, onClick: () -> Unit) {
+private fun ManagerButton(
+    text: String,
+    color: Color = Color.Unspecified,
+    primary: Boolean = false,
+    onClick: () -> Unit,
+) {
     val c = LocalArc.current
     Box(
         Modifier
-            .clip(RoundedCornerShape(10.dp))
-            .padding(horizontal = 8.dp)
-            .background(c.chip)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(11.dp))
+            .background(if (primary) c.accent else c.chip)
             .clickable(onClick = onClick)
-            .padding(vertical = 9.dp),
+            .padding(vertical = 11.dp),
         contentAlignment = Alignment.Center,
-    ) { Text(text, color = if (color != Color.Unspecified) color else c.text, fontSize = 12.5.sp) }
+    ) {
+        Text(
+            text,
+            color = if (primary) Color.White else if (color != Color.Unspecified) color else c.text,
+            fontSize = 12.5.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+        )
+    }
 }
 
 /** One row of the expanded pins tree: folder or pin, with depth indent + rule. */
@@ -1163,11 +1320,16 @@ private fun PinTreeSection(vm: BrowserViewModel, c: ArcColors) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "Pins · ${space?.name ?: ""}",
+                "Pins",
                 color = c.text,
                 fontSize = 13.5.sp,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
+            )
+            Text(
+                if (space?.collapsed == true) "tap to expand" else "tap to collapse",
+                color = c.muted,
+                fontSize = 11.sp,
+                modifier = Modifier.weight(1f).padding(start = 8.dp),
             )
             Glyph(Ico.chevronUp, c.muted, size = 14.dp, strokeWidth = 2f,
                 modifier = Modifier.rotate(if (space?.collapsed == true) 180f else 0f))
@@ -1283,8 +1445,34 @@ private fun MenuItem(c: ArcColors, text: String, color: Color = Color.Unspecifie
 private fun OpenTabsSection(vm: BrowserViewModel, c: ArcColors) {
     val tabs = vm.activeSpaceTabs.filter { it.url.isNotBlank() }
     if (tabs.isEmpty()) return
+    var clearStage by remember { mutableStateOf(0) }
+    LaunchedEffect(tabs.size) { clearStage = 0 }
     Column(Modifier.padding(top = 10.dp, bottom = 4.dp)) {
-        Text("Open tabs", color = c.text, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Open tabs", color = c.text, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f))
+            // v5: always reads "Clear" — first tap closes the others, second closes current.
+            Text(
+                "Clear",
+                color = c.muted,
+                fontSize = 11.5.sp,
+                modifier = Modifier.clickable {
+                    if (clearStage == 0) {
+                        if (tabs.size > 1) {
+                            tabs.filter { it.id != vm.activeId }.forEach { vm.closeTab(it.id) }
+                            clearStage = 1
+                            vm.showToast("Tap Clear again to close the current tab")
+                        } else {
+                            clearStage = 1
+                            vm.showToast("Tap Clear again to close this tab")
+                        }
+                    } else {
+                        vm.closeTab(vm.activeId)
+                        clearStage = 0
+                    }
+                }.padding(horizontal = 6.dp, vertical = 4.dp),
+            )
+        }
         tabs.forEach { tab ->
             val host = BrowserViewModel.hostOf(tab.url)
             val active = tab.id == vm.activeId

@@ -24,6 +24,15 @@ class SpaceModelsTest {
     }
 
     @Test
+    fun essentialsAreScopedToTheirSpace() {
+        val personal = Essential(UUID.randomUUID(), "https://a", "A")
+        val work = personal.copy(id = UUID.randomUUID(), spaceId = UUID.randomUUID())
+        assertEquals(Space.PERSONAL_ID, personal.spaceId)
+        assertNotEquals(personal.spaceId, work.spaceId)
+        assertEquals("https://a", work.url)
+    }
+
+    @Test
     fun containerPresetsCoverFirefoxDefaults() {
         assertEquals(listOf("none", "personal", "work", "banking", "shopping"),
             ContainerPresets.map { it.key })

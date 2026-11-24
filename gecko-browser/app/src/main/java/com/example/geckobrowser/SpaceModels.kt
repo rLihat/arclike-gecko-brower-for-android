@@ -24,8 +24,8 @@ data class Space(
     val icon: String = "plus",
     /** Firefox container association (metadata only under GeckoView). */
     val container: String = "none",
-    /** Collapses this space's pins in the expanded list. */
-    val collapsed: Boolean = false,
+    /** Pins start collapsed (v5 mockup), expanded by tapping the header. */
+    val collapsed: Boolean = true,
     val updatedAt: Long = System.currentTimeMillis(),
     /** Soft-delete timestamp; non-null = tombstoned. */
     val deletedAt: Long? = null,
@@ -60,9 +60,11 @@ val ContainerPresets = listOf(
  */
 data class Essential(
     val id: UUID,
-    /** Canonical URL (`pinKeyOf`), unique among active essentials. */
+    /** Canonical URL (`pinKeyOf`), unique among active essentials in the space. */
     val url: String,
     val title: String,
+    /** Space this shortcut belongs to (per-space Essentials). */
+    val spaceId: UUID = Space.PERSONAL_ID,
     val faviconUrl: String? = null,
     val sortIndex: Int = 0,
     val updatedAt: Long = System.currentTimeMillis(),

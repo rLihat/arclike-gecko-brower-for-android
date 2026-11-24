@@ -595,7 +595,9 @@ private fun ChromeOverlay(
             overlay == Overlay.Account || overlay == Overlay.Downloads ||
             overlay == Overlay.Extensions || overlay == Overlay.History ||
             overlay == Overlay.Translate || overlay == Overlay.Passwords ||
-            overlay == Overlay.About || overlay == Overlay.ReleaseNotes
+            overlay == Overlay.About || overlay == Overlay.ReleaseNotes ||
+            // v5: expanding the space card grows the sheet to fill the screen.
+            (overlay == Overlay.Search && vm.searchExpanded)
 
         var lastSheet by remember { mutableStateOf(Overlay.Menu) }
         if (open) lastSheet = overlay

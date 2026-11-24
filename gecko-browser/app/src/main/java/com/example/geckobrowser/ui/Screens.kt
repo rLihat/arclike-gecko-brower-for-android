@@ -1001,11 +1001,12 @@ private fun ExtensionRow(vm: BrowserViewModel, item: ExtensionItem) {
 @Composable
 fun AccountScreen(vm: BrowserViewModel, onBack: () -> Unit) {
     val c = LocalArc.current
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(c.settingsBg),
-    ) {
+    Box(Modifier.fillMaxSize()) {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .background(c.settingsBg),
+        ) {
         SettingsHeader(
             title = "Mozilla account",
             leading = {
@@ -1053,20 +1054,13 @@ fun AccountScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     Spacer(Modifier.height(8.dp))
                     Text(vm.syncStatus, color = c.muted, fontSize = 11.5.sp)
                 } else {
-                    val context = LocalContext.current
                     Box(
                         Modifier
                             .fillMaxWidth()
                             .height(44.dp)
                             .clip(CircleShape)
                             .background(c.accent)
-                            .clickable {
-                                val url = vm.beginFxaSignIn()
-                                if (url != null) {
-                                    androidx.browser.customtabs.CustomTabsIntent.Builder()
-                                        .build().launchUrl(context, android.net.Uri.parse(url))
-                                } else vm.showToast("Sign-in unavailable")
-                            },
+                            .clickable { vm.beginFxaSignIn() },
                         contentAlignment = Alignment.Center,
                     ) {
                         Text("Sign in with Mozilla account", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
@@ -1106,6 +1100,8 @@ fun AccountScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
             )
         }
+    }
+    FxaSignInDialog(vm)
     }
 }
 

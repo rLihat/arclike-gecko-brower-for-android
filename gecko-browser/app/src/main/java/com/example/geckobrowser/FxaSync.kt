@@ -33,6 +33,8 @@ class FxaSync(private val context: Context) {
 
     val email: String? get() = prefs.getString(KEY_EMAIL, null)
 
+    val redirectUrl: String get() = BuildConfig.FXA_REDIRECT_URI
+
     var lastSyncAt: Long get() = prefs.getLong(KEY_LAST_SYNC, 0L)
         private set(value) { prefs.edit().putLong(KEY_LAST_SYNC, value).apply() }
 

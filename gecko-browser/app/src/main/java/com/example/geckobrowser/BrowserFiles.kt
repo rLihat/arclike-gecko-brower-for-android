@@ -184,7 +184,7 @@ object BrowserFiles {
                             sortIndex = o.optInt("sortIndex", 0),
                             icon = o.optString("icon").ifBlank { "plus" },
                             container = o.optString("container").ifBlank { "none" },
-                            collapsed = o.optBoolean("collapsed", false),
+                            collapsed = o.optBoolean("collapsed", true),
                             updatedAt = o.optLong("updatedAt", System.currentTimeMillis()),
                             deletedAt = o.optLong("deletedAt", 0L).takeIf { it > 0 },
                         )
@@ -201,6 +201,7 @@ object BrowserFiles {
             essentials.forEach { e ->
                 put(JSONObject().apply {
                     put("id", e.id.toString())
+                    put("spaceId", e.spaceId.toString())
                     put("url", e.url)
                     put("title", e.title)
                     put("faviconUrl", e.faviconUrl ?: JSONObject.NULL)
@@ -221,6 +222,7 @@ object BrowserFiles {
                     add(
                         Essential(
                             id = id,
+                            spaceId = optUuid(o, "spaceId") ?: Space.PERSONAL_ID,
                             url = o.optString("url"),
                             title = o.optString("title"),
                             faviconUrl = o.optString("faviconUrl").takeUnless { it.isBlank() || it == "null" },
