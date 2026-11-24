@@ -53,7 +53,7 @@
     border-radius: 30px 30px 0 0;
     box-shadow: var(--shadow);
     display: flex; flex-direction: column;
-    transition: height 280ms cubic-bezier(0.2,0.9,0.25,1), padding 200ms;
+    transition: height 440ms cubic-bezier(0.22,1,0.36,1), padding 320ms cubic-bezier(0.22,1,0.36,1);
   }
   .sheet.full { height: 100%; border-radius: 0; padding-top: 44px; }
   .sheet.full .handle { display: none; }
@@ -88,13 +88,19 @@
   .space-name { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .space-sub { font-size: 11.5px; color: var(--muted); }
   .chev { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: var(--muted); }
-  .chev svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  /* Collapsed: menu-like icon. Expanded: up chevron. */
-  .indicator { transition: height 260ms cubic-bezier(0.2,0.9,0.25,1), border-radius 260ms; }
-  .sheet.full .indicator { height: 54px; border-radius: 18px; }
-  .sheet.full .disc { width: 36px; height: 36px; flex-basis: 36px; border-radius: 10px; }
-  .list { animation: list-in 220ms ease-out both; }
-  @keyframes list-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .chev svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform 300ms cubic-bezier(0.22,1,0.36,1); }
+  .chev.up svg { transform: rotate(180deg); }
+  /* Space card morphs into the full sheet; sections rise in sequence. */
+  .indicator { transition: height 380ms cubic-bezier(0.22,1,0.36,1), border-radius 380ms, margin 380ms; }
+  .sheet.full .indicator { height: 58px; border-radius: 18px; margin: 2px 0 4px; }
+  .disc { transition: width 380ms cubic-bezier(0.22,1,0.36,1), height 380ms, flex-basis 380ms, border-radius 380ms; }
+  .sheet.full .disc { width: 38px; height: 38px; flex-basis: 38px; border-radius: 11px; }
+  .list { animation: list-in 280ms ease-out both; }
+  @keyframes list-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  .pin-tree, .open-tabs, .sync-strip { animation: section-in 320ms cubic-bezier(0.22,1,0.36,1) both; }
+  .open-tabs { animation-delay: 70ms; }
+  .sync-strip { animation-delay: 130ms; }
+  @keyframes section-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
 
   .list { flex: 1; min-height: 0; overflow-y: auto; padding-right: 2px; scrollbar-width: none; -ms-overflow-style: none; }
   .list::-webkit-scrollbar { display: none; width: 0; }
@@ -113,6 +119,7 @@
   .child { padding-left: 18px; border-left: 1px solid var(--hairline); margin-left: 12px; }
   .child[hidden] { display: none; }
   .row b { font-weight: 500; font-size: 14px; }
+  .row-more { margin-left: auto; border: 0; background: none; color: var(--muted); font-size: 16px; cursor: pointer; padding: 0 4px; opacity: 0.7; }
   .row small { color: var(--muted); font-size: 11px; }
   .row .trail { margin-left: auto; color: var(--muted); }
   .row.active, .pin.active {
@@ -185,7 +192,7 @@
         <div class="space-sub" id="spaceSub">3 pins · 2 open</div>
       </div>
       <div class="chev" id="chev" title="Show / hide pinned tabs">
-        <svg viewBox="0 0 24 24" id="chevIcon"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
       </div>
     </div>
 
@@ -232,7 +239,7 @@
 </div>
 
 <p class="notes">
-  Zen-style sidebar in the <code>47%</code> search sheet; expanding the space card animates it to fill the screen (menu icon → up chevron). The <code>Pins</code> header is plain text (no space name), starts collapsed and stays tappable. Open tabs have a text-only <code>Clear</code> button that always reads "Clear": first tap closes every tab except the current one, second tap closes that too. Hold a tab for Reload / Remove / Add to folder (with a create-folder option) / Pin or unpin / Add or remove to Essentials. In edit, the <code>🖌️</code> button and name field are one row (default name "Space"); the emoji row beneath is gone. Swipe switches space without a popup. Phase 1: no split view, glance, containers or network sync.
+  Zen-style sidebar in the <code>47%</code> search sheet; expanding the space card animates it to fill the screen and morphs the down chevron into an up arrow. The <code>Pins</code> header is plain text (no space name), starts collapsed and stays tappable. Open tabs have a text-only <code>Clear</code> button that always reads "Clear": first tap closes every tab except the current one, second tap closes that too. Hold a tab (or press ⋯ / right-click) for Reload / Remove / Add to folder (with a create-folder option) / Pin or unpin / Add or remove to Essentials. In edit, the <code>🖌️</code> button and name field are one row (default name "Space"); the emoji row beneath is gone. Swipe switches space without a popup. Phase 1: no split view, glance, containers or network sync.
 </p>
 
 <script>
@@ -304,9 +311,7 @@ function render() {
   phone.style.setProperty('--c2', sp.c2);
   $('sheet').classList.toggle('collapsed', collapsed);
   $('sheet').classList.toggle('full', expanded);
-  $('chevIcon').innerHTML = expanded
-    ? '<path d="m6 15 6-6 6 6"/>'
-    : '<path d="M4 7h16M4 12h16M4 17h16"/>';
+  $('chev').classList.toggle('up', expanded);
   $('pageSub').textContent = 'Your space: ' + sp.name;
   $('spaceName').textContent = sp.name;
   $('disc').innerHTML = spaceIconHtml(sp.icon);
@@ -325,7 +330,7 @@ function render() {
     return `<div class="folder" data-folder="1"><span class="fav-preview"><i></i><i></i><i></i><i></i></span><b>${p.t}</b><span class="rot">${svg('chevronRight')}</span></div>${kids}`;
   }).join('');
   const tabs = sp.tabs.map((t,i) =>
-    `<div class="row ${selectedTab===i?'active':''}" data-tab="${i}">${fav(t[0],t[1],'sm')}<b>${t[2]}</b></div>`).join('');
+    `<div class="row ${selectedTab===i?'active':''}" data-tab="${i}">${fav(t[0],t[1],'sm')}<b>${t[2]}</b><button class="row-more" data-more="${i}" title="Tab options">⋯</button></div>`).join('');
   if (expanded && !typed) {
     $('list').innerHTML =
       `<div class="pin-tree"><div class="section-head" id="pinsHead">Pins<small>${collapsed ? 'tap to expand' : 'tap to collapse'}</small></div><div class="pins-items">${items}</div></div>` +
@@ -352,8 +357,10 @@ function render() {
       el.onpointerup = clearTabPress;
       el.onpointerleave = clearTabPress;
       el.onpointercancel = clearTabPress;
-      el.onclick = () => { clearTabPress(); selectedTab = i; render(); };
+      el.onclick = e => { clearTabPress(); if (e.target.closest('[data-more]')) return; selectedTab = i; render(); };
+      el.oncontextmenu = e => { e.preventDefault(); clearTabPress(); openTabMenu(i); };
     });
+    document.querySelectorAll('[data-more]').forEach(el => el.onclick = e => { e.stopPropagation(); openTabMenu(+el.dataset.more); });
   } else {
     $('list').innerHTML = '<div class="suggestions">' + SUGGESTIONS.map(s =>
       `<div class="row">${fav(s[0],s[1],'sm')}<b>${s[2]}</b>${s[3]?`<small>${s[3]}</small>`:''}<span class="trail">↖</span></div>`).join('') + '</div>';
