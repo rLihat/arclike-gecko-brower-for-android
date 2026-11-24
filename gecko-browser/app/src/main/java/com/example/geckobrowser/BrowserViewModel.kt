@@ -329,17 +329,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     /* ------------------------------------------------------------ pin nodes (phase 1) */
 
-    private fun pinDepth(id: UUID?): Int {
-        // Number of folder ancestors (top level = 0).
-        var depth = 0
-        var parent = id
-        val nodes = pinNodes
-        while (parent != null) {
-            depth++
-            parent = nodes.firstOrNull { it.id == parent }?.parentId
-        }
-        return depth
-    }
+    private fun pinDepth(id: UUID?): Int = companion.pinDepth(pinNodes, id)
 
     /**
      * Adds a pin node in the active space. Returns the node, or null when the
@@ -415,6 +405,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     var pins by mutableStateOf<List<PinRecord>>(emptyList())
         private set
+
+    /** Tabs that belong to a space; used by the search sheet and the tab switcher. */
+    fun tabsOfSpace(spaceId: UUID): List<TabInfo> = tabs.filter { it.spaceId == spaceId }
 
     /** Normalises a URL to `scheme://host`; "" when it isn't a navigable page. */
     fun originOf(url: String): String {
@@ -519,28 +512,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         // Phase 1 migration: active essentials come first (hard cap [Essential.MAX]),
         // extras stay as pins in the default space.
         if (essentials.isEmpty()) {
-            val migrated = pins.take(Essential.MAX).map { p ->
-                Essential(UUID.randomUUID(), p.url, p.title)
-            }
+            val (migrated, extras) = migrateLegacyPins(pins)
             if (migrated.isNotEmpty()) {
                 essentials = migrated
                 persistEssentials()
             }
-        }
-        if (pinNodes.isEmpty()) {
-            val extra = pins.drop(Essential.MAX)
-            if (extra.isNotEmpty()) {
-                pinNodes = extra.mapIndexed { i, p ->
-                    PinNode(
-                        id = UUID.randomUUID(),
-                        spaceId = Space.PERSONAL_ID,
-                        parentId = null,
-                        type = PinType.PIN,
-                        url = p.url,
-                        title = p.title,
-                        sortIndex = i,
-                    )
-                }
+            if (extras.isNotEmpty()) {
+                pinNodes = extras
                 persistPinNodes()
             }
         }
@@ -4890,6 +4868,54 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         private const val POPUP_DWELL_MS = 6000L
         private const val OFFLINE_RETRY_MS = 5000L
         private const val MAX_OFFLINE_RETRIES = 4
+
+        /* ---------------------- spaces / essentials / pins (unit-testable) */
+
+        /** Folder-ancestor depth of [id] within [nodes] (top level = 0). */
+        fun pinDepth(nodes: List<PinNode>, id: UUID?): Int {
+            var depth = 0
+            var parent = id
+            while (parent != null) {
+                depth++
+                parent = nodes.firstOrNull { it.id == parent }?.parentId
+            }
+            return depth
+        }
+
+        /**
+         * Phase 1 migration of legacy [PinRecord]s (pins.json) into the new model:
+         * up to [Essential.MAX] become Essentials; the rest stay as PINs in the
+         * default space. Pure and JVM-safe so it can be unit tested.
+         */
+        fun migrateLegacyPins(pins: List<PinRecord>): Pair<List<Essential>, List<PinNode>> {
+            val seen = HashSet<String>()
+            val promoted = mutableListOf<Essential>()
+            val extras = mutableListOf<PinNode>()
+            pins.forEach { p ->
+                val key = p.key.ifBlank { p.url }.trim()
+                if (key.isEmpty() || !seen.add(key)) return@forEach
+                val url = p.url.trim()
+                if (url.isEmpty()) return@forEach
+                val title = p.title.ifBlank { url }
+                if (promoted.size < Essential.MAX) {
+                    promoted += Essential(UUID.randomUUID(), url, title)
+                } else {
+                    extras += PinNode(
+                        id = UUID.randomUUID(),
+                        spaceId = Space.PERSONAL_ID,
+                        type = PinType.PIN,
+                        url = url,
+                        title = title,
+                        sortIndex = extras.size,
+                    )
+                }
+            }
+            return promoted to extras
+        }
+
+        /** Tabs of a space (the tab switcher / search sheet use this). */
+        fun tabsOfSpace(tabs: List<TabInfo>, spaceId: UUID): List<TabInfo> =
+            tabs.filter { it.spaceId == spaceId }
 
         private val INTERNAL_SCHEMES = setOf(
             "http", "https", "about", "file", "data", "blob", "javascript",
