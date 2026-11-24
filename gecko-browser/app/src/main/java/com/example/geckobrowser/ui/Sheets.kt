@@ -14,9 +14,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -49,6 +51,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -607,47 +610,6 @@ private fun EssentialRow(vm: BrowserViewModel) {
                                         accumulatedDragPx = 0f
                                         if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                         return@awaitEachGesture
-                                    }
-                                    val dx = ch.position.x - lastX
-                                    lastX = ch.position.x
-                                    if (!dragging) {
-                                        if (kotlin.math.abs(ch.position.x - startX) > slop) {
-                                            // Drag engaged instead of unpin (horizontal only).
-                                            dragging = true
-                                            unpinMode = null
-                                            accumulatedDragPx = 0f
-                                            swapLock = 0
-                                            ch.consume()
-                                            if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        }
-                                    } else {
-                                        ch.consume()
-                                        accumulatedDragPx += dx
-                                        val threshold = tileWidthPx * 0.33f
-                                        if (kotlin.math.abs(accumulatedDragPx) >= threshold) {
-                                            // One swap per event; carry the remainder so fast
-                                            // flicks step one tile per frame, never two at once.
-                                            val direction = if (accumulatedDragPx > 0f) 1 else -1
-                                            if (swapLock != 0 && direction != swapLock) {
-                                                // Direction reversal: the accumulator must build up
-                                                // again from zero before the row swaps back.
-                                                accumulatedDragPx = 0f
-                                            } else {
-                                                val from = vm.pins.indexOfFirst { it.key == key }
-                                                if (from >= 0) {
-                                                    val to = (from + direction).coerceIn(0, vm.pins.lastIndex)
-                                                    if (to != from) vm.movePin(from, to)
-                                                }
-                                                accumulatedDragPx -= direction * threshold
-                                                swapLock = direction
-                                            }
-                                        }
-                                        val edge = tileWidthPx * 0.25f
-                                        edgeScroll = if (dragTileWindowX.isNaN()) 0 else when {
-                                            dragTileWindowX < rowLeftPx + edge -> -1
-                                            dragTileWindowX + tileWidthPx > rowRightPx - edge -> 1
-                                            else -> 0
-                                        }
                                     }
                                 }
                             }

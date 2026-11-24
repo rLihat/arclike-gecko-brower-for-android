@@ -677,12 +677,13 @@ private fun ChromeOverlay(
             Overlay.Search -> ({
                 SearchSheet(
                     vm,
+                    onFieldAnchor = { rect ->
+                        // Ignore measurements taken while the sheet is closing (it is
+                        // still the last content when the overlay has already gone).
+                        if (overlay == Overlay.Search) searchAnchor = rect
+                    },
                     onExpandedChange = { vm.searchExpanded = it },
-                ) { rect ->
-                    // Ignore measurements taken while the sheet is closing (it is
-                    // still the last content when the overlay has already gone).
-                    if (overlay == Overlay.Search) searchAnchor = rect
-                }
+                )
             })
             Overlay.Menu -> ({ MenuSheet(vm) })
             Overlay.Settings -> ({
