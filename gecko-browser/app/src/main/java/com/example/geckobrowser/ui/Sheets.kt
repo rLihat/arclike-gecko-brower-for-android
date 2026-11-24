@@ -326,7 +326,7 @@ fun SearchSheet(
             EssentialLabel(vm, c)
             EssentialRow(vm)
         }
-        SpaceRow(vm, c)
+        SpaceRow(vm, c, expanded) { expanded = !expanded; onExpandedChange?.invoke(expanded) }
 
         LaunchedEffect(expanded) {
             vm.searchExpanded = expanded
@@ -942,7 +942,7 @@ private fun EssentialLabel(vm: BrowserViewModel, c: ArcColors) {
 /** 46dp space row: letter disc + name + "pins · open" subtitle + dots + chevron. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun SpaceRow(vm: BrowserViewModel, c: ArcColors) {
+private fun SpaceRow(vm: BrowserViewModel, c: ArcColors, expanded: Boolean, onToggle: () -> Unit) {
     val spaces = vm.spacesSorted
     if (spaces.isEmpty()) return
     val idx = spaces.indexOfFirst { it.id == vm.activeSpaceId }.coerceIn(0, spaces.lastIndex)
@@ -995,7 +995,7 @@ private fun SpaceRow(vm: BrowserViewModel, c: ArcColors) {
             )
             val pins = vm.pinsOfActiveSpace.count { it.deletedAt == null && it.type == PinType.PIN }
             Text(
-                " pins ·  open",
+                "$pins pins · ${vm.activeSpaceTabs.size} open",
                 color = c.muted,
                 fontSize = 11.5.sp,
                 maxLines = 1,
@@ -1012,7 +1012,8 @@ private fun SpaceRow(vm: BrowserViewModel, c: ArcColors) {
             )
         }
         Spacer(Modifier.width(10.dp))
-        Glyph(Ico.chevronDown, c.muted, size = 15.dp, strokeWidth = 2f)
+        val chevRot by animateFloatAsState(if (expanded) 90f else 0f, tween(140), label = "spaceChevron")
+        Glyph(Ico.chevronDown, c.muted, size = 15.dp, strokeWidth = 2f, modifier = Modifier.rotate(chevRot))
     }
     if (showMenu) SpaceCreateDialog(vm, spaces) { showMenu = false }
 }
