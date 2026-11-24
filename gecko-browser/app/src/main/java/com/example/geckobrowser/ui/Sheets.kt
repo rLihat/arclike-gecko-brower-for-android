@@ -955,3 +955,276 @@ private fun RowScope.MenuAction(
         Text(label, color = c.text, fontSize = 11.sp, maxLines = 1)
     }
 }
+
+/* ------------------------------------------------------------- spaces (phase 1) */
+
+/** "Essentials N/12" label above the essentials row. */
+@Composable
+private fun EssentialLabel(vm: BrowserViewModel, c: ArcColors) {
+    val essentials = vm.essentialsSorted
+    Text(
+        "Essentials /",
+        color = c.muted,
+        fontSize = 12.5.sp,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(start = 12.dp, top = 4.dp),
+    )
+}
+
+/** 46dp space row: letter disc + name + "pins · open" subtitle + dots + chevron. */
+@Composable
+private fun SpaceRow(vm: BrowserViewModel, c: ArcColors) {
+    val spaces = vm.spacesSorted
+    if (spaces.isEmpty()) return
+    val idx = spaces.indexOfFirst { it.id == vm.activeSpaceId }.coerceIn(0, spaces.lastIndex)
+    val space = spaces[idx]
+    var showMenu by remember { mutableStateOf(false) }
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(46.dp)
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = {},
+                onLongClick = { showMenu = true },
+            )
+            .semantics { contentDescription = "Space , swipe left/right to switch spaces" },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier
+                .size(32.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Brush.horizontalGradient(listOf(Color(space.colorA), Color(space.colorB)))),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                space.letter.take(2).uppercase(),
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                space.name,
+                color = c.text,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+            )
+            val pins = vm.pinsOfActiveSpace.count { it.deletedAt == null && it.type == PinType.PIN }
+            Text(
+                " pins ·  open",
+                color = c.muted,
+                fontSize = 11.5.sp,
+                maxLines = 1,
+            )
+        }
+        repeat(3) { i ->
+            val active = i == idx
+            Box(
+                Modifier
+                    .size(if (active) 16.dp else 6.dp)
+                    .padding(3.dp)
+                    .clip(CircleShape)
+                    .background(if (active) c.accent else c.chip),
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Glyph(Ico.chevronDown, c.muted, size = 15.dp, strokeWidth = 2f)
+    }
+    if (showMenu) SpaceCreateDialog(vm, spaces) { showMenu = false }
+}
+
+/** Long-press dialog on the space row: creates a space from a palette preset. */
+@Composable
+private fun SpaceCreateDialog(vm: BrowserViewModel, spaces: List<Space>, onDismiss: () -> Unit) {
+    val c = LocalArc.current
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .widthIn(max = 320.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(c.menuCard)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("Spaces", color = c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(10.dp))
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                spaces.forEach { sp ->
+                    Box(
+                        Modifier
+                            .size(34.dp)
+                            .padding(4.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Brush.horizontalGradient(listOf(Color(sp.colorA), Color(sp.colorB))))
+                            .clickable {
+                                vm.createSpace(sp.name, sp.letter, sp.colorA, sp.colorB)
+                                onDismiss()
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) { Glyph(Ico.plus, Color.White, size = 14.dp, strokeWidth = 2.2f) }
+                }
+                Text(
+                    SpacePalettes.map { it.name }.joinToString(" · "),
+                    color = c.muted,
+                    fontSize = 11.5.sp,
+                    modifier = Modifier.padding(top = 10.dp),
+                )
+            }
+        }
+    }
+}
+
+/** One row of the expanded pins tree: folder or pin, with depth indent + rule. */
+@Composable
+private fun PinTreeSection(vm: BrowserViewModel, c: ArcColors) {
+    val space = vm.activeSpace
+    Column(Modifier.padding(bottom = 10.dp)) {
+        Text(
+            "Pins · ",
+            color = c.text,
+            fontSize = 13.5.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+        val topLevel = vm.pinNodes
+            .filter { it.spaceId == vm.activeSpaceId && it.parentId == null && it.deletedAt == null }
+            .sortedBy { it.sortIndex }
+        if (topLevel.isEmpty()) {
+            Text("No pins yet", color = c.muted, fontSize = 12.5.sp, modifier = Modifier.padding(vertical = 8.dp))
+        }
+        topLevel.forEach { node ->
+            PinNodeRow(vm, node, c, 0)
+        }
+    }
+}
+
+@Composable
+private fun PinNodeRow(vm: BrowserViewModel, node: PinNode, c: ArcColors, depth: Int) {
+    var showMenu by remember { mutableStateOf(false) }
+    val indent = 18.dp * depth
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .height(42.dp)
+            .padding(start = indent)
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = { if (node.type == PinType.PIN) vm.openTabInSpace(node.spaceId, node.url, node.title) },
+                onLongClick = { showMenu = true },
+            )
+            .then(if (depth > 0) Modifier.border(1.dp, c.hairline, RoundedCornerShape(6.dp)).padding(start = 12.dp) else Modifier),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val host = BrowserViewModel.hostOf(node.url)
+        if (node.type == PinType.FOLDER) {
+            val children = vm.pinNodes
+                .filter { it.spaceId == node.spaceId && it.parentId == node.id && it.deletedAt == null }
+                .sortedBy { it.sortIndex }
+            val rot by animateFloatAsState(if (node.collapsed) 0f else 90f, tween(140), label = "folderChevron")
+            Box(Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)).background(c.chip), contentAlignment = Alignment.Center) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    repeat(2) { i ->
+                        repeat(2) { j ->
+                            Box(Modifier.size(9.dp).padding(1.5.dp).clip(RoundedCornerShape(2.dp)).background(faviconAccent(host) ?: c.accent))
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(node.title.ifBlank { "Folder" }, color = c.text, fontSize = 13.5.sp, maxLines = 1)
+                if (children.isNotEmpty()) {
+                    Text(" pins", color = c.muted, fontSize = 11.5.sp)
+                }
+            }
+            Glyph(Ico.chevronDown, c.muted, size = 14.dp, strokeWidth = 2f, modifier = Modifier.rotate(rot))
+            if (!node.collapsed) {
+                children.forEach { PinNodeRow(vm, it, c, depth + 1) }
+            }
+        } else {
+            SiteFavicon(host, node.title.take(1), 18.dp)
+            Spacer(Modifier.width(8.dp))
+            Text(node.title.ifBlank { host.ifBlank { "Pin" } }, color = c.text, fontSize = 13.5.sp, maxLines = 1)
+        }
+    }
+    if (showMenu) PinContextMenu(vm, node, c) { showMenu = false }
+}
+
+/** Long-press context menu on a pin, folder or essential: Rename / Delete. */
+@Composable
+private fun PinContextMenu(vm: BrowserViewModel, node: PinNode, c: ArcColors, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .widthIn(max = 260.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(c.menuCard)
+                .padding(4.dp),
+            verticalAlignment = Alignment.CenterHorizontally,
+        ) {
+            MenuItem(c, "Rename") { vm.renamePinNode(node.id, node.title); onDismiss() }
+            MenuItem(c, if (node.type == PinType.FOLDER) "Delete" else "Delete", color = c.press) {
+                vm.deletePinNode(node.id); onDismiss()
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuItem(c: ArcColors, text: String, color: Color = Color.Unspecified, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+        Text(text, color = if (color != Color.Unspecified) color else c.text, fontSize = 14.sp)
+    }
+}
+
+/** Open-tabs section shown when the sheet is expanded. */
+@Composable
+private fun OpenTabsSection(vm: BrowserViewModel, c: ArcColors) {
+    val tabs = vm.activeSpaceTabs.filter { it.url.isNotBlank() }
+    if (tabs.isEmpty()) return
+    Column(Modifier.padding(top = 10.dp, bottom = 4.dp)) {
+        Text("Open tabs", color = c.text, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+        tabs.forEach { tab ->
+            val host = BrowserViewModel.hostOf(tab.url)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { vm.openTabOfSpace(vm.activeSpaceId, tab.id) }
+                    .padding(horizontal = 12.dp, vertical = 11.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SiteFavicon(host, BrowserViewModel.hostOf(tab.url).ifBlank { tab.title.take(1) }, 20.dp)
+                Spacer(Modifier.width(8.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(tab.title.ifBlank { "New tab" }, color = c.text, fontSize = 14.sp, maxLines = 1)
+                }
+            }
+        }
+    }
+}
+
+/** Phase-2 placeholder: sync status strip at the bottom of the expanded list. */
+@Composable
+private fun SyncStrip(c: ArcColors) {
+    Text(
+        "Not synced",
+        color = c.muted,
+        fontSize = 11.5.sp,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 14.dp),
+    )
+}

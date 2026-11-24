@@ -396,6 +396,16 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         persistPinNodes()
     }
 
+    /** Renames a pin node (and folders). */
+    fun renamePinNode(id: UUID, title: String) {
+        pinNodes = pinNodes.map {
+            if (it.id == id && it.deletedAt == null && title.isNotBlank()) {
+                it.copy(title = title, updatedAt = System.currentTimeMillis())
+            } else it
+        }
+        persistPinNodes()
+    }
+
     /** Reorders the top level of the active space (drag-to-reorder in the sheet). */
     fun movePinNode(fromIndex: Int, toIndex: Int) {
         val topLevel = pinNodes.filter { it.spaceId == activeSpaceId && it.parentId == null && it.deletedAt == null }
