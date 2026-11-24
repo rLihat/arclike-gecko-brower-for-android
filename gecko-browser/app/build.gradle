@@ -91,7 +91,10 @@ dependencies {
     implementation 'androidx.compose.material3:material3'
     implementation 'androidx.compose.material:material-icons-core'
     implementation 'org.mozilla.geckoview:geckoview:138.0.20250517143237'
-    implementation 'org.mozilla.components:service-firefox-accounts:138.0.2'
+    implementation('org.mozilla.components:service-firefox-accounts:138.0.2') {
+        // GeckoView already provides libxul.so; Glean's native copy collides.
+        exclude group: 'org.mozilla.telemetry', module: 'glean-native'
+    }
     implementation 'androidx.browser:browser:1.8.0'
     debugImplementation 'androidx.compose.ui:ui-tooling'
     testImplementation 'junit:junit:4.13.2'
