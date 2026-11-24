@@ -427,6 +427,19 @@ private fun TabCard(
             }
             .clickable { if (longPressed) longPressed = false else onSelect() },
     ) {
+        // Active-tab outline: same treatment as the Essentials row.
+        if (active) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(if (grid) 20.dp else 18.dp))
+                    .border(
+                        2.dp,
+                        if (tabPrivate) Color(0xFF9059FF) else (faviconAccent(BrowserViewModel.hostOf(tab.url)) ?: c.accent),
+                        RoundedCornerShape(if (grid) 20.dp else 18.dp),
+                    ),
+            )
+        }
         Row(
             Modifier.fillMaxWidth().padding(bottom = 10.dp),
             horizontalArrangement = Arrangement.Center,

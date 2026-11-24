@@ -22,6 +22,8 @@ data class Space(
     val sortIndex: Int = 0,
     /** Lucide icon key (plus, globe, star, briefcase, music, heart, code, home). */
     val icon: String = "plus",
+    /** Firefox container association (metadata only under GeckoView). */
+    val container: String = "none",
     /** Collapses this space's pins in the expanded list. */
     val collapsed: Boolean = false,
     val updatedAt: Long = System.currentTimeMillis(),
@@ -40,6 +42,17 @@ data class Space(
 
 /** Icon keys offered when creating or editing a space (Lucide glyphs available in the app). */
 val SpaceIcons = listOf("plus", "globe", "tabs", "folder", "sparkles", "lightbulb", "palette", "shield", "mask", "gear")
+
+/** Firefox contextual-identity presets (association only — GeckoView has no cookie jars). */
+data class ContainerPreset(val key: String, val label: String, val color: Long, val icon: String)
+
+val ContainerPresets = listOf(
+    ContainerPreset("none", "No container", 0xFF9AA0A6, "plus"),
+    ContainerPreset("personal", "Personal", 0xFF4F93A8, "person"),
+    ContainerPreset("work", "Work", 0xFF2E6B4F, "briefcase"),
+    ContainerPreset("banking", "Banking", 0xFFB3672D, "shield"),
+    ContainerPreset("shopping", "Shopping", 0xFFB34D6B, "palette"),
+)
 
 /**
  * Page pinned globally by URL (the hardened shape of the existing `PinRecord`).

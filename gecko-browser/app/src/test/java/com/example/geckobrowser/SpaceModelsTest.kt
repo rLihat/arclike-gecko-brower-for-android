@@ -24,6 +24,14 @@ class SpaceModelsTest {
     }
 
     @Test
+    fun containerPresetsCoverFirefoxDefaults() {
+        assertEquals(listOf("none", "personal", "work", "banking", "shopping"),
+            ContainerPresets.map { it.key })
+        assertEquals("none", space().container)
+        assertEquals("work", space().copy(container = "work").container)
+    }
+
+    @Test
     fun personalSpaceHasFixedId() {
         assertEquals("00000000-0000-0000-0000-000000000001", Space.PERSONAL_ID.toString())
     }

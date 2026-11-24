@@ -282,7 +282,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Creates a space and persists it. Returns the new space. */
-    fun createSpace(name: String, letter: String, colorA: Long, colorB: Long, icon: String = "plus"): Space {
+    fun createSpace(name: String, letter: String, colorA: Long, colorB: Long, icon: String = "plus", container: String = "none"): Space {
         val space = Space(
             id = UUID.randomUUID(),
             name = name,
@@ -290,6 +290,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             colorA = colorA,
             colorB = colorB,
             icon = icon,
+            container = container,
             sortIndex = spacesSorted.size,
         )
         spaces = spaces + space
@@ -303,6 +304,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         name: String? = null,
         letter: String? = null,
         icon: String? = null,
+        container: String? = null,
         colorA: Long? = null,
         colorB: Long? = null,
     ) {
@@ -311,6 +313,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 name = name?.takeIf { it.isNotBlank() } ?: s.name,
                 letter = letter?.takeIf { it.isNotBlank() } ?: s.letter,
                 icon = icon ?: s.icon,
+                container = container ?: s.container,
                 colorA = colorA ?: s.colorA,
                 colorB = colorB ?: s.colorB,
                 updatedAt = System.currentTimeMillis(),

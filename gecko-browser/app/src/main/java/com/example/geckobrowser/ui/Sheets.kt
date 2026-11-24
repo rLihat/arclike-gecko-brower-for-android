@@ -93,6 +93,7 @@ import com.example.geckobrowser.SpacePalettes
 import com.example.geckobrowser.SpaceIcons
 import com.example.geckobrowser.DEFAULT_SPACE_C1
 import com.example.geckobrowser.DEFAULT_SPACE_C2
+import com.example.geckobrowser.ContainerPresets
 import java.util.Locale
 
 /* ---------------------------------------------------------------- search */
@@ -1035,6 +1036,7 @@ private fun SpaceManager(
     val selected = spaces.firstOrNull { it.id == selectedId } ?: spaces.firstOrNull()
     var name by remember(selectedId) { mutableStateOf(selected?.name.orEmpty()) }
     var icon by remember(selectedId) { mutableStateOf(selected?.icon ?: "plus") }
+    var container by remember(selectedId) { mutableStateOf(selected?.container ?: "none") }
     var cA by remember(selectedId) { mutableLongStateOf(selected?.colorA ?: DEFAULT_SPACE_C1) }
     var cB by remember(selectedId) { mutableLongStateOf(selected?.colorB ?: DEFAULT_SPACE_C2) }
     Dialog(onDismissRequest = onDismiss) {
@@ -1059,7 +1061,7 @@ private fun SpaceManager(
                             .background(Brush.horizontalGradient(listOf(Color(sp.colorA), Color(sp.colorB))))
                             .clickable {
                                 selectedId = sp.id
-                                name = sp.name; icon = sp.icon; cA = sp.colorA; cB = sp.colorB
+                                name = sp.name; icon = sp.icon; container = sp.container; cA = sp.colorA; cB = sp.colorB
                             },
                         contentAlignment = Alignment.Center,
                     ) { Glyph(spaceIcon(sp.icon), Color.White, size = 15.dp, strokeWidth = 2f) }
@@ -1088,6 +1090,19 @@ private fun SpaceManager(
                     ) { Glyph(spaceIcon(key), if (key == icon) c.accent else c.muted, size = 16.dp, strokeWidth = 2f) }
                 }
             }
+            Text("Container", color = c.muted, fontSize = 11.5.sp, modifier = Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                ContainerPresets.forEach { p ->
+                    Box(
+                        Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(if (container == p.key) Color(p.color) else c.chip)
+                            .clickable { container = p.key },
+                        contentAlignment = Alignment.Center,
+                    ) { Text(p.label.take(1), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+                }
+            }
             Text("Colour", color = c.muted, fontSize = 11.5.sp, modifier = Modifier.fillMaxWidth())
             Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 SpacePalettes.take(7).forEach { p ->
@@ -1103,10 +1118,10 @@ private fun SpaceManager(
             Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 ManagerButton("New") {
-                    val sp = vm.createSpace(name.ifBlank { "Space" }, name.take(1).uppercase(), cA, cB, icon)
+                    val sp = vm.createSpace(name.ifBlank { "Space" }, name.take(1).uppercase(), cA, cB, icon, container)
                     vm.switchSpace(sp.id); onDismiss()
                 }
-                ManagerButton("Save") { selected?.let { vm.updateSpace(it.id, name, name.take(1), icon, cA, cB) }; onDismiss() }
+                ManagerButton("Save") { selected?.let { vm.updateSpace(it.id, name, name.take(1), icon, container, cA, cB) }; onDismiss() }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 ManagerButton("◀") { selected?.let { vm.moveSpace(it.id, -1) } }
@@ -1175,11 +1190,17 @@ private fun PinTreeSection(vm: BrowserViewModel, c: ArcColors) {
 private fun PinNodeRow(vm: BrowserViewModel, node: PinNode, c: ArcColors, depth: Int) {
     var showMenu by remember { mutableStateOf(false) }
     val indent = 18.dp * depth
+    val host = BrowserViewModel.hostOf(node.url)
+    val isActive = node.type == PinType.PIN &&
+        vm.activeTab?.url?.let { vm.pinKeyOf(it) == vm.pinKeyOf(node.url) } == true
     Row(
         Modifier
             .fillMaxWidth()
             .height(42.dp)
             .padding(start = indent)
+            .then(if (isActive) Modifier
+                .clip(RoundedCornerShape(10.dp))
+                .border(2.dp, faviconAccent(host) ?: c.accent, RoundedCornerShape(10.dp)) else Modifier)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
@@ -1189,7 +1210,6 @@ private fun PinNodeRow(vm: BrowserViewModel, node: PinNode, c: ArcColors, depth:
             .then(if (depth > 0) Modifier.border(1.dp, c.hairline, RoundedCornerShape(6.dp)).padding(start = 12.dp) else Modifier),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val host = BrowserViewModel.hostOf(node.url)
         if (node.type == PinType.FOLDER) {
             val children = vm.pinNodes
                 .filter { it.spaceId == node.spaceId && it.parentId == node.id && it.deletedAt == null }
@@ -1267,10 +1287,12 @@ private fun OpenTabsSection(vm: BrowserViewModel, c: ArcColors) {
         Text("Open tabs", color = c.text, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
         tabs.forEach { tab ->
             val host = BrowserViewModel.hostOf(tab.url)
+            val active = tab.id == vm.activeId
             Row(
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(12.dp))
+                    .then(if (active) Modifier.border(2.dp, faviconAccent(host) ?: c.accent, RoundedCornerShape(12.dp)) else Modifier)
                     .clickable { vm.openTabOfSpace(vm.activeSpaceId, tab.id) }
                     .padding(horizontal = 12.dp, vertical = 11.dp),
                 verticalAlignment = Alignment.CenterVertically,
