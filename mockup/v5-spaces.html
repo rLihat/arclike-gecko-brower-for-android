@@ -192,7 +192,7 @@
 
   <div class="sheet" id="sheet">
     <div class="handle" id="handle" title="Tap to close the sidebar sections"></div>
-    <div class="field">
+    <div class="field" id="field">
       <div class="badge-slot"><div class="badge">ddg</div></div>
       <input class="input" id="search" type="text" placeholder="Search or enter a site" aria-label="Search or enter a site" />
       <div class="mask-slot"><div class="mask" id="mask" title="Toggle private search">
@@ -457,22 +457,47 @@ $('indicator').onclick = e => {
   if (e.target.closest('#chev') || $('backdrop').classList.contains('open')) return;
   toggleCard();
 };
+/* Web Animations API — always visible, even when the test browser forces
+   prefers-reduced-motion (which zeroes the CSS transitions/animations). */
+function animateCard(open) {
+  const ease = 'cubic-bezier(0.22,1,0.36,1)';
+  const sheet = $('sheet');
+  sheet.getAnimations().forEach(a => a.cancel());
+  sheet.animate([
+    { height: open ? '47%' : '100%', borderTopLeftRadius: open ? '30px' : '0px', borderTopRightRadius: open ? '30px' : '0px' },
+    { height: open ? '100%' : '47%', borderTopLeftRadius: open ? '0px' : '30px', borderTopRightRadius: open ? '0px' : '30px' },
+  ], { duration: 440, easing: ease });
+  ['field','essentials'].forEach((id,i) => {
+    $(id).animate([{opacity:0, transform:'translateY(14px)'},{opacity:1, transform:'none'}],
+      {duration:340, delay:40 + i*70, easing:ease});
+  });
+  $('indicator').animate([{height: open ? '46px' : '58px'},{height: open ? '58px' : '46px'}],
+    {duration:380, easing:ease});
+  $('disc').animate([{width: open ? '32px' : '38px', height: open ? '32px' : '38px'},
+    {width: open ? '38px' : '32px', height: open ? '38px' : '32px'}], {duration:380, easing:ease});
+  $('chev').querySelector('svg').animate([
+    {transform:`rotate(${open?0:180}deg)`},{transform:`rotate(${open?180:0}deg)`}],
+    {duration:300, easing:ease});
+  const inner = $('list').querySelector('.list-inner');
+  if (inner) inner.animate([{opacity:0, transform:'translateY(12px)'},{opacity:1, transform:'none'}],
+    {duration:280, delay:60, easing:ease});
+}
 function toggleCard() {
   clearTimeout(collapseTimer);
-  if (!expanded) { expanded = true; displayExpanded = true; render(); hint('Space card expanded'); }
-  else {
-    expanded = false; render();
+  if (!expanded) {
+    expanded = true; displayExpanded = true; render();
+    animateCard(true); hint('Space card expanded');
+  } else {
+    expanded = false; render(); animateCard(false);
     // Keep the old content mounted while the sheet animates down, then swap.
-    const ms = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 300;
-    collapseTimer = setTimeout(() => { displayExpanded = false; render(); }, ms);
+    collapseTimer = setTimeout(() => { displayExpanded = false; render(); }, 440);
   }
 }
 function collapseCard() {
   if (!expanded) return;
   clearTimeout(collapseTimer);
-  expanded = false; render();
-  const ms = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 300;
-  collapseTimer = setTimeout(() => { displayExpanded = false; render(); }, ms);
+  expanded = false; render(); animateCard(false);
+  collapseTimer = setTimeout(() => { displayExpanded = false; render(); }, 440);
 }
 $('chev').onclick = () => { collapsed = true; toggleCard(); };
 $('handle').onclick = () => collapseCard();
