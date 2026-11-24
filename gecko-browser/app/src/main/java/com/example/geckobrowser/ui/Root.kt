@@ -831,7 +831,8 @@ private fun ChromeOverlay(
         val pillVisible = (overlay == Overlay.None || overlay == Overlay.Menu ||
             overlay == Overlay.Search || overlay == Overlay.Tabs) && !immersive &&
             vm.pendingDownload == null && !popupPill && !vm.findOpen &&
-            !(overlay == Overlay.None && vm.toastMessage != null) && !vm.clearAllPrompt
+            !(overlay == Overlay.None && vm.toastMessage != null) && !vm.clearAllPrompt &&
+            !vm.plusChooserOpen
         // Layer 3: the pill snapshot is cheap and bounded — max 10fps, only while
         // the page is scrolling/changing, at ~1/6 resolution. Idle pages keep
         // their last frosted frame; a failed readback falls back to a plain tint.
@@ -2593,7 +2594,6 @@ private fun BoxScope.NavPill(
     val haptics = LocalHapticFeedback.current
     val tab = vm.activeTab
     val compact = vm.compactPill && !menuMode && !searchMode
-    var showNewTabChooser by remember { mutableStateOf(false) }
     val privatePurple = Color(0xFF9059FF)
 
     val mode = when {
@@ -2629,7 +2629,7 @@ private fun BoxScope.NavPill(
     val bottom by animateDpAsState(targetBottom, tween(380, easing = morphEasing), label = "pillBottom")
     val x by animateDpAsState(targetX, tween(380, easing = morphEasing), label = "pillX")
     val alpha by animateFloatAsState(
-        if (showNewTabChooser) 1f else (if (visible && !searchMode) 1f else 0f),
+        if (vm.plusChooserOpen) 0f else (if (visible && !searchMode) 1f else 0f),
         tween(160),
         label = "pillAlpha",
     )
@@ -2806,7 +2806,7 @@ private fun BoxScope.NavPill(
                         PillButton(
                             onClick = { vm.openSearch() },
                             onLongClick = {
-                                showNewTabChooser = true
+                                vm.plusChooserOpen = true
                                 android.util.Log.d("HZ", "plus long press -> chooser shown")
                             },
                             onSwipeUp = { vm.openSearch() },
@@ -2851,47 +2851,49 @@ private fun BoxScope.NavPill(
 }
         // Plus long-press chooser: a full-screen tap-catcher with the chip
         // anchored to the bottom, directly above the nav pill.
-        if (showNewTabChooser) {
+        if (vm.plusChooserOpen) {
             Box(
                 Modifier
                     .fillMaxSize()
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
-                    ) { showNewTabChooser = false },
+                    ) { vm.plusChooserOpen = false },
             ) {
                 Row(
                     Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = 20.dp)
-                        .fillMaxWidth(0.7f)
-                        .height(54.dp)
-                        .clip(RoundedCornerShape(27.dp))
+                        .padding(bottom = 22.dp)
+                        .fillMaxWidth(0.86f)
+                        .height(52.dp)
+                        .clip(RoundedCornerShape(26.dp))
                         .background(c.menuCard)
                         .then(rememberGlass(c.navSurface, fps = 15))
-                        .border(1.dp, c.stroke, RoundedCornerShape(27.dp)),
+                        .border(1.dp, c.stroke, RoundedCornerShape(26.dp))
+                        .padding(horizontal = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
                         Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(c.chip),
+                            .weight(1f)
+                            .clip(RoundedCornerShape(20.dp))
+                            .clickable { vm.createTab(false); vm.plusChooserOpen = false }
+                            .padding(vertical = 12.dp),
                         contentAlignment = Alignment.Center,
-                    ) { Glyph(Ico.plus, c.text, size = 17.dp, strokeWidth = 2.2f) }
-                    Spacer(Modifier.width(9.dp))
-                    Text(
-                        "New tab", color = c.text, fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clickable { vm.createTab(false); showNewTabChooser = false },
-                    )
+                    ) {
+                        Text("New tab", color = c.text, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
                     Box(Modifier.width(1.dp).height(22.dp).background(c.hairline))
-                    Spacer(Modifier.width(9.dp))
-                    Text(
-                        "Private tab", color = privatePurple, fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clickable { vm.createTab(true); showNewTabChooser = false },
-                    )
+                    Box(
+                        Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(20.dp))
+                            .clickable { vm.createTab(true); vm.plusChooserOpen = false }
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("Private tab", color = privatePurple, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }

@@ -378,6 +378,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     /** Set when the search sheet is expanded (58% → 78% height). */
     var searchExpanded by mutableStateOf(false)
 
+    /** Plus-pill long-press chooser; hides the nav pill while open. */
+    var plusChooserOpen by mutableStateOf(false)
+
     /**
      * Pinned tabs of the current space (pins + folders, tree form).
      * [PinNode]s for a space are those with matching [PinNode.spaceId].
@@ -5031,7 +5034,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             lower.startsWith("view-source:")
         ) return t
         return if (looksLikeUrl(t)) "https://$t"
-        else currentEngine.urlTemplate.replace("%s", Uri.encode(t))
+        else {
+            // A blank/custom template used to produce an empty URL and hence a
+            // blank tab. Always fall back to a real search endpoint.
+            val template = currentEngine.urlTemplate
+                .takeIf { it.startsWith("http") && it.contains("%s") }
+                ?: "https://duckduckgo.com/?q=%s"
+            template.replace("%s", Uri.encode(t))
+        }
     }
 
     fun showToast(message: String) {

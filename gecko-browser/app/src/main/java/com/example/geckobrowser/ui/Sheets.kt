@@ -231,23 +231,6 @@ fun SearchSheet(
             .fillMaxSize()
             .padding(horizontal = 16.dp),
     ) {
-        // v5 grab handle — hidden once the card fills the screen.
-        if (!expanded) {
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(12.dp)
-                    .clickable { vm.closeOverlay() },
-                contentAlignment = Alignment.TopCenter,
-            ) {
-                Box(
-                    Modifier
-                        .size(36.dp, 4.dp)
-                        .clip(RoundedCornerShape(3.dp))
-                        .background(c.muted.copy(alpha = 0.45f)),
-                )
-            }
-        }
         Box(
             Modifier
                 .fillMaxWidth()
@@ -1022,10 +1005,8 @@ private fun SpaceRow(vm: BrowserViewModel, c: ArcColors, expanded: Boolean, onTo
         }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(space.name, color = c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+            Text(space.name, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, modifier = Modifier.alpha(nameAlpha.value))
-            val pins = vm.pinsOfActiveSpace.count { it.type == PinType.PIN }
-            Text("$pins pins · ${vm.activeSpaceTabs.size} open", color = c.muted, fontSize = 11.5.sp, maxLines = 1)
         }
         Spacer(Modifier.width(8.dp))
         Box(
@@ -1294,15 +1275,22 @@ private fun ManagerButton(
 }
 
 /** One row of the expanded pins tree: folder or pin, with depth indent + rule. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun PinTreeSection(vm: BrowserViewModel, c: ArcColors) {
     val space = vm.activeSpace
+    var showFolderMenu by remember { mutableStateOf(false) }
     Column(Modifier.padding(bottom = 10.dp)) {
         Row(
             Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
-                .clickable { space?.let { vm.toggleSpaceCollapsed(it.id) } }
+                .combinedClickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { space?.let { vm.toggleSpaceCollapsed(it.id) } },
+                    onLongClick = { showFolderMenu = true },
+                )
                 .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1320,25 +1308,31 @@ private fun PinTreeSection(vm: BrowserViewModel, c: ArcColors) {
             )
             Glyph(Ico.chevronUp, c.muted, size = 14.dp, strokeWidth = 2f,
                 modifier = Modifier.rotate(if (space?.collapsed == true) 180f else 0f))
-            Spacer(Modifier.width(6.dp))
-            Box(
+        }
+        if (space?.collapsed != true) {
+            val topLevel = vm.pinNodes
+                .filter { it.spaceId == vm.activeSpaceId && it.parentId == null && it.deletedAt == null }
+                .sortedBy { it.sortIndex }
+            if (topLevel.isEmpty()) {
+                Text("No pins yet", color = c.muted, fontSize = 12.5.sp, modifier = Modifier.padding(vertical = 8.dp))
+            }
+            topLevel.forEach { node ->
+                PinNodeRow(vm, node, c, 0)
+            }
+        }
+    }
+    if (showFolderMenu) {
+        Dialog(onDismissRequest = { showFolderMenu = false }) {
+            Column(
                 Modifier
-                    .size(28.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(c.chip)
-                    .clickable { vm.createFolder(null) },
-                contentAlignment = Alignment.Center,
-            ) { Glyph(Ico.plus, c.text, size = 15.dp, strokeWidth = 2.2f) }
-        }
-        if (space?.collapsed == true) return
-        val topLevel = vm.pinNodes
-            .filter { it.spaceId == vm.activeSpaceId && it.parentId == null && it.deletedAt == null }
-            .sortedBy { it.sortIndex }
-        if (topLevel.isEmpty()) {
-            Text("No pins yet", color = c.muted, fontSize = 12.5.sp, modifier = Modifier.padding(vertical = 8.dp))
-        }
-        topLevel.forEach { node ->
-            PinNodeRow(vm, node, c, 0)
+                    .widthIn(max = 220.dp)
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(c.sheet)
+                    .padding(4.dp),
+            ) {
+                MenuItem(c, "New folder") { vm.createFolder(null); showFolderMenu = false }
+            }
         }
     }
 }
@@ -1347,6 +1341,8 @@ private fun PinTreeSection(vm: BrowserViewModel, c: ArcColors) {
 @Composable
 private fun PinNodeRow(vm: BrowserViewModel, node: PinNode, c: ArcColors, depth: Int) {
     var showMenu by remember { mutableStateOf(false) }
+    var renaming by remember { mutableStateOf(false) }
+    var draftTitle by remember { mutableStateOf(node.title) }
     val indent = 18.dp * depth
     val host = BrowserViewModel.hostOf(node.url)
     val isActive = node.type == PinType.PIN &&
@@ -1378,14 +1374,7 @@ private fun PinNodeRow(vm: BrowserViewModel, node: PinNode, c: ArcColors, depth:
                     .sortedBy { it.sortIndex }
                 val rot by animateFloatAsState(if (node.collapsed) 0f else 90f, tween(140), label = "folderChevron")
                 Box(Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)).background(c.chip), contentAlignment = Alignment.Center) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        repeat(2) {
-                            repeat(2) {
-                                Box(Modifier.size(9.dp).padding(1.5.dp).clip(RoundedCornerShape(2.dp))
-                                    .background(c.accent))
-                            }
-                        }
-                    }
+                    Glyph(Ico.folder, c.accent, size = 17.dp, strokeWidth = 1.9f)
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
@@ -1407,12 +1396,31 @@ private fun PinNodeRow(vm: BrowserViewModel, node: PinNode, c: ArcColors, depth:
                 .forEach { child -> PinNodeRow(vm, child, c, depth + 1) }
         }
     }
-    if (showMenu) PinContextMenu(vm, node, c) { showMenu = false }
+    if (showMenu) PinContextMenu(vm, node, c,
+        onRename = { draftTitle = node.title; renaming = true },
+        onDismiss = { showMenu = false },
+    )
+    if (renaming) {
+        RenameDialog(
+            initial = draftTitle,
+            onSave = { value ->
+                vm.renamePinNode(node.id, value)
+                renaming = false
+            },
+            onDismiss = { renaming = false },
+        )
+    }
 }
 
 /** Long-press context menu on a pin, folder or essential: Rename / Delete. */
 @Composable
-private fun PinContextMenu(vm: BrowserViewModel, node: PinNode, c: ArcColors, onDismiss: () -> Unit) {
+private fun PinContextMenu(
+    vm: BrowserViewModel,
+    node: PinNode,
+    c: ArcColors,
+    onRename: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier
@@ -1423,7 +1431,7 @@ private fun PinContextMenu(vm: BrowserViewModel, node: PinNode, c: ArcColors, on
                 .padding(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            MenuItem(c, "Rename") { vm.renamePinNode(node.id, node.title); onDismiss() }
+            MenuItem(c, "Rename") { onRename(); onDismiss() }
             if (node.type == PinType.FOLDER) {
                 MenuItem(c, "New subfolder") { vm.createFolder(node.id); onDismiss() }
             }
@@ -1497,6 +1505,12 @@ private fun OpenTabsSection(vm: BrowserViewModel, c: ArcColors) {
                             onClick = { if (menuTab == null) vm.openTabOfSpace(vm.activeSpaceId, tab.id) },
                             onLongClick = { menuTab = tab },
                         )
+                        .swipeActions(
+                            onLeft = { vm.closeTab(tab.id) },
+                            onRight = { vm.closeTab(tab.id) },
+                            threshold = 56.dp,
+                            strictHorizontal = true,
+                        )
                         .padding(horizontal = 12.dp, vertical = 11.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -1508,6 +1522,45 @@ private fun OpenTabsSection(vm: BrowserViewModel, c: ArcColors) {
                 }
                 if (menuTab?.id == tab.id) {
                     TabContextMenu(vm, tab, c) { menuTab = null }
+                }
+            }
+        }
+    }
+}
+
+/** Small text dialog used to rename pins and folders. */
+@Composable
+private fun RenameDialog(initial: String, onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    val c = LocalArc.current
+    var value by remember { mutableStateOf(initial) }
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .widthIn(max = 280.dp)
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(c.sheet)
+                .padding(16.dp),
+        ) {
+            Text("Rename", color = c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(10.dp))
+            BasicTextField(
+                value = value,
+                onValueChange = { value = it },
+                singleLine = true,
+                textStyle = TextStyle(color = c.text, fontSize = 14.sp),
+                cursorBrush = SolidColor(c.accent),
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                    .background(c.chip).padding(10.dp),
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.weight(1f)) { ManagerButton("Cancel") { onDismiss() } }
+                Box(Modifier.weight(1f)) {
+                    ManagerButton("Save", primary = true) {
+                        if (value.isNotBlank()) onSave(value.trim())
+                        else onDismiss()
+                    }
                 }
             }
         }
