@@ -18,6 +18,7 @@ class ArcApplication : Application() {
         super.onCreate()
         // Firefox Accounts' Rust client requires these before any account call;
         // without them beginOauthFlow() fails and sign-in reports "unavailable".
+        mozilla.appservices.init_rust_components.initialize()
         mozilla.components.support.rustlog.RustLog.enable()
         mozilla.components.support.rusthttp.RustHttpConfig.setClient(lazy {
             mozilla.components.lib.fetch.httpurlconnection.HttpURLConnectionClient()

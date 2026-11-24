@@ -100,6 +100,8 @@ dependencies {
     implementation 'org.mozilla.components:support-rusthttp:138.0.2'
     implementation 'org.mozilla.components:support-rustlog:138.0.2'
     implementation 'org.mozilla.components:lib-fetch-httpurlconnection:138.0.2'
+    // fxa-client crypto needs NSS initialised before any account call.
+    implementation 'org.mozilla.appservices:init_rust_components:138.0'
     debugImplementation 'androidx.compose.ui:ui-tooling'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'

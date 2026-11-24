@@ -83,6 +83,7 @@ fun SettingsScreen(
         when (route) {
             "look" -> LookAndFeelPage(vm)
             "search" -> SearchPreferencesPage(vm)
+            "containers" -> ContainersPreferencesPage(vm)
             "privacy" -> PrivacyAndSecurityPage(vm)
             "about" -> AboutPage(vm, onBack = { vm.updateSettingsRoute("hub") })
             "authorNotes" -> AuthorNotesScreen(vm) { vm.updateSettingsRoute("about") }
@@ -110,6 +111,7 @@ private val settingsEntries = listOf(
     SettingsEntry("Text size", "Adjust page and UI text scale", "look", "textSize"),
     SettingsEntry("Language", "App and content language", "look", "globe"),
     SettingsEntry("Haptic feedback", "Short acknowledgements for gestures and actions", "look", "grid"),
+    SettingsEntry("Containers", "Create, rename and delete containers", "containers", "userCog"),
     SettingsEntry("Search provider", "Default engine for typed queries", "search", "engine"),
     SettingsEntry("Search suggestions", "Live suggestions as you type", "search", "find"),
     SettingsEntry("Open links in apps", "Hand app links off to installed apps", "search", "open"),
@@ -996,6 +998,121 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
         )
     }
 }
+/** Create / rename / delete the Firefox-style containers used by spaces. */
+@Composable
+fun ContainersPreferencesPage(vm: BrowserViewModel) {
+    val c = LocalArc.current
+    var editing by remember { mutableStateOf<com.example.geckobrowser.BrowserContainer?>(null) }
+    var creating by remember { mutableStateOf(false) }
+    var draft by remember { mutableStateOf("") }
+
+    Column(Modifier.fillMaxSize().background(c.settingsBg)) {
+        SettingsHeader(
+            title = "Containers",
+            leading = {
+                Box(
+                    Modifier.size(34.dp).clip(CircleShape)
+                        .clickable { vm.updateSettingsRoute("hub") },
+                    contentAlignment = Alignment.Center,
+                ) { Glyph(Ico.chevronLeft, c.text, size = 20.dp, strokeWidth = 2.2f) }
+            },
+            icon = { Glyph(Ico.userCog, c.text, size = 19.dp, strokeWidth = 1.8f) },
+        )
+        Column(
+            Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 24.dp),
+        ) {
+            SectionLabel("Available containers")
+            SettingsGroup {
+                vm.containers.forEach { item ->
+                    SettingsRow(
+                        label = item.name,
+                        icon = {
+                            Box(
+                                Modifier.size(16.dp).clip(CircleShape).background(Color(item.color)),
+                            )
+                        },
+                        value = if (item.key == "none") "Default" else null,
+                        onClick = { editing = item; draft = item.name },
+                        trailing = {
+                            if (item.key != "none") {
+                                Glyph(
+                                    Ico.trash, c.press, size = 18.dp, strokeWidth = 1.9f,
+                                    modifier = Modifier.clickable { vm.deleteContainer(item.key) },
+                                )
+                            }
+                        },
+                    )
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(46.dp)
+                    .clip(CircleShape)
+                    .background(c.accent)
+                    .clickable { creating = true; draft = "" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("+ New container", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(Modifier.height(10.dp))
+            Text(
+                "Containers are metadata on Android — pages are not isolated into separate cookie jars.",
+                color = c.muted,
+                fontSize = 11.sp,
+            )
+        }
+    }
+
+    if (creating) {
+        AlertDialog(
+            onDismissRequest = { creating = false },
+            title = { Text("New container", color = c.text) },
+            text = {
+                BasicTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    singleLine = true,
+                    textStyle = TextStyle(color = c.text, fontSize = 15.sp),
+                    cursorBrush = SolidColor(c.accent),
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                        .background(c.chip).padding(12.dp),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { vm.addContainer(draft); creating = false }) { Text("Create") }
+            },
+            dismissButton = { TextButton(onClick = { creating = false }) { Text("Cancel") } },
+        )
+    }
+    editing?.let { item ->
+        AlertDialog(
+            onDismissRequest = { editing = null },
+            title = { Text("Rename container", color = c.text) },
+            text = {
+                BasicTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    singleLine = true,
+                    textStyle = TextStyle(color = c.text, fontSize = 15.sp),
+                    cursorBrush = SolidColor(c.accent),
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                        .background(c.chip).padding(12.dp),
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { vm.renameContainer(item.key, draft); editing = null }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { editing = null }) { Text("Cancel") } },
+        )
+    }
+}
+
 @Composable
 private fun IconBtn(icon: List<androidx.compose.ui.graphics.Path>, onClick: () -> Unit) {
     val c = LocalArc.current

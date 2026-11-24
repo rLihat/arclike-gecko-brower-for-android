@@ -54,6 +54,18 @@ val ContainerPresets = listOf(
     ContainerPreset("shopping", "Shopping", 0xFFB34D6B, "palette"),
 )
 
+/** A user-managed container; GeckoView treats it as metadata only. */
+data class BrowserContainer(
+    val key: String,
+    val name: String,
+    val color: Long,
+    val icon: String = "person",
+)
+
+val DefaultContainers: List<BrowserContainer> = ContainerPresets.map {
+    BrowserContainer(it.key, it.label, it.color, it.icon)
+}
+
 /**
  * Page pinned globally by URL (the hardened shape of the existing `PinRecord`).
  * Hard cap [MAX] per the spec.

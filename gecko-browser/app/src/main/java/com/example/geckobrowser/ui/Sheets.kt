@@ -812,10 +812,11 @@ fun MenuSheet(vm: BrowserViewModel) {
             // Replaces the old Pin action, in the same slot with the same icon.
             val essential = vm.activeTabEssential
             MenuAction(
-                if (essential != null) "Remove" else "Add",
+                if (essential != null) "Remove" else "Add to Essentials",
                 if (essential != null) Ico.pinOff else Ico.pin,
                 accent = essential != null,
                 enabled = essential != null || vm.activePinKey.isNotEmpty(),
+                labelSize = if (essential != null) 11.sp else 9.sp,
             ) {
                 if (essential != null) {
                     vm.removeEssential(essential.id)
@@ -1056,6 +1057,7 @@ private fun SpaceManager(
     var name by remember(selectedId) { mutableStateOf(selected?.name.orEmpty()) }
     var icon by remember(selectedId) { mutableStateOf(selected?.icon ?: "plus") }
     var container by remember(selectedId) { mutableStateOf(selected?.container ?: "none") }
+    var containerExpanded by remember(selectedId) { mutableStateOf(false) }
     var cA by remember(selectedId) { mutableLongStateOf(selected?.colorA ?: DEFAULT_SPACE_C1) }
     var cB by remember(selectedId) { mutableLongStateOf(selected?.colorB ?: DEFAULT_SPACE_C2) }
     Dialog(
@@ -1125,7 +1127,7 @@ private fun SpaceManager(
                             .clip(RoundedCornerShape(9.dp))
                             .background(c.sheet),
                         contentAlignment = Alignment.Center,
-                    ) { Glyph(Ico.sparkles, c.accent, size = 18.dp, strokeWidth = 2f) }
+                    ) { Glyph(spaceIcon(icon), c.accent, size = 18.dp, strokeWidth = 2f) }
                     Spacer(Modifier.width(6.dp))
                     BasicTextField(
                         value = name,
@@ -1154,20 +1156,57 @@ private fun SpaceManager(
                 }
                 Spacer(Modifier.height(10.dp))
                 Text("Container", color = c.muted, fontSize = 11.5.sp)
-                Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ContainerPresets.forEach { p ->
-                        val on = p.key == container
+                val picked = vm.containerFor(container)
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(c.chip),
+                ) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { containerExpanded = !containerExpanded }
+                            .padding(horizontal = 12.dp, vertical = 11.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
                         Box(
                             Modifier
-                                .size(34.dp)
+                                .size(18.dp)
                                 .clip(CircleShape)
-                                .background(if (on) Color(p.color) else c.chip)
-                                .border(2.dp, if (on) c.accent else Color.Transparent, CircleShape)
-                                .clickable { container = p.key },
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(p.label.take(1), color = if (on) Color.White else c.text,
-                                fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                .background(Color(picked.color)),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(picked.name, color = c.text, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        Glyph(Ico.chevronUp, c.muted, size = 16.dp, strokeWidth = 2f,
+                            modifier = Modifier.rotate(if (containerExpanded) 0f else 180f))
+                    }
+                    if (containerExpanded) {
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
+                        vm.containers.forEach { item ->
+                            val on = item.key == container
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable { container = item.key; containerExpanded = false }
+                                    .background(if (on) c.menuCard else Color.Transparent)
+                                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Box(Modifier.size(16.dp).clip(CircleShape).background(Color(item.color)))
+                                Spacer(Modifier.width(10.dp))
+                                Text(item.name, color = c.text, fontSize = 13.sp)
+                                if (on) {
+                                    Text("✓", color = c.accent, fontSize = 13.sp,
+                                        modifier = Modifier.padding(start = 8.dp))
+                                }
+                            }
+                        }
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
+                        CtxRow(Ico.gear, "Manage containers") {
+                            containerExpanded = false
+                            vm.openContainers()
                         }
                     }
                 }
@@ -1281,6 +1320,15 @@ private fun PinTreeSection(vm: BrowserViewModel, c: ArcColors) {
             )
             Glyph(Ico.chevronUp, c.muted, size = 14.dp, strokeWidth = 2f,
                 modifier = Modifier.rotate(if (space?.collapsed == true) 180f else 0f))
+            Spacer(Modifier.width(6.dp))
+            Box(
+                Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(c.chip)
+                    .clickable { vm.createFolder(null) },
+                contentAlignment = Alignment.Center,
+            ) { Glyph(Ico.plus, c.text, size = 15.dp, strokeWidth = 2.2f) }
         }
         if (space?.collapsed == true) return
         val topLevel = vm.pinNodes
@@ -1303,52 +1351,60 @@ private fun PinNodeRow(vm: BrowserViewModel, node: PinNode, c: ArcColors, depth:
     val host = BrowserViewModel.hostOf(node.url)
     val isActive = node.type == PinType.PIN &&
         vm.activeTab?.url?.let { vm.pinKeyOf(it) == vm.pinKeyOf(node.url) } == true
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .height(42.dp)
-            .padding(start = indent)
-            .then(if (isActive) Modifier
-                .clip(RoundedCornerShape(10.dp))
-                .border(2.dp, faviconAccent(host) ?: c.accent, RoundedCornerShape(10.dp)) else Modifier)
-            .combinedClickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = { if (node.type == PinType.PIN) vm.openTabInSpace(node.spaceId, node.url, node.title) },
-                onLongClick = { showMenu = true },
-            )
-            .then(if (depth > 0) Modifier.border(1.dp, c.hairline, RoundedCornerShape(6.dp)).padding(start = 12.dp) else Modifier),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (node.type == PinType.FOLDER) {
-            val children = vm.pinNodes
-                .filter { it.spaceId == node.spaceId && it.parentId == node.id && it.deletedAt == null }
-                .sortedBy { it.sortIndex }
-            val rot by animateFloatAsState(if (node.collapsed) 0f else 90f, tween(140), label = "folderChevron")
-            Box(Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)).background(c.chip), contentAlignment = Alignment.Center) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    repeat(2) { i ->
-                        repeat(2) { j ->
-                            Box(Modifier.size(9.dp).padding(1.5.dp).clip(RoundedCornerShape(2.dp)).background(faviconAccent(host) ?: c.accent))
+    Column(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .height(42.dp)
+                .padding(start = indent)
+                .then(if (isActive) Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .border(2.dp, faviconAccent(host) ?: c.accent, RoundedCornerShape(10.dp)) else Modifier)
+                .combinedClickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
+                        if (node.type == PinType.PIN) vm.openTabInSpace(node.spaceId, node.url, node.title)
+                        else vm.toggleFolder(node.id)
+                    },
+                    onLongClick = { showMenu = true },
+                )
+                .then(if (depth > 0) Modifier.border(1.dp, c.hairline, RoundedCornerShape(6.dp)).padding(start = 12.dp) else Modifier),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (node.type == PinType.FOLDER) {
+                val children = vm.pinNodes
+                    .filter { it.spaceId == node.spaceId && it.parentId == node.id && it.deletedAt == null }
+                    .sortedBy { it.sortIndex }
+                val rot by animateFloatAsState(if (node.collapsed) 0f else 90f, tween(140), label = "folderChevron")
+                Box(Modifier.size(28.dp).clip(RoundedCornerShape(6.dp)).background(c.chip), contentAlignment = Alignment.Center) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        repeat(2) {
+                            repeat(2) {
+                                Box(Modifier.size(9.dp).padding(1.5.dp).clip(RoundedCornerShape(2.dp))
+                                    .background(c.accent))
+                            }
                         }
                     }
                 }
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Text(node.title.ifBlank { "Folder" }, color = c.text, fontSize = 13.5.sp, maxLines = 1)
-                if (children.isNotEmpty()) {
-                    Text(" pins", color = c.muted, fontSize = 11.5.sp)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(node.title.ifBlank { "Folder" }, color = c.text, fontSize = 13.5.sp, maxLines = 1)
+                    Text("${children.size} pins", color = c.muted, fontSize = 11.5.sp)
                 }
+                Glyph(Ico.chevronDown, c.muted, size = 14.dp, strokeWidth = 2f, modifier = Modifier.rotate(rot))
+            } else {
+                SiteFavicon(host, node.title.take(1), 18.dp)
+                Spacer(Modifier.width(8.dp))
+                Text(node.title.ifBlank { host.ifBlank { "Pin" } }, color = c.text, fontSize = 13.5.sp, maxLines = 1)
             }
-            Glyph(Ico.chevronDown, c.muted, size = 14.dp, strokeWidth = 2f, modifier = Modifier.rotate(rot))
-            if (!node.collapsed) {
-                children.forEach { PinNodeRow(vm, it, c, depth + 1) }
-            }
-        } else {
-            SiteFavicon(host, node.title.take(1), 18.dp)
-            Spacer(Modifier.width(8.dp))
-            Text(node.title.ifBlank { host.ifBlank { "Pin" } }, color = c.text, fontSize = 13.5.sp, maxLines = 1)
+        }
+        // Children are siblings, never nested inside the fixed-height row.
+        if (node.type == PinType.FOLDER && !node.collapsed) {
+            vm.pinNodes
+                .filter { it.spaceId == node.spaceId && it.parentId == node.id && it.deletedAt == null }
+                .sortedBy { it.sortIndex }
+                .forEach { child -> PinNodeRow(vm, child, c, depth + 1) }
         }
     }
     if (showMenu) PinContextMenu(vm, node, c) { showMenu = false }
@@ -1368,7 +1424,10 @@ private fun PinContextMenu(vm: BrowserViewModel, node: PinNode, c: ArcColors, on
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             MenuItem(c, "Rename") { vm.renamePinNode(node.id, node.title); onDismiss() }
-            MenuItem(c, if (node.type == PinType.FOLDER) "Delete" else "Delete", color = c.press) {
+            if (node.type == PinType.FOLDER) {
+                MenuItem(c, "New subfolder") { vm.createFolder(node.id); onDismiss() }
+            }
+            MenuItem(c, "Delete", color = c.press) {
                 vm.deletePinNode(node.id); onDismiss()
             }
         }
@@ -1458,6 +1517,13 @@ private fun OpenTabsSection(vm: BrowserViewModel, c: ArcColors) {
 /** Website-style floating glass menu for a tab in the expanded sheet. */
 @Composable
 private fun TabContextMenu(vm: BrowserViewModel, tab: TabInfo, c: ArcColors, onDismiss: () -> Unit) {
+    val title = tab.title.ifBlank { BrowserViewModel.hostOf(tab.url) }
+    val key = vm.pinKeyOf(tab.url)
+    val essential = vm.essentialsSorted.firstOrNull { vm.pinKeyOf(it.url) == key }
+    val pinnedNode = vm.pinNodes.firstOrNull {
+        it.spaceId == vm.activeSpaceId && it.type == PinType.PIN &&
+            it.deletedAt == null && vm.pinKeyOf(it.url) == key
+    }
     Popup(onDismissRequest = onDismiss, alignment = Alignment.TopStart) {
         Column(
             Modifier
@@ -1465,49 +1531,68 @@ private fun TabContextMenu(vm: BrowserViewModel, tab: TabInfo, c: ArcColors, onD
                 .shadow(20.dp, RoundedCornerShape(16.dp))
                 .clip(RoundedCornerShape(16.dp))
                 .background(c.sheet)
+                .then(rememberGlass(c.sheet, fps = 15, maxEdge = 120, radius = 4))
                 .border(1.dp, c.stroke, RoundedCornerShape(16.dp))
                 .padding(6.dp),
         ) {
             Text(
-                tab.title.ifBlank { BrowserViewModel.hostOf(tab.url) },
+                title,
                 color = c.muted,
                 fontSize = 10.5.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 7.dp, bottom = 6.dp),
             )
-            MenuItem(c, "Reload") {
-                vm.selectTab(tab.id)
-                vm.reload()
-                onDismiss()
+            CtxRow(Ico.refresh, "Reload") {
+                vm.selectTab(tab.id); vm.reload(); onDismiss()
             }
-            MenuItem(c, "Add to folder") {
+            CtxRow(Ico.folder, "Add to folder") {
                 val folder = vm.pinNodes.firstOrNull {
                     it.spaceId == vm.activeSpaceId && it.type == PinType.FOLDER && it.deletedAt == null
                 } ?: vm.createFolder(null)
                 if (folder != null) {
-                    vm.addPinNode(
-                        PinType.PIN,
-                        url = tab.url,
-                        title = tab.title.ifBlank { BrowserViewModel.hostOf(tab.url) },
-                        parentId = folder.id,
-                    )
+                    vm.addPinNode(PinType.PIN, url = tab.url, title = title, parentId = folder.id)
                     vm.showToast("Added to folder")
                 }
                 onDismiss()
             }
-            val key = vm.pinKeyOf(tab.url)
-            val essential = vm.essentialsSorted.firstOrNull { vm.pinKeyOf(it.url) == key }
-            MenuItem(c, if (essential != null) "Remove from Essentials" else "Add to Essentials") {
-                if (essential != null) vm.removeEssential(essential.id)
-                else vm.createEssential(tab.url, tab.title.ifBlank { BrowserViewModel.hostOf(tab.url) })
+            CtxRow(if (pinnedNode != null) Ico.pinOff else Ico.pin,
+                if (pinnedNode != null) "Unpin" else "Pin") {
+                if (pinnedNode != null) vm.deletePinNode(pinnedNode.id)
+                else vm.addPinNode(PinType.PIN, url = tab.url, title = title)
                 onDismiss()
             }
-            MenuItem(c, "Remove", color = c.press) {
-                vm.closeTab(tab.id)
+            CtxRow(Ico.sparkles, if (essential != null) "Remove from Essentials" else "Add to Essentials") {
+                if (essential != null) vm.removeEssential(essential.id)
+                else vm.createEssential(tab.url, title)
                 onDismiss()
+            }
+            CtxRow(Ico.close, "Remove", tint = c.press) {
+                vm.closeTab(tab.id); onDismiss()
             }
         }
+    }
+}
+
+@Composable
+private fun CtxRow(
+    icon: List<androidx.compose.ui.graphics.Path>,
+    label: String,
+    tint: Color? = null,
+    onClick: () -> Unit,
+) {
+    val c = LocalArc.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 9.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Glyph(icon, tint ?: c.muted, size = 17.dp, strokeWidth = 1.8f)
+        Spacer(Modifier.width(10.dp))
+        Text(label, color = c.text, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

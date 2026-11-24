@@ -314,6 +314,67 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         syncStatus = "Not synced"
     }
 
+    /* ------------------------------------------------------------ containers */
+
+    var containers by mutableStateOf(loadContainers())
+        private set
+
+    fun containerFor(key: String): BrowserContainer =
+        containers.firstOrNull { it.key == key } ?: DefaultContainers.first()
+
+    fun addContainer(name: String, color: Long = 0xFF5B6B7A): BrowserContainer {
+        val key = "custom-" + java.util.UUID.randomUUID().toString().take(8)
+        val item = BrowserContainer(key, name.ifBlank { "Container" }, color)
+        containers = containers + item
+        persistContainers()
+        return item
+    }
+
+    fun renameContainer(key: String, name: String) {
+        if (name.isBlank()) return
+        containers = containers.map { if (it.key == key) it.copy(name = name.trim()) else it }
+        persistContainers()
+    }
+
+    fun deleteContainer(key: String) {
+        if (key == "none" || containers.size <= 1) return
+        containers = containers.filter { it.key != key }
+        // Detach from any spaces using it.
+        spaces = spaces.map { if (it.container == key) it.copy(container = "none") else it }
+        persistSpaces()
+        persistContainers()
+    }
+
+    private fun loadContainers(): List<BrowserContainer> {
+        val raw = application.getSharedPreferences("horizen_containers", Context.MODE_PRIVATE)
+            .getString("list", null) ?: return DefaultContainers
+        return try {
+            val arr = org.json.JSONArray(raw)
+            buildList {
+                for (i in 0 until arr.length()) {
+                    val o = arr.optJSONObject(i) ?: continue
+                    val key = o.optString("key")
+                    if (key.isBlank()) continue
+                    add(BrowserContainer(key, o.optString("name"), o.optLong("color"), o.optString("icon")))
+                }
+            }.ifEmpty { DefaultContainers }
+        } catch (_: Throwable) {
+            DefaultContainers
+        }
+    }
+
+    private fun persistContainers() {
+        val arr = org.json.JSONArray().apply {
+            containers.forEach {
+                put(org.json.JSONObject().apply {
+                    put("key", it.key); put("name", it.name); put("color", it.color); put("icon", it.icon)
+                })
+            }
+        }
+        application.getSharedPreferences("horizen_containers", Context.MODE_PRIVATE)
+            .edit().putString("list", arr.toString()).apply()
+    }
+
     /** Set when the search sheet is expanded (58% → 78% height). */
     var searchExpanded by mutableStateOf(false)
 
@@ -4469,6 +4530,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun toggleTabs() {
         if (overlay == Overlay.Tabs) closeOverlay() else openTabs()
+    }
+
+    fun openContainers() {
+        updateSettingsRoute("containers")
+        openSettings()
     }
 
     fun openSettings() {
