@@ -1115,12 +1115,12 @@ private fun SpaceManager(
 }
 
 @Composable
-private fun RowScope.ManagerButton(text: String, color: Color = Color.Unspecified, onClick: () -> Unit) {
+private fun ManagerButton(text: String, color: Color = Color.Unspecified, onClick: () -> Unit) {
     val c = LocalArc.current
     Box(
         Modifier
-            .weight(1f)
             .clip(RoundedCornerShape(10.dp))
+            .padding(horizontal = 8.dp)
             .background(c.chip)
             .clickable(onClick = onClick)
             .padding(vertical = 9.dp),
