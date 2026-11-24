@@ -266,7 +266,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Creates a space and persists it. Returns the new space. */
-    fun createSpace(name: String, letter: String, colorA: Int, colorB: Int): Space {
+    fun createSpace(name: String, letter: String, colorA: Long, colorB: Long): Space {
         val space = Space(
             id = UUID.randomUUID(),
             name = name,
