@@ -15,9 +15,9 @@ data class Space(
     /** Avatar initial, shown when there is no favicon/letter to load. */
     val letter: String,
     /** Avatar gradient start (ARGB). */
-    val colorA: Int,
+    val colorA: Long,
     /** Avatar gradient end (ARGB). */
-    val colorB: Int,
+    val colorB: Long,
     val sortIndex: Int = 0,
     val updatedAt: Long = System.currentTimeMillis(),
     /** Soft-delete timestamp; non-null = tombstoned. */

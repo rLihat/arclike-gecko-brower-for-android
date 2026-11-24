@@ -329,7 +329,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     /* ------------------------------------------------------------ pin nodes (phase 1) */
 
-    private fun pinDepth(id: UUID?): Int = companion.pinDepth(pinNodes, id)
+    private fun pinDepth(id: UUID?): Int = pinDepth(pinNodes, id)
 
     /**
      * Adds a pin node in the active space. Returns the node, or null when the
