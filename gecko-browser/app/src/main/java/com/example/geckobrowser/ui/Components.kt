@@ -31,7 +31,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalViewConfiguration
-import androidx.compose.ui.unit.LocalDensity
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -567,7 +567,7 @@ fun PillButton(
     val haptics = LocalHapticFeedback.current
     val threshold = LocalViewConfiguration.current.touchSlop
     val thresholdF = threshold.toFloat()
-    val horizontalSlop = if (strictHorizontal) 36.dp.value * LocalDensity.current.density else thresholdF
+    val horizontalSlop = with(LocalDensity.current) { if (strictHorizontal) 36.dp.toPx() else thresholdF }
     Box(
         Modifier
             .size(46.dp)
@@ -586,7 +586,7 @@ fun PillButton(
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id } ?: continue
                         if (change.isConsumed) break
-                        val move = change.positionChange()
+                        val move = change.position - change.previousPosition
                         dx += move.x
                         dy += move.y
                         val barelyMoved = abs(dx) <= thresholdF && abs(dy) <= thresholdF
