@@ -939,6 +939,7 @@ private fun EssentialLabel(vm: BrowserViewModel, c: ArcColors) {
 }
 
 /** 46dp space row: letter disc + name + "pins · open" subtitle + dots + chevron. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun SpaceRow(vm: BrowserViewModel, c: ArcColors) {
     val spaces = vm.spacesSorted
@@ -1071,6 +1072,7 @@ private fun PinTreeSection(vm: BrowserViewModel, c: ArcColors) {
     }
 }
 
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun PinNodeRow(vm: BrowserViewModel, node: PinNode, c: ArcColors, depth: Int) {
     var showMenu by remember { mutableStateOf(false) }
