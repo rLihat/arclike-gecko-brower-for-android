@@ -276,8 +276,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun switchSpace(id: UUID) {
         val target = spaces.firstOrNull { it.id == id } ?: return
         activeSpaceId = id
-        spaceC1 = Color(target.colorA.takeIf { it != 0L } ?: DEFAULT_SPACE_C1)
-        spaceC2 = Color(target.colorB.takeIf { it != 0L } ?: DEFAULT_SPACE_C2)
+        spaceC1 = target.colorA.takeIf { it != 0L } ?: DEFAULT_SPACE_C1
+        spaceC2 = target.colorB.takeIf { it != 0L } ?: DEFAULT_SPACE_C2
         persistSpaces()
     }
 

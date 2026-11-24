@@ -495,6 +495,7 @@ private fun EssentialRow(vm: BrowserViewModel) {
     var dragTileWindowX by remember { mutableStateOf(Float.NaN) }
     // -1 scrolls left, +1 scrolls right, 0 idle; used while a tile is dragged near the row's edge.
     var edgeScroll by remember { mutableStateOf(0) }
+    var accumulatedDragPx by remember { mutableFloatStateOf(0f) }
     val tileWidth = ((config.screenWidthDp - 32 - 20).dp / 3f)
     val density = androidx.compose.ui.platform.LocalDensity.current
     val tileWidthPx = with(density) { tileWidth.toPx() }
