@@ -70,6 +70,8 @@ data class TabInfo(
     val desktopMode: Boolean = false,
     val isPrivate: Boolean = false,
     val thumbnail: Bitmap? = null,
+    /** Which space this tab belongs to. Defaults to Personal; old tabs migrate there. */
+    val spaceId: UUID = Space.PERSONAL_ID,
 )
 
 /** Horizontal plus-swipe that moved between tabs; drives the slide-in. */
@@ -229,6 +231,185 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var overlay by mutableStateOf(Overlay.None)
         private set
 
+    /* ------------------------------------------------------------ spaces (phase 1) */
+
+    var spaces by mutableStateOf<List<Space>>(emptyList())
+        private set
+
+    var essentials by mutableStateOf<List<Essential>>(emptyList())
+        private set
+
+    var pinNodes by mutableStateOf<List<PinNode>>(emptyList())
+        private set
+
+    var activeSpaceId by mutableStateOf(Space.PERSONAL_ID)
+        private set
+
+    /**
+     * Pinned tabs of the current space (pins + folders, tree form).
+     * [PinNode]s for a space are those with matching [PinNode.spaceId].
+     */
+    val pinsOfActiveSpace: List<PinNode> get() = pinNodes.filter { it.spaceId == activeSpaceId && it.deletedAt == null }
+
+    val activeSpace: Space? get() = spaces.firstOrNull { it.id == activeSpaceId && it.deletedAt == null }
+
+    /** Active spaces, most recently used first. */
+    val spacesSorted: List<Space> get() = spaces.filter { it.deletedAt == null }
+        .sortedByDescending { it.updatedAt }
+
+    /** Switch the active space. */
+    fun switchSpace(id: UUID) {
+        if (spaces.none { it.id == id }) return
+        activeSpaceId = id
+        persistSpaces()
+    }
+
+    /** Creates a space and persists it. Returns the new space. */
+    fun createSpace(name: String, letter: String, colorA: Int, colorB: Int): Space {
+        val space = Space(
+            id = UUID.randomUUID(),
+            name = name,
+            letter = letter,
+            colorA = colorA,
+            colorB = colorB,
+        )
+        spaces = spaces + space
+        persistSpaces()
+        return space
+    }
+
+    /** Soft-deletes a space; its tabs and pins are preserved for restore. */
+    fun deleteSpace(id: UUID) {
+        val space = spaces.firstOrNull { it.id == id } ?: return
+        if (space.deletedAt != null) return
+        spaces = spaces.map { if (it.id == id) it.copy(deletedAt = System.currentTimeMillis()) else it }
+        pinNodes = pinNodes.map { n ->
+            if (n.spaceId == id && n.deletedAt == null) n.copy(deletedAt = System.currentTimeMillis()) else n
+        }
+        persistSpaces()
+        persistPinNodes()
+    }
+
+    fun persistSpaces() {
+        val snapshot = spaces
+        scope.launch(Dispatchers.IO) { BrowserFiles.saveSpaces(application, snapshot) }
+    }
+
+    /* ------------------------------------------------------------ essentials (phase 1) */
+
+    val essentialsSorted: List<Essential>
+        get() = essentials.filter { it.deletedAt == null }.sortedBy { it.sortIndex }
+
+    /** Adds an essential; false when the [Essential.MAX] cap is reached. */
+    fun createEssential(url: String, title: String): Boolean {
+        val key = pinKeyOf(url)
+        if (key.isBlank()) return false
+        if (essentials.any { it.deletedAt == null && pinKeyOf(it.url) == key }) return false
+        if (essentials.count { it.deletedAt == null } >= Essential.MAX) return false
+        essentials = essentials + Essential(
+            id = UUID.randomUUID(),
+            url = url,
+            title = title,
+        )
+        persistEssentials()
+        return true
+    }
+
+    /** Soft-deletes an essential. */
+    fun removeEssential(id: UUID) {
+        essentials = essentials.map { if (it.id == id) it.copy(deletedAt = System.currentTimeMillis()) else it }
+        persistEssentials()
+    }
+
+    fun persistEssentials() {
+        val snapshot = essentials
+        scope.launch(Dispatchers.IO) { BrowserFiles.saveEssentials(application, snapshot) }
+    }
+
+    /* ------------------------------------------------------------ pin nodes (phase 1) */
+
+    private fun pinDepth(id: UUID?): Int {
+        // Number of folder ancestors (top level = 0).
+        var depth = 0
+        var parent = id
+        val nodes = pinNodes
+        while (parent != null) {
+            depth++
+            parent = nodes.firstOrNull { it.id == parent }?.parentId
+        }
+        return depth
+    }
+
+    /**
+     * Adds a pin node in the active space. Returns the node, or null when the
+     * parent is not a folder or the [PinNode.MAX_DEPTH] limit is exceeded.
+     */
+    fun addPinNode(
+        type: PinType,
+        url: String = "",
+        title: String = "",
+        parentId: UUID? = null,
+    ): PinNode? {
+        val parent = pinNodes.firstOrNull { it.id == parentId }
+        if (parentId != null) {
+            if (parent == null || parent.deletedAt != null || parent.type != PinType.FOLDER) return null
+            if (parent.depth + 1 > PinNode.MAX_DEPTH) return null
+        }
+        val node = PinNode(
+            id = UUID.randomUUID(),
+            spaceId = activeSpaceId,
+            parentId = parentId,
+            type = type,
+            url = if (type == PinType.PIN) url else "",
+            title = title,
+            depth = parent?.depth?.plus(1) ?: 0,
+        )
+        pinNodes = pinNodes + node
+        persistPinNodes()
+        return node
+    }
+
+    /** Creates a folder inside [parentId] (or top level of the space). */
+    fun createFolder(parentId: UUID?): PinNode? =
+        addPinNode(PinType.FOLDER, parentId = parentId, title = "New folder")
+
+    /** Toggles a folder's collapsed state. */
+    fun toggleFolder(id: UUID) {
+        val node = pinNodes.firstOrNull { it.id == id } ?: return
+        pinNodes = pinNodes.map {
+            if (it.id == id) it.copy(collapsed = !it.collapsed, updatedAt = System.currentTimeMillis()) else it
+        }
+        persistPinNodes()
+    }
+
+    /** Soft-deletes a pin node. */
+    fun deletePinNode(id: UUID) {
+        pinNodes = pinNodes.map {
+            if (it.id == id && it.deletedAt == null) it.copy(deletedAt = System.currentTimeMillis()) else it
+        }
+        persistPinNodes()
+    }
+
+    /** Reorders the top level of the active space (drag-to-reorder in the sheet). */
+    fun movePinNode(fromIndex: Int, toIndex: Int) {
+        val topLevel = pinNodes.filter { it.spaceId == activeSpaceId && it.parentId == null && it.deletedAt == null }
+        if (fromIndex !in topLevel.indices || toIndex !in 0..topLevel.size) return
+        if (fromIndex == toIndex) return
+        val ids = topLevel.map { it.id }.toMutableList()
+        val item = ids.removeAt(fromIndex)
+        ids.add(toIndex, item)
+        pinNodes = pinNodes.map { n ->
+            val idx = ids.indexOf(n.id)
+            if (idx >= 0 && n.sortIndex != idx) n.copy(sortIndex = idx, updatedAt = System.currentTimeMillis()) else n
+        }
+        persistPinNodes()
+    }
+
+    fun persistPinNodes() {
+        val snapshot = pinNodes
+        scope.launch(Dispatchers.IO) { BrowserFiles.savePinNodes(application, snapshot) }
+    }
+
     /* ------------------------------------------------------------ pins */
 
     var pins by mutableStateOf<List<PinRecord>>(emptyList())
@@ -333,6 +514,34 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         pins = loaded.mapNotNull { pin ->
             val key = pinKeyOf(pin.url).ifBlank { pin.key }
             if (key.isBlank() || !seen.add(key)) null else pin.copy(key = key)
+        }
+        // Phase 1 migration: active essentials come first (hard cap [Essential.MAX]),
+        // extras stay as pins in the default space.
+        if (essentials.isEmpty()) {
+            val migrated = pins.take(Essential.MAX).map { p ->
+                Essential(UUID.randomUUID(), p.url, p.title)
+            }
+            if (migrated.isNotEmpty()) {
+                essentials = migrated
+                persistEssentials()
+            }
+        }
+        if (pinNodes.isEmpty()) {
+            val extra = pins.drop(Essential.MAX)
+            if (extra.isNotEmpty()) {
+                pinNodes = extra.mapIndexed { i, p ->
+                    PinNode(
+                        id = UUID.randomUUID(),
+                        spaceId = Space.PERSONAL_ID,
+                        parentId = null,
+                        type = PinType.PIN,
+                        url = p.url,
+                        title = p.title,
+                        sortIndex = i,
+                    )
+                }
+                persistPinNodes()
+            }
         }
     }
 
@@ -853,6 +1062,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
         historyVersionState++
         configureExtensions()
+        restoreSpaces()
         restoreTabs()
         restorePins()
         refreshExtensions()
@@ -917,6 +1127,29 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
+    /**
+     * Backfills the default "Personal" space when the user has none yet
+     * (migration) and loads spaces + essentials from disk.
+     */
+    private fun restoreSpaces() {
+        spaces = BrowserFiles.loadSpaces(application)
+        essentials = BrowserFiles.loadEssentials(application)
+        pinNodes = BrowserFiles.loadPinNodes(application)
+        if (spaces.none { it.deletedAt == null }) {
+            val personal = Space(
+                id = Space.PERSONAL_ID,
+                name = "Personal",
+                letter = "P",
+                colorA = 0xFF2F5C69,
+                colorB = 0xFF4F7C8A,
+            )
+            spaces = spaces + personal
+            persistSpaces()
+        }
+        val active = spacesSorted.firstOrNull()
+        if (active != null) activeSpaceId = active.id
+    }
+
     private fun restoreTabs() {
         val list = BrowserFiles.loadTabList(application)
         if (list == null || list.tabs.isEmpty()) {
@@ -950,6 +1183,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 secure = record.secure,
                 desktopMode = record.desktopMode,
                 isPrivate = record.private,
+                spaceId = record.spaceId,
             )
             restored += tab
             histories[id] = History().apply {
