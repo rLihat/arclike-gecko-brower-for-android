@@ -47,6 +47,12 @@ object BrowserFiles {
 
     fun pinsFile(context: Context): File = File(browserDir(context), "pins.json")
 
+    fun spacesFile(context: Context): File = File(browserDir(context), "spaces.json")
+
+    fun essentialsFile(context: Context): File = File(browserDir(context), "essentials.json")
+
+    fun pinNodesFile(context: Context): File = File(browserDir(context), "pin-nodes.json")
+
     /** Persistent favicon cache, keyed by the normalised host. */
     fun faviconFile(context: Context, key: String): File =
         File(browserDir(context), "favicon-${key.hashCode()}.png")
