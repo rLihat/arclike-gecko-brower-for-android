@@ -134,8 +134,9 @@ class FxaSync(private val context: Context) {
         return try {
             val info = account().getAccessToken(SCOPE_OLDSYNC, null)
             val key = info.key?.k ?: run {
-                lastError = "No sync key for this account"
-                android.util.Log.e("HZ-FxA", lastError)
+                val message = "No sync key for this account"
+                lastError = message
+                android.util.Log.e("HZ-FxA", message)
                 return null
             }
             val tokenServer = account().getTokenServerEndpointUrl().trimEnd('/')
