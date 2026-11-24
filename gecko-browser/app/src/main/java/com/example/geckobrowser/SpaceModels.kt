@@ -87,16 +87,16 @@ data class PinNode(
 /* -------------------------------------------------- default space palette */
 
 /** The mockup's named palettes, used when creating a space ("+" long-press). */
-data class SpacePalette(val name: String, val c1: Long, val c2: Long)
+data class SpacePalette(val name: String, val letter: String, val c1: Long, val c2: Long)
 
 val SpacePalettes = listOf(
-    SpacePalette("Dusk", 0xFF2F4C6A, 0xFF5B3D7A),
-    SpacePalette("Moss", 0xFF2E6B4F, 0xFF8C7A3A),
-    SpacePalette("Rose", 0xFFB34D6B, 0xFF7A2D4F),
-    SpacePalette("Amber", 0xFFB3672D, 0xFF8C4D0A),
-    SpacePalette("Slate", 0xFF4A5568, 0xFF2D3748),
-    SpacePalette("Cyan", 0xFF0F9C9E, 0xFF1F6F73),
-    SpacePalette("Violet", 0xFF7F3FB5, 0xFF41247B),
+    SpacePalette("Dusk", "D", 0xFF2F4C6A, 0xFF5B3D7A),
+    SpacePalette("Moss", "M", 0xFF2E6B4F, 0xFF8C7A3A),
+    SpacePalette("Rose", "R", 0xFFB34D6B, 0xFF7A2D4F),
+    SpacePalette("Amber", "A", 0xFFB3672D, 0xFF8C4D0A),
+    SpacePalette("Slate", "S", 0xFF4A5568, 0xFF2D3748),
+    SpacePalette("Cyan", "C", 0xFF0F9C9E, 0xFF1F6F73),
+    SpacePalette("Violet", "V", 0xFF7F3FB5, 0xFF41247B),
 )
 
 /**
