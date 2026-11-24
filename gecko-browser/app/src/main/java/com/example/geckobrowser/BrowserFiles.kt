@@ -158,6 +158,8 @@ object BrowserFiles {
                     put("colorA", s.colorA)
                     put("colorB", s.colorB)
                     put("sortIndex", s.sortIndex)
+                    put("icon", s.icon)
+                    put("collapsed", s.collapsed)
                     put("updatedAt", s.updatedAt)
                     put("deletedAt", s.deletedAt ?: JSONObject.NULL)
                 })
@@ -179,6 +181,8 @@ object BrowserFiles {
                             colorA = o.optLong("colorA", 0L),
                             colorB = o.optLong("colorB", 0L),
                             sortIndex = o.optInt("sortIndex", 0),
+                            icon = o.optString("icon").ifBlank { "plus" },
+                            collapsed = o.optBoolean("collapsed", false),
                             updatedAt = o.optLong("updatedAt", System.currentTimeMillis()),
                             deletedAt = o.optLong("deletedAt", 0L).takeIf { it > 0 },
                         )

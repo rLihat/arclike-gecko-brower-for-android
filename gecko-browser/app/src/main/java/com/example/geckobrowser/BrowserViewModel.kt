@@ -268,9 +268,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     val activeSpace: Space? get() = spaces.firstOrNull { it.id == activeSpaceId && it.deletedAt == null }
 
-    /** Active spaces, most recently used first. */
+    /** Spaces in the user's chosen order; an explicit sortIndex wins. */
     val spacesSorted: List<Space> get() = spaces.filter { it.deletedAt == null }
-        .sortedByDescending { it.updatedAt }
+        .sortedWith(compareBy<Space> { it.sortIndex }.thenByDescending { it.updatedAt })
 
     /** Switch the active space; rethemes the sheet glass tokens. */
     fun switchSpace(id: UUID) {
@@ -282,17 +282,67 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Creates a space and persists it. Returns the new space. */
-    fun createSpace(name: String, letter: String, colorA: Long, colorB: Long): Space {
+    fun createSpace(name: String, letter: String, colorA: Long, colorB: Long, icon: String = "plus"): Space {
         val space = Space(
             id = UUID.randomUUID(),
             name = name,
             letter = letter,
             colorA = colorA,
             colorB = colorB,
+            icon = icon,
+            sortIndex = spacesSorted.size,
         )
         spaces = spaces + space
         persistSpaces()
         return space
+    }
+
+    /** Renames / re-icons / re-colours a space (the space manager). */
+    fun updateSpace(
+        id: UUID,
+        name: String? = null,
+        letter: String? = null,
+        icon: String? = null,
+        colorA: Long? = null,
+        colorB: Long? = null,
+    ) {
+        spaces = spaces.map { s ->
+            if (s.id != id) s else s.copy(
+                name = name?.takeIf { it.isNotBlank() } ?: s.name,
+                letter = letter?.takeIf { it.isNotBlank() } ?: s.letter,
+                icon = icon ?: s.icon,
+                colorA = colorA ?: s.colorA,
+                colorB = colorB ?: s.colorB,
+                updatedAt = System.currentTimeMillis(),
+            )
+        }
+        if (id == activeSpaceId) {
+            val current = spaces.firstOrNull { it.id == id }
+            if (current != null) {
+                spaceC1 = current.colorA
+                spaceC2 = current.colorB
+            }
+        }
+        persistSpaces()
+    }
+
+    /** Moves a space left/right in the order (drag/reorder in the space manager). */
+    fun moveSpace(id: UUID, delta: Int) {
+        val ordered = spacesSorted.map { it.id }.toMutableList()
+        val from = ordered.indexOf(id)
+        val to = (from + delta).coerceIn(0, ordered.lastIndex)
+        if (from < 0 || from == to) return
+        ordered.removeAt(from)
+        ordered.add(to, id)
+        val ranks = ordered.withIndex().associate { it.value to it.index }
+        spaces = spaces.map { if (it.id in ranks) it.copy(sortIndex = ranks.getValue(it.id)) else it }
+        persistSpaces()
+    }
+
+    /** Toggles whether a space's pins are shown in the expanded list. */
+    fun toggleSpaceCollapsed(id: UUID) {
+        spaces = spaces.map { if (it.id == id) it.copy(collapsed = !it.collapsed) else it }
+        persistSpaces()
     }
 
     /** Soft-deletes a space; its tabs and pins are preserved for restore. */
@@ -302,6 +352,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         spaces = spaces.map { if (it.id == id) it.copy(deletedAt = System.currentTimeMillis()) else it }
         pinNodes = pinNodes.map { n ->
             if (n.spaceId == id && n.deletedAt == null) n.copy(deletedAt = System.currentTimeMillis()) else n
+        }
+        if (activeSpaceId == id) {
+            activeSpaceId = spacesSorted.firstOrNull()?.id ?: Space.PERSONAL_ID
         }
         persistSpaces()
         persistPinNodes()

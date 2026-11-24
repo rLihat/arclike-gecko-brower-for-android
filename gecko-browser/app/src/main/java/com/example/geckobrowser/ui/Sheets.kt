@@ -52,6 +52,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -89,6 +90,9 @@ import com.example.geckobrowser.PinType
 import com.example.geckobrowser.PinNode
 import com.example.geckobrowser.Space
 import com.example.geckobrowser.SpacePalettes
+import com.example.geckobrowser.SpaceIcons
+import com.example.geckobrowser.DEFAULT_SPACE_C1
+import com.example.geckobrowser.DEFAULT_SPACE_C2
 import java.util.Locale
 
 /* ---------------------------------------------------------------- search */
@@ -323,7 +327,6 @@ fun SearchSheet(
             exit = fadeOut(tween(110)) +
                 shrinkVertically(animationSpec = tween(150), shrinkTowards = Alignment.Top),
         ) {
-            EssentialLabel(vm, c)
             EssentialRow(vm)
         }
         SpaceRow(vm, c, expanded) { expanded = !expanded; onExpandedChange?.invoke(expanded) }
@@ -926,20 +929,21 @@ private fun RowScope.MenuAction(
 
 /* ------------------------------------------------------------- spaces (phase 1) */
 
-/** "Essentials N/12" label above the essentials row. */
-@Composable
-private fun EssentialLabel(vm: BrowserViewModel, c: ArcColors) {
-    val essentials = vm.essentialsSorted
-    Text(
-        "Essentials /",
-        color = c.muted,
-        fontSize = 12.5.sp,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier.padding(start = 12.dp, top = 4.dp),
-    )
+/** Lucide icon paths for a space's icon key. */
+private fun spaceIcon(key: String) = when (key) {
+    "globe" -> Ico.globe
+    "tabs" -> Ico.tabs
+    "folder" -> Ico.folder
+    "sparkles" -> Ico.sparkles
+    "lightbulb" -> Ico.lightbulb
+    "palette" -> Ico.palette
+    "shield" -> Ico.shield
+    "mask" -> Ico.mask
+    "gear" -> Ico.gear
+    else -> Ico.plus
 }
 
-/** 46dp space row: letter disc + name + "pins · open" subtitle + dots + chevron. */
+/** 46dp space row: gradient icon disc + name + "pins · open" subtitle + dots + up chevron. */
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun SpaceRow(vm: BrowserViewModel, c: ArcColors, expanded: Boolean, onToggle: () -> Unit) {
@@ -947,10 +951,12 @@ private fun SpaceRow(vm: BrowserViewModel, c: ArcColors, expanded: Boolean, onTo
     if (spaces.isEmpty()) return
     val idx = spaces.indexOfFirst { it.id == vm.activeSpaceId }.coerceIn(0, spaces.lastIndex)
     val space = spaces[idx]
-    var showMenu by remember { mutableStateOf(false) }
-    // Name slides out/in ~160ms when the space changes.
+    var showManager by remember { mutableStateOf(false) }
     val nameAlpha = remember { androidx.compose.animation.core.Animatable(1f) }
-    LaunchedEffect(space.id) { nameAlpha.animateTo(0f, tween(160, easing = LinearEasing)); nameAlpha.animateTo(1f, tween(160, easing = LinearEasing)) }
+    LaunchedEffect(space.id) {
+        nameAlpha.animateTo(0f, tween(160, easing = LinearEasing))
+        nameAlpha.animateTo(1f, tween(160, easing = LinearEasing))
+    }
     Row(
         Modifier
             .fillMaxWidth()
@@ -963,8 +969,8 @@ private fun SpaceRow(vm: BrowserViewModel, c: ArcColors, expanded: Boolean, onTo
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = {},
-                onLongClick = { showMenu = true },
+                onClick = { if (!expanded) onToggle() },
+                onLongClick = { showManager = true },
             )
             .semantics { contentDescription = "Space ${space.name}, swipe left/right to switch spaces" },
         verticalAlignment = Alignment.CenterVertically,
@@ -976,88 +982,150 @@ private fun SpaceRow(vm: BrowserViewModel, c: ArcColors, expanded: Boolean, onTo
                 .background(Brush.horizontalGradient(listOf(Color(space.colorA), Color(space.colorB)))),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                space.letter.take(2).uppercase(),
-                color = Color.White,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-            )
+            Glyph(spaceIcon(space.icon), Color.White, size = 17.dp, strokeWidth = 2f)
         }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(
-                space.name,
-                color = c.text,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                modifier = Modifier.alpha(nameAlpha.value),
-            )
-            val pins = vm.pinsOfActiveSpace.count { it.deletedAt == null && it.type == PinType.PIN }
-            Text(
-                "$pins pins · ${vm.activeSpaceTabs.size} open",
-                color = c.muted,
-                fontSize = 11.5.sp,
-                maxLines = 1,
-            )
+            Text(space.name, color = c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, modifier = Modifier.alpha(nameAlpha.value))
+            val pins = vm.pinsOfActiveSpace.count { it.type == PinType.PIN }
+            Text("$pins pins · ${vm.activeSpaceTabs.size} open", color = c.muted, fontSize = 11.5.sp, maxLines = 1)
         }
-        repeat(3) { i ->
-            val active = i == idx
+        // One dot per space, active dot is a 16dp pill.
+        val dots = minOf(spaces.size, 5)
+        repeat(dots) { i ->
+            val active = if (idx < dots) i == idx else i == dots - 1
             Box(
                 Modifier
                     .size(if (active) 16.dp else 6.dp)
                     .padding(3.dp)
                     .clip(CircleShape)
-                    .background(if (active) c.accent else c.chip),
+                    .background(if (active) Color(space.colorA) else c.chip),
             )
         }
-        Spacer(Modifier.width(10.dp))
-        val chevRot by animateFloatAsState(if (expanded) 90f else 0f, tween(140), label = "spaceChevron")
-        Glyph(Ico.chevronDown, c.muted, size = 15.dp, strokeWidth = 2f, modifier = Modifier.rotate(chevRot))
+        Spacer(Modifier.width(8.dp))
+        Box(
+            Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .clickable(onClick = onToggle),
+            contentAlignment = Alignment.Center,
+        ) { Glyph(Ico.chevronUp, c.muted, size = 16.dp, strokeWidth = 2f) }
     }
-    if (showMenu) SpaceCreateDialog(vm, spaces) { showMenu = false }
+    if (showManager) SpaceManager(vm, spaces, space.id) { showManager = false }
 }
 
-/** Long-press dialog on the space row: creates a space from a palette preset. */
+/** Long-press space manager: name, icon, colours, reorder, collapse, delete, create. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun SpaceCreateDialog(vm: BrowserViewModel, spaces: List<Space>, onDismiss: () -> Unit) {
+private fun SpaceManager(
+    vm: BrowserViewModel,
+    spaces: List<Space>,
+    initialId: java.util.UUID,
+    onDismiss: () -> Unit,
+) {
     val c = LocalArc.current
+    var selectedId by remember { mutableStateOf(initialId) }
+    val selected = spaces.firstOrNull { it.id == selectedId } ?: spaces.firstOrNull()
+    var name by remember(selectedId) { mutableStateOf(selected?.name.orEmpty()) }
+    var icon by remember(selectedId) { mutableStateOf(selected?.icon ?: "plus") }
+    var cA by remember(selectedId) { mutableLongStateOf(selected?.colorA ?: DEFAULT_SPACE_C1) }
+    var cB by remember(selectedId) { mutableLongStateOf(selected?.colorB ?: DEFAULT_SPACE_C2) }
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier
-                .widthIn(max = 320.dp)
+                .widthIn(max = 330.dp)
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
                 .background(c.menuCard)
-                .padding(16.dp),
+                .padding(14.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text("Spaces", color = c.text, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(Modifier.height(10.dp))
-            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                spaces.forEach { sp ->
+            Spacer(Modifier.height(8.dp))
+            // Existing spaces: tap to select for editing.
+            Row(Modifier.fillMaxWidth().height(40.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                spaces.take(6).forEach { sp ->
+                    Box(
+                        Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(Brush.horizontalGradient(listOf(Color(sp.colorA), Color(sp.colorB))))
+                            .clickable {
+                                selectedId = sp.id
+                                name = sp.name; icon = sp.icon; cA = sp.colorA; cB = sp.colorB
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) { Glyph(spaceIcon(sp.icon), Color.White, size = 15.dp, strokeWidth = 2f) }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            BasicTextField(
+                value = name,
+                onValueChange = { name = it },
+                singleLine = true,
+                textStyle = TextStyle(color = c.text, fontSize = 14.sp),
+                cursorBrush = SolidColor(c.accent),
+                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(c.chip).padding(10.dp),
+            )
+            Spacer(Modifier.height(8.dp))
+            Text("Icon", color = c.muted, fontSize = 11.5.sp, modifier = Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                SpaceIcons.take(8).forEach { key ->
                     Box(
                         Modifier
                             .size(34.dp)
-                            .padding(4.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Brush.horizontalGradient(listOf(Color(sp.colorA), Color(sp.colorB))))
-                            .clickable {
-                                vm.createSpace(sp.name, sp.letter, sp.colorA, sp.colorB)
-                                onDismiss()
-                            },
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(if (key == icon) c.chipStrong else Color.Transparent)
+                            .clickable { icon = key },
                         contentAlignment = Alignment.Center,
-                    ) { Glyph(Ico.plus, Color.White, size = 14.dp, strokeWidth = 2.2f) }
+                    ) { Glyph(spaceIcon(key), if (key == icon) c.accent else c.muted, size = 16.dp, strokeWidth = 2f) }
                 }
-                Text(
-                    SpacePalettes.map { it.name }.joinToString(" · "),
-                    color = c.muted,
-                    fontSize = 11.5.sp,
-                    modifier = Modifier.padding(top = 10.dp),
-                )
             }
+            Text("Colour", color = c.muted, fontSize = 11.5.sp, modifier = Modifier.fillMaxWidth())
+            Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                SpacePalettes.take(7).forEach { p ->
+                    Box(
+                        Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(9.dp))
+                            .background(Brush.horizontalGradient(listOf(Color(p.c1), Color(p.c2))))
+                            .clickable { cA = p.c1; cB = p.c2 },
+                    )
+                }
+            }
+            Spacer(Modifier.height(6.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ManagerButton("New") {
+                    val sp = vm.createSpace(name.ifBlank { "Space" }, name.take(1).uppercase(), cA, cB, icon)
+                    vm.switchSpace(sp.id); onDismiss()
+                }
+                ManagerButton("Save") { selected?.let { vm.updateSpace(it.id, name, name.take(1), icon, cA, cB) }; onDismiss() }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ManagerButton("◀") { selected?.let { vm.moveSpace(it.id, -1) } }
+                ManagerButton("▶") { selected?.let { vm.moveSpace(it.id, 1) } }
+                ManagerButton(if (selected?.collapsed == true) "Expand" else "Collapse") {
+                    selected?.let { vm.toggleSpaceCollapsed(it.id) }
+                }
+            }
+            ManagerButton("Delete", color = c.press) { selected?.let { vm.deleteSpace(it.id) }; onDismiss() }
         }
     }
+}
+
+@Composable
+private fun RowScope.ManagerButton(text: String, color: Color = Color.Unspecified, onClick: () -> Unit) {
+    val c = LocalArc.current
+    Box(
+        Modifier
+            .weight(1f)
+            .clip(RoundedCornerShape(10.dp))
+            .background(c.chip)
+            .clickable(onClick = onClick)
+            .padding(vertical = 9.dp),
+        contentAlignment = Alignment.Center,
+    ) { Text(text, color = if (color != Color.Unspecified) color else c.text, fontSize = 12.5.sp) }
 }
 
 /** One row of the expanded pins tree: folder or pin, with depth indent + rule. */
@@ -1065,12 +1133,25 @@ private fun SpaceCreateDialog(vm: BrowserViewModel, spaces: List<Space>, onDismi
 private fun PinTreeSection(vm: BrowserViewModel, c: ArcColors) {
     val space = vm.activeSpace
     Column(Modifier.padding(bottom = 10.dp)) {
-        Text(
-            "Pins · ",
-            color = c.text,
-            fontSize = 13.5.sp,
-            fontWeight = FontWeight.SemiBold,
-        )
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { space?.let { vm.toggleSpaceCollapsed(it.id) } }
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "Pins · ${space?.name ?: ""}",
+                color = c.text,
+                fontSize = 13.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f),
+            )
+            Glyph(Ico.chevronUp, c.muted, size = 14.dp, strokeWidth = 2f,
+                modifier = Modifier.rotate(if (space?.collapsed == true) 180f else 0f))
+        }
+        if (space?.collapsed == true) return
         val topLevel = vm.pinNodes
             .filter { it.spaceId == vm.activeSpaceId && it.parentId == null && it.deletedAt == null }
             .sortedBy { it.sortIndex }

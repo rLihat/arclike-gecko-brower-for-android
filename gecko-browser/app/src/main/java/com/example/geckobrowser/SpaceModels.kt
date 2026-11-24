@@ -20,6 +20,10 @@ data class Space(
     /** Avatar gradient end (ARGB). */
     val colorB: Long,
     val sortIndex: Int = 0,
+    /** Lucide icon key (plus, globe, star, briefcase, music, heart, code, home). */
+    val icon: String = "plus",
+    /** Collapses this space's pins in the expanded list. */
+    val collapsed: Boolean = false,
     val updatedAt: Long = System.currentTimeMillis(),
     /** Soft-delete timestamp; non-null = tombstoned. */
     val deletedAt: Long? = null,
@@ -33,6 +37,9 @@ data class Space(
         val PERSONAL_ID: UUID = UUID.fromString("00000000-0000-0000-0000-000000000001")
     }
 }
+
+/** Icon keys offered when creating or editing a space (Lucide glyphs available in the app). */
+val SpaceIcons = listOf("plus", "globe", "tabs", "folder", "sparkles", "lightbulb", "palette", "shield", "mask", "gear")
 
 /**
  * Page pinned globally by URL (the hardened shape of the existing `PinRecord`).
