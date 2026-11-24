@@ -2800,6 +2800,7 @@ private fun BoxScope.NavPill(
                             onClick = { vm.openSearch() },
                             onLongClick = {
                                 showNewTabChooser = true
+                                android.util.Log.d("HZ", "plus long press -> chooser shown")
                             },
                             onSwipeUp = { vm.openSearch() },
                             onSwipeDown = { vm.closeOverlay() },

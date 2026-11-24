@@ -246,6 +246,20 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var activeSpaceId by mutableStateOf(Space.PERSONAL_ID)
         private set
 
+    /** Space glass tokens (gradient A→B), animatable when switching spaces. */
+    var spaceC1 by mutableStateOf(DEFAULT_SPACE_C1)
+        private set
+
+    var spaceC2 by mutableStateOf(DEFAULT_SPACE_C2)
+        private set
+
+    /** Tabs belonging to the active space. */
+    val activeSpaceTabs: List<TabInfo> get() = tabsOfSpace(tabs, activeSpaceId)
+
+    /** Set when the search sheet is expanded (58% → 78% height). */
+    var searchExpanded by mutableStateOf(false)
+        private set
+
     /**
      * Pinned tabs of the current space (pins + folders, tree form).
      * [PinNode]s for a space are those with matching [PinNode.spaceId].
@@ -258,10 +272,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     val spacesSorted: List<Space> get() = spaces.filter { it.deletedAt == null }
         .sortedByDescending { it.updatedAt }
 
-    /** Switch the active space. */
+    /** Switch the active space; rethemes the sheet glass tokens. */
     fun switchSpace(id: UUID) {
-        if (spaces.none { it.id == id }) return
+        val target = spaces.firstOrNull { it.id == id } ?: return
         activeSpaceId = id
+        spaceC1 = Color(target.colorA.takeIf { it != 0L } ?: DEFAULT_SPACE_C1)
+        spaceC2 = Color(target.colorB.takeIf { it != 0L } ?: DEFAULT_SPACE_C2)
         persistSpaces()
     }
 
@@ -498,6 +514,33 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         closeOverlay()
         expandPill()
         syncZoomForActive()
+    }
+
+    /**
+     * Taps a [PinNode] or a page in the expanded sheet: switches to the space
+     * and opens the URL as a new tab in that space (or selects the open one).
+     */
+    fun openTabInSpace(spaceId: UUID, url: String, title: String = ""): Boolean {
+        if (spaces.none { it.id == spaceId }) return false
+        switchSpace(spaceId)
+        val key = pinKeyOf(url)
+        activeSpaceTabs.firstOrNull { pinKeyOf(it.url) == key }?.let {
+            selectTab(it.id)
+            closeOverlay()
+            return true
+        }
+        val id = addTab(url = url, title = title, spaceId = spaceId)
+        selectTab(id)
+        closeOverlay()
+        return true
+    }
+
+    /** Tapping an open tab in the sheet switches to it. */
+    fun openTabOfSpace(spaceId: UUID, id: Long) {
+        if (spaces.none { it.id == spaceId }) return
+        switchSpace(spaceId)
+        selectTab(id)
+        closeOverlay()
     }
 
     private fun restorePins() {
@@ -1231,6 +1274,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         makeActive: Boolean = true,
         forcedId: Long? = null,
         privateTab: Boolean = false,
+        spaceId: UUID = Space.PERSONAL_ID,
     ): Long {
         val id = if (forcedId == null) {
             tabsManager.create(restored, ::attachDelegates)
@@ -1252,6 +1296,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             isHome = url.isNullOrBlank(),
             desktopMode = desktop,
             isPrivate = privateTab,
+            spaceId = spaceId,
         )
         if (!url.isNullOrBlank() && restored == null) tabsManager.load(id, url)
         if (makeActive) activeId = id

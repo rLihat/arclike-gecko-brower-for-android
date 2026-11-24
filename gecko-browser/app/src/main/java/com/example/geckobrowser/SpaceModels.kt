@@ -1,5 +1,6 @@
 package com.example.geckobrowser
 
+import androidx.compose.ui.graphics.Color
 import java.util.UUID
 
 /* ---------------------------------------------------------- spaces (phase 1) */
@@ -83,22 +84,27 @@ data class PinNode(
     }
 }
 
-/* -------------------------------------------------- TabInfo gains spaceId */
+/* -------------------------------------------------- default space palette */
 
-// Intended integration (presented, not edited into existing files):
-//
-// data class TabInfo(
-//     val id: Long,
-//     val title: String = "New tab",
-//     val url: String = "",
-//     val isHome: Boolean = true,
-//     ...
-//     val spaceId: UUID = Space.PERSONAL_ID,   // NEW: stamps onto backfilled tabs
-// )
-//
-// `BrowserFiles.TabRecord` mirrors it (new optional "spaceId" field, defaulting
-// to the Personal id so v1 files still parse), and `saveTabList`/`loadTabList`
-// round-trip it with `o.optString("spaceId").ifBlank { Space.PERSONAL_ID.toString() }.let(UUID::fromString)`.
+/** The mockup's named palettes, used when creating a space ("+" long-press). */
+data class SpacePalette(val name: String, val c1: Long, val c2: Long)
+
+val SpacePalettes = listOf(
+    SpacePalette("Dusk", 0xFF2F4C6A, 0xFF5B3D7A),
+    SpacePalette("Moss", 0xFF2E6B4F, 0xFF8C7A3A),
+    SpacePalette("Rose", 0xFFB34D6B, 0xFF7A2D4F),
+    SpacePalette("Amber", 0xFFB3672D, 0xFF8C4D0A),
+    SpacePalette("Slate", 0xFF4A5568, 0xFF2D3748),
+    SpacePalette("Cyan", 0xFF0F9C9E, 0xFF1F6F73),
+    SpacePalette("Violet", 0xFF7F3FB5, 0xFF41247B),
+)
+
+/**
+ * Sheet-glass tokens used when no space is selected yet; spaces override
+ * them via [BrowserViewModel.spaceC1]/[spaceC2] and they animate on switch.
+ */
+val DEFAULT_SPACE_C1: Long = 0xFF2F4C6A
+val DEFAULT_SPACE_C2: Long = 0xFF5B3D7A
 
 /* -------------------------------------------- persistence (BrowserFiles v2) */
 
@@ -117,16 +123,13 @@ data class PinNode(
 //   tabs.json       -> version bumped 1 -> 2; each tab gains "spaceId".
 //
 // Backfill on VM init (before restoreTabs):
-//   1. spaces = loadSpaces(app); if empty ->
-//      saveSpaces(app, listOf(Space(id = Space.PERSONAL_ID, name = "Personal",
-//        letter = "P", colorA = 0xFF2F5C69, colorB = 0xFF4F7C8A)))
+//   1. spaces = loadSpaces(app); if empty -> create Personal.
 //   2. loadTabList: TabRecord.spaceId defaults to Space.PERSONAL_ID, so every
-//      pre-spaces tab lands in the default space (per spec: "existing tabs
-//      migrate into a default Personal space").
+//      pre-spaces tab lands in the default space.
 //
 // New-space creation: Space(id = UUID.randomUUID(), ...) persisted via
 // saveSpaces(spaces + it); new essential: Essential(id = UUID.randomUUID(), ...)
 // capped by checking `essentials.count { it.deletedAt == null } < Essential.MAX`.
 //
 // Depth rule: a FOLDER's parent depth + 1 must be <= PinNode.MAX_DEPTH (3);
-// enforced in the VM when adding a node (`parentDepth(parentId) + 1`).
+// enforced in the VM when adding a node.

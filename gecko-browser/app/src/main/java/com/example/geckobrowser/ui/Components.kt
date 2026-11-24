@@ -3,6 +3,7 @@
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.SystemClock
+import android.util.Log
 import android.view.ViewConfiguration
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -593,6 +594,7 @@ fun PillButton(
                         val longPressMs = ViewConfiguration.getLongPressTimeout().toLong()
                         if (!longFired && SystemClock.uptimeMillis() - down.uptimeMillis >= longPressMs && barelyMoved) {
                             longFired = true
+                            Log.d("HZ", "pill long press fired")
                             haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                             onLongClick?.invoke()
                             break
