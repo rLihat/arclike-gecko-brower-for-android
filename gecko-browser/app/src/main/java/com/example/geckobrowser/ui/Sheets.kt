@@ -121,8 +121,12 @@ fun SearchSheet(
     // the trailing badge's bounds lets the pill land exactly in that slot (the
     // mirror of the engine badge) instead of guessing dp offsets.
     onFieldAnchor: ((androidx.compose.ui.geometry.Rect) -> Unit)? = null,
+    // Tells the sheet's changer (chrome) when the expanded list is open, so the
+    // sheet height and the pill hand-off stay in sync (58% → 78% of the screen).
+    onExpandedChange: ((Boolean) -> Unit)? = null,
 ) {
     val c = LocalArc.current
+    var expanded by remember { mutableStateOf(vm.searchExpanded) }
     // The field owns the text so a prefilled URL can arrive fully selected, and
     // so an inline completion can be shown as a selected suffix.
     var field by remember {
@@ -151,6 +155,9 @@ fun SearchSheet(
         completion = null
         typed = text
         field = value
+        // Typing collapses the expanded list back to suggestions.
+        expanded = false
+        vm.searchExpanded = false
         vm.onSearchTextChange(text)
         if (suffixGone || deleting || text.length < 2 || text.any { it.isWhitespace() }) return
         if (!value.selection.collapsed || value.selection.end != text.length) return
@@ -299,13 +306,25 @@ fun SearchSheet(
         }
 
         AnimatedVisibility(
-            visible = vm.pins.isNotEmpty(),
+            visible = vm.essentialsSorted.isNotEmpty(),
             enter = fadeIn(tween(150)) +
                 expandVertically(animationSpec = tween(240), expandFrom = Alignment.Top),
             exit = fadeOut(tween(110)) +
                 shrinkVertically(animationSpec = tween(150), shrinkTowards = Alignment.Top),
         ) {
-            PinnedRow(vm)
+            EssentialLabel(vm, c)
+            EssentialRow(vm)
+        }
+        SpaceRow(vm, c)
+
+        LaunchedEffect(expanded) {
+            vm.searchExpanded = expanded
+        }
+
+        if (expanded) {
+            PinTreeSection(vm, c)
+            OpenTabsSection(vm, c)
+            SyncStrip(c)
         }
 
         AnimatedVisibility(
@@ -406,7 +425,7 @@ fun SearchSheet(
         }
 
         AnimatedVisibility(
-            visible = rows.isNotEmpty() && !engineMenu,
+            visible = rows.isNotEmpty() && !engineMenu && !expanded,
             enter = fadeIn(tween(160)) +
                 slideInVertically(initialOffsetY = { it / 2 }, animationSpec = tween(260)) +
                 expandVertically(animationSpec = tween(260), expandFrom = Alignment.Top),
@@ -464,10 +483,10 @@ fun SearchSheet(
 
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
-private fun PinnedRow(vm: BrowserViewModel) {
+private fun EssentialRow(vm: BrowserViewModel) {
     val c = LocalArc.current
-    val pins = vm.pins
-    var unpinMode by remember { mutableStateOf<String?>(null) }
+    val pins = vm.essentialsSorted
+    var unpinMode by remember { mutableStateOf<java.util.UUID?>(null) }
     val config = androidx.compose.ui.platform.LocalConfiguration.current
     val gap = 10.dp
     val listState = rememberLazyListState()
@@ -480,12 +499,9 @@ private fun PinnedRow(vm: BrowserViewModel) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val tileWidthPx = with(density) { tileWidth.toPx() }
     val haptics = LocalHapticFeedback.current
-    // Drag-to-reorder state (drag a tile left/right past a third of its width).
-    var dragOrigin by remember { mutableStateOf<String?>(null) }
-    var accumulatedDragPx by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
     LaunchedEffect(edgeScroll) {
         if (edgeScroll == 0) return@LaunchedEffect
-        while (edgeScroll != 0 && dragOrigin != null) {
+        while (edgeScroll != 0 && dragTileWindowX.isFinite()) {
             listState.scrollBy(edgeScroll * 22f)
             delay(16)
         }
@@ -507,11 +523,11 @@ private fun PinnedRow(vm: BrowserViewModel) {
                     rowRightPx = rowLeftPx + coords.size.width
                 },
         ) {
-            items(pins.size, key = { i -> pins[i].key }) { i ->
+            items(pins.size, key = { i -> pins[i].id }) { i ->
                 val pin = pins[i]
-                val key = pin.key
+                val key = pin.id
                 val host = BrowserViewModel.hostOf(pin.url)
-                val active = vm.activePinKey == key
+                val active = vm.activeTab?.url?.let { BrowserViewModel.pinKeyOf(it) } == BrowserViewModel.pinKeyOf(pin.url)
                 val showUnpin = unpinMode == key
                 val accentColor = faviconAccent(host)
                 Column(
@@ -552,12 +568,12 @@ private fun PinnedRow(vm: BrowserViewModel) {
                                     @Suppress("UNREACHABLE_CODE") 0
                                 } ?: 0
                                 if (phase == 1) {
-                                    // Plain tap: the old onClick handoff.
+                                    // Plain tap: open the essential in the active space.
                                     if (unpinMode != null) {
-                                        if (unpinMode == key) vm.unpin(key)
+                                        if (unpinMode == key) vm.removeEssential(pin.id)
                                         unpinMode = null
                                     } else {
-                                        vm.openPin(pin)
+                                        vm.openTabInSpace(vm.activeSpaceId, pin.url, pin.title)
                                     }
                                     return@awaitEachGesture
                                 }
@@ -583,9 +599,9 @@ private fun PinnedRow(vm: BrowserViewModel) {
                                         dragTileWindowX = Float.NaN
                                         swapLock = 0
                                         if (!dragging) {
-                                            vm.unpin(key)
+                                            vm.removeEssential(pin.id)
                                         } else {
-                                            vm.persistPins()
+                                            vm.persistEssentials()
                                         }
                                         unpinMode = null
                                         dragOrigin = null

@@ -258,7 +258,6 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Set when the search sheet is expanded (58% → 78% height). */
     var searchExpanded by mutableStateOf(false)
-        private set
 
     /**
      * Pinned tabs of the current space (pins + folders, tree form).
