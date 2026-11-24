@@ -851,30 +851,20 @@ fun MenuSheet(vm: BrowserViewModel) {
             MenuAction("Translate", Ico.translate) { vm.openTranslate() }
             MenuAction("Find", Ico.find) { vm.openFind() }
             MenuAction("Share", Ico.share) { vm.shareCurrentUrl() }
-        }
-
-        // Pinning is now "Add to Essentials", scoped to the current space.
-        Spacer(Modifier.height(6.dp))
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
-                .background(c.menuCard)
-                .padding(vertical = 2.dp, horizontal = 4.dp),
-        ) {
+            // Replaces the old Pin action, in the same slot with the same icon.
             val essential = vm.activeTabEssential
-            MenuItem(
-                c,
+            MenuAction(
                 if (essential != null) "Remove from Essentials" else "Add to Essentials",
-                color = if (essential != null) c.press else Color.Unspecified,
+                if (essential != null) Ico.pinOff else Ico.pin,
+                accent = essential != null,
+                enabled = essential != null || vm.activePinKey.isNotEmpty(),
+                labelSize = 9.5.sp,
             ) {
                 if (essential != null) {
                     vm.removeEssential(essential.id)
                 } else {
                     val url = vm.activeTab?.url.orEmpty()
-                    if (url.isBlank()) {
-                        vm.showToast("Open a site first")
-                    } else if (!vm.createEssential(url, vm.activeTab?.title.orEmpty())) {
+                    if (url.isNotBlank() && !vm.createEssential(url, vm.activeTab?.title.orEmpty())) {
                         vm.showToast("Essentials full for this space")
                     }
                 }
@@ -974,6 +964,7 @@ private fun RowScope.MenuAction(
     badge: String? = null,
     accent: Boolean = false,
     enabled: Boolean = true,
+    labelSize: androidx.compose.ui.unit.TextUnit = 11.sp,
     onClick: () -> Unit,
 ) {
     val c = LocalArc.current
@@ -1005,7 +996,7 @@ private fun RowScope.MenuAction(
             }
         }
         Spacer(Modifier.height(6.dp))
-        Text(label, color = c.text, fontSize = 11.sp, maxLines = 1)
+        Text(label, color = c.text, fontSize = labelSize, maxLines = 1)
     }
 }
 

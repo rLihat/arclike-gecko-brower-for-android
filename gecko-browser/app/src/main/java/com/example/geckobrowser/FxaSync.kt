@@ -57,16 +57,20 @@ class FxaSync(private val context: Context) {
         return restored
     }
 
-    /** URL to open in a Custom Tab; the redirect comes back to MainActivity. */
-    fun beginSignIn(): String? = try {
-        val url = account().beginOauthFlow(
-            listOf(SCOPE_OLDSYNC),
-            "browser",
-        )
-        saveState()
-        url
-    } catch (_: FxaException) {
-        null
+    /** URL to open in the in-app sign-in WebView. */
+    fun beginSignIn(): String? {
+        return try {
+            val url = account().beginOauthFlow(listOf(SCOPE_PROFILE, SCOPE_OLDSYNC), "browser")
+            saveState()
+            android.util.Log.i("HZ-FxA", "beginOauthFlow ok")
+            url
+        } catch (e: FxaException) {
+            android.util.Log.e("HZ-FxA", "beginOauthFlow failed: ${e.message}", e)
+            null
+        } catch (e: Throwable) {
+            android.util.Log.e("HZ-FxA", "beginOauthFlow crashed: ${e.message}", e)
+            null
+        }
     }
 
     fun completeSignIn(code: String, state: String): Boolean = try {
@@ -75,7 +79,8 @@ class FxaSync(private val context: Context) {
         val profile = account().getProfile(false)
         prefs.edit().putString(KEY_EMAIL, profile.email).apply()
         true
-    } catch (_: FxaException) {
+    } catch (e: FxaException) {
+        android.util.Log.e("HZ-FxA", "completeOauthFlow failed: ${e.message}", e)
         false
     }
 
@@ -144,7 +149,8 @@ class FxaSync(private val context: Context) {
     }
 
     companion object {
-        const val SCOPE_OLDSYNC = "https://identity.mozilla.com/apps/oldsync"
+        const val SCOPE_PROFILE = "profile"
+        const val SCOPE_OLDSYNC = "identity.mozilla.com/apps/oldsync"
         private const val COLLECTION_ID = "spaces"
         private const val RECORD_ID = "spaces"
         private const val KEY_STATE = "fxa_state"

@@ -96,6 +96,10 @@ dependencies {
         exclude group: 'org.mozilla.telemetry', module: 'glean-native'
     }
     implementation 'androidx.browser:browser:1.8.0'
+    // FxA's Rust client needs an HTTP client and logger installed at startup.
+    implementation 'org.mozilla.components:support-rusthttp:138.0.2'
+    implementation 'org.mozilla.components:support-rustlog:138.0.2'
+    implementation 'org.mozilla.components:lib-fetch-httpurlconnection:138.0.2'
     debugImplementation 'androidx.compose.ui:ui-tooling'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
