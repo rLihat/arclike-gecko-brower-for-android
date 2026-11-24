@@ -336,9 +336,15 @@ fun SearchSheet(
         }
 
         if (expanded) {
-            PinTreeSection(vm, c)
-            OpenTabsSection(vm, c)
-            SyncStrip(c)
+            Column(
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                PinTreeSection(vm, c)
+                OpenTabsSection(vm, c)
+                SyncStrip(c)
+            }
         }
 
         AnimatedVisibility(
