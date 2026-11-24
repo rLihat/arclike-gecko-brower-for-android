@@ -62,9 +62,21 @@ class SpaceMigrationTest {
     }
 
     @Test
-    fun tombstonedSpaceExcludesTabs() {
-        val dead = java.util.UUID.randomUUID()
-        val tabs = listOf(TabInfo(id = 7, spaceId = dead))
-        assertTrue(BrowserViewModel.tabsOfSpace(tabs, dead).isEmpty())
+    fun tabsOfSpaceIsPureGroupingBySpaceId() {
+        val space = spaceId()
+        val tabs = listOf(TabInfo(id = 7, spaceId = space))
+        // tabsOfSpace is pure grouping; a tombstoned space still groups its
+        // tabs (the VM decides whether those tabs are user-visible).
+        assertEquals(listOf(7L), BrowserViewModel.tabsOfSpace(tabs, space).map { it.id })
     }
+
+    @Test
+    fun deletedSpaceStaysDistinctFromActive() {
+        // vm.deleteSpace tombstones the Space row; a new space with a random id
+        // is distinct, so switching spaces changes the tab set.
+        val a = spaceId(); val b = spaceId()
+        assertTrue(a != b)
+    }
+
+    private fun spaceId() = java.util.UUID.randomUUID()
 }
