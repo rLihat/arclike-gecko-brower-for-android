@@ -646,7 +646,7 @@ private fun ChromeOverlay(
                 if (window != null) {
                     // Capture only the panel's final rect. Outside the sheet
                     // the page must stay sharp, so no full-screen frost exists.
-                    val panelH = screenH * 0.47f
+                    val panelH = screenH * if (vm.searchExpanded) 0.78f else 0.58f
                     val panelRect = android.graphics.Rect(
                         0,
                         with(density) { (screenH - panelH - sheetLift).toPx() }.toInt(),
@@ -675,7 +675,10 @@ private fun ChromeOverlay(
         val closing = !open && panelVisible
         val content: @Composable () -> Unit = when (lastSheet) {
             Overlay.Search -> ({
-                SearchSheet(vm) { rect ->
+                SearchSheet(
+                    vm,
+                    onExpandedChange = { vm.searchExpanded = it },
+                ) { rect ->
                     // Ignore measurements taken while the sheet is closing (it is
                     // still the last content when the overlay has already gone).
                     if (overlay == Overlay.Search) searchAnchor = rect
@@ -738,7 +741,8 @@ private fun ChromeOverlay(
             val targetH = when {
                 !open -> 58.dp
                 fullHeight -> screenH
-                else -> screenH * 0.47f
+                // Mockup: 58% when open, 78% when the space is expanded.
+                else -> screenH * if (vm.searchExpanded) 0.78f else 0.58f
             }
             val targetBottom = if (open) sheetLift else 18.dp
             val targetTopRadius = if (open && !fullHeight) 30.dp else if (open) 0.dp else 29.dp
