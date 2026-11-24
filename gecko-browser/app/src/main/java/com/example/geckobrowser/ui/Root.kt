@@ -632,6 +632,7 @@ private fun ChromeOverlay(
                 backdrop = null
                 backdropFor = null
                 searchSettled = false
+                vm.searchExpanded = false
                 return@LaunchedEffect
             }
             searchSettled = false
