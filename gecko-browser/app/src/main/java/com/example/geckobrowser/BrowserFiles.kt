@@ -4,6 +4,7 @@ import android.content.Context
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.util.UUID
 
 /** One tab as it survives a restart; the session blob is stored beside it. */
 data class TabRecord(
@@ -13,6 +14,8 @@ data class TabRecord(
     val desktopMode: Boolean = false,
     val secure: Boolean = false,
     val private: Boolean = false,
+    /** Which space the tab belongs to. Defaults to the Personal space so v1 files still load. */
+    val spaceId: UUID = Space.PERSONAL_ID,
 )
 
 /** One pinned page as it survives a restart. [key] is the canonical URL. */
@@ -30,7 +33,7 @@ data class TabListRecord(val activeId: Long, val tabs: List<TabRecord>)
  */
 object BrowserFiles {
 
-    private const val LIST_VERSION = 1
+    private const val LIST_VERSION = 2
 
     private fun browserDir(context: Context): File =
         File(context.filesDir, "browser").apply { if (!exists()) mkdirs() }
@@ -61,6 +64,7 @@ object BrowserFiles {
                         put("desktop", t.desktopMode)
                         put("secure", t.secure)
                         put("private", t.private)
+                        put("spaceId", t.spaceId.toString())
                     })
                 }
             })
@@ -103,7 +107,9 @@ object BrowserFiles {
         val raw = readText(tabsFile(context)) ?: return null
         return try {
             val root = JSONObject(raw)
-            if (root.optInt("version", 0) != LIST_VERSION) return null
+            // v1 files predate spaces: they land in the default Personal space.
+            val version = root.optInt("version", 0)
+            if (version != LIST_VERSION && version != LIST_VERSION - 1) return null
             val arr = root.optJSONArray("tabs") ?: return null
             val tabs = buildList {
                 for (i in 0 until arr.length()) {
@@ -118,6 +124,9 @@ object BrowserFiles {
                             desktopMode = o.optBoolean("desktop", false),
                             secure = o.optBoolean("secure", false),
                             private = o.optBoolean("private", false),
+                            spaceId = o.optString("spaceId")
+                                .ifBlank { Space.PERSONAL_ID.toString() }
+                                .let(UUID::fromString),
                         )
                     )
                 }
@@ -127,6 +136,144 @@ object BrowserFiles {
             null
         }
     }
+
+    /* -------------------------- spaces, essentials, pin nodes */
+
+    private fun optUuid(o: JSONObject, key: String): UUID? =
+        o.optString(key).takeUnless { it.isBlank() }?.let(UUID::fromString)
+
+    fun saveSpaces(context: Context, spaces: List<Space>) {
+        writeText(spacesFile(context), JSONArray().apply {
+            spaces.forEach { s ->
+                put(JSONObject().apply {
+                    put("id", s.id.toString())
+                    put("name", s.name)
+                    put("letter", s.letter)
+                    put("colorA", s.colorA)
+                    put("colorB", s.colorB)
+                    put("sortIndex", s.sortIndex)
+                    put("updatedAt", s.updatedAt)
+                    put("deletedAt", s.deletedAt ?: JSONObject.NULL)
+                })
+            }
+        }.toString())
+    }
+
+    fun loadSpaces(context: Context): List<Space> = readText(spacesFile(context))?.let { raw ->
+        try {
+            buildList {
+                for (i in 0 until JSONArray(raw).length()) {
+                    val o = JSONArray(raw).optJSONObject(i) ?: continue
+                    val id = optUuid(o, "id") ?: continue
+                    add(
+                        Space(
+                            id = id,
+                            name = o.optString("name").ifBlank { id.toString() },
+                            letter = o.optString("letter").ifBlank { id.toString().take(2) },
+                            colorA = o.optInt("colorA", 0),
+                            colorB = o.optInt("colorB", 0),
+                            sortIndex = o.optInt("sortIndex", 0),
+                            updatedAt = o.optLong("updatedAt", System.currentTimeMillis()),
+                            deletedAt = o.optLong("deletedAt", 0L).takeIf { it > 0 },
+                        )
+                    )
+                }
+            }
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    } ?: emptyList()
+
+    fun saveEssentials(context: Context, essentials: List<Essential>) {
+        writeText(essentialsFile(context), JSONArray().apply {
+            essentials.forEach { e ->
+                put(JSONObject().apply {
+                    put("id", e.id.toString())
+                    put("url", e.url)
+                    put("title", e.title)
+                    put("faviconUrl", e.faviconUrl ?: JSONObject.NULL)
+                    put("sortIndex", e.sortIndex)
+                    put("updatedAt", e.updatedAt)
+                    put("deletedAt", e.deletedAt ?: JSONObject.NULL)
+                })
+            }
+        }.toString())
+    }
+
+    fun loadEssentials(context: Context): List<Essential> = readText(essentialsFile(context))?.let { raw ->
+        try {
+            buildList {
+                for (i in 0 until JSONArray(raw).length()) {
+                    val o = JSONArray(raw).optJSONObject(i) ?: continue
+                    val id = optUuid(o, "id") ?: continue
+                    add(
+                        Essential(
+                            id = id,
+                            url = o.optString("url"),
+                            title = o.optString("title"),
+                            faviconUrl = o.optString("faviconUrl").takeUnless { it.isBlank() || it == "null" },
+                            sortIndex = o.optInt("sortIndex", 0),
+                            updatedAt = o.optLong("updatedAt", System.currentTimeMillis()),
+                            deletedAt = o.optLong("deletedAt", 0L).takeIf { it > 0 },
+                        )
+                    )
+                }
+            }
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    } ?: emptyList()
+
+    fun savePinNodes(context: Context, nodes: List<PinNode>) {
+        writeText(pinNodesFile(context), JSONArray().apply {
+            nodes.forEach { n ->
+                put(JSONObject().apply {
+                    put("id", n.id.toString())
+                    put("spaceId", n.spaceId.toString())
+                    put("parentId", n.parentId?.toString() ?: JSONObject.NULL)
+                    put("type", n.type.name)
+                    put("url", n.url)
+                    put("title", n.title)
+                    put("faviconUrl", n.faviconUrl ?: JSONObject.NULL)
+                    put("sortIndex", n.sortIndex)
+                    put("collapsed", n.collapsed)
+                    put("depth", n.depth)
+                    put("updatedAt", n.updatedAt)
+                    put("deletedAt", n.deletedAt ?: JSONObject.NULL)
+                })
+            }
+        }.toString())
+    }
+
+    fun loadPinNodes(context: Context): List<PinNode> = readText(pinNodesFile(context))?.let { raw ->
+        try {
+            val arr = JSONArray(raw)
+            buildList {
+                for (i in 0 until arr.length()) {
+                    val o = arr.optJSONObject(i) ?: continue
+                    val id = optUuid(o, "id") ?: continue
+                    add(
+                        PinNode(
+                            id = id,
+                            spaceId = optUuid(o, "spaceId") ?: Space.PERSONAL_ID,
+                            parentId = optUuid(o, "parentId"),
+                            type = PinType.valueOf(o.optString("type").ifBlank { "PIN" }),
+                            url = o.optString("url"),
+                            title = o.optString("title"),
+                            faviconUrl = o.optString("faviconUrl").takeUnless { it.isBlank() || it == "null" },
+                            sortIndex = o.optInt("sortIndex", 0),
+                            collapsed = o.optBoolean("collapsed", false),
+                            depth = o.optInt("depth", 0),
+                            updatedAt = o.optLong("updatedAt", System.currentTimeMillis()),
+                            deletedAt = o.optLong("deletedAt", 0L).takeIf { it > 0 },
+                        )
+                    )
+                }
+            }
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    } ?: emptyList()
 
     /** A [org.mozilla.geckoview.GeckoSession.SessionState] serialized with toString(). */
     fun saveSession(context: Context, id: Long, serialized: String) {
