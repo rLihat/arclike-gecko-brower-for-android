@@ -1137,7 +1137,7 @@ private fun PinContextMenu(vm: BrowserViewModel, node: PinNode, c: ArcColors, on
                 .clip(RoundedCornerShape(16.dp))
                 .background(c.menuCard)
                 .padding(4.dp),
-            verticalAlignment = Alignment.CenterHorizontally,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             MenuItem(c, "Rename") { vm.renamePinNode(node.id, node.title); onDismiss() }
             MenuItem(c, if (node.type == PinType.FOLDER) "Delete" else "Delete", color = c.press) {
