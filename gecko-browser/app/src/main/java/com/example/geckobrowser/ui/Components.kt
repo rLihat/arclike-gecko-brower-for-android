@@ -3,6 +3,7 @@
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.os.SystemClock
+import android.view.ViewConfiguration
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -26,8 +27,8 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.awaitPointerEvent
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.foundation.layout.Arrangement
@@ -564,7 +565,8 @@ fun PillButton(
     val c = LocalArc.current
     val haptics = LocalHapticFeedback.current
     val threshold = LocalViewConfiguration.current.touchSlop
-    val horizontalSlop = if (strictHorizontal) 36.dp.toPx() else threshold
+    val thresholdF = threshold.toFloat()
+    val horizontalSlop = if (strictHorizontal) 36.dp.toPx() else thresholdF
     Box(
         Modifier
             .size(46.dp)
@@ -583,9 +585,10 @@ fun PillButton(
                         val event = awaitPointerEvent()
                         val change = event.changes.firstOrNull { it.id == down.id } ?: continue
                         if (change.isConsumed) break
-                        dx += change.delta.x
-                        dy += change.delta.y
-                        val barelyMoved = abs(dx) <= threshold && abs(dy) <= threshold
+                        val move = change.positionChangeIgnoreConsumed()
+                        dx += move.x
+                        dy += move.y
+                        val barelyMoved = abs(dx) <= thresholdF && abs(dy) <= thresholdF
                         val longPressMs = ViewConfiguration.getLongPressTimeout().toLong()
                         if (!longFired && SystemClock.uptimeMillis() - down.uptimeMillis >= longPressMs && barelyMoved) {
                             longFired = true
