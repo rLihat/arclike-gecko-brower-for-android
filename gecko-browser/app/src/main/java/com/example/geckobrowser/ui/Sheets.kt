@@ -1,6 +1,7 @@
 ﻿package com.example.geckobrowser.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -947,17 +948,25 @@ private fun SpaceRow(vm: BrowserViewModel, c: ArcColors) {
     val idx = spaces.indexOfFirst { it.id == vm.activeSpaceId }.coerceIn(0, spaces.lastIndex)
     val space = spaces[idx]
     var showMenu by remember { mutableStateOf(false) }
+    // Name slides out/in ~160ms when the space changes.
+    val nameAlpha = remember { androidx.compose.animation.core.Animatable(1f) }
+    LaunchedEffect(space.id) { nameAlpha.animateTo(0f, tween(160, easing = LinearEasing)); nameAlpha.animateTo(1f, tween(160, easing = LinearEasing)) }
     Row(
         Modifier
             .fillMaxWidth()
             .height(46.dp)
+            .swipeActions(
+                onLeft = { vm.switchSpace(spaces[(idx + spaces.size - 1) % spaces.size].id) },
+                onRight = { vm.switchSpace(spaces[(idx + 1) % spaces.size].id) },
+                strictHorizontal = true,
+            )
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = {},
                 onLongClick = { showMenu = true },
             )
-            .semantics { contentDescription = "Space , swipe left/right to switch spaces" },
+            .semantics { contentDescription = "Space ${space.name}, swipe left/right to switch spaces" },
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
@@ -982,6 +991,7 @@ private fun SpaceRow(vm: BrowserViewModel, c: ArcColors) {
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
+                modifier = Modifier.alpha(nameAlpha.value),
             )
             val pins = vm.pinsOfActiveSpace.count { it.deletedAt == null && it.type == PinType.PIN }
             Text(
