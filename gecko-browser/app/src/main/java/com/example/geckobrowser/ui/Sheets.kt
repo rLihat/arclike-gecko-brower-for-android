@@ -527,7 +527,7 @@ private fun EssentialRow(vm: BrowserViewModel) {
                 val pin = pins[i]
                 val key = pin.id
                 val host = BrowserViewModel.hostOf(pin.url)
-                val active = vm.activeTab?.url?.let { BrowserViewModel.pinKeyOf(it) } == BrowserViewModel.pinKeyOf(pin.url)
+                val active = vm.activeTab?.url?.let { vm.pinKeyOf(it) } == vm.pinKeyOf(pin.url)
                 val showUnpin = unpinMode == key
                 val accentColor = faviconAccent(host)
                 Column(
@@ -539,16 +539,14 @@ private fun EssentialRow(vm: BrowserViewModel) {
                             fadeOutSpec = null,
                         )
                         .onGloballyPositioned { coords ->
-                            if (dragOrigin == key) {
-                                dragTileWindowX = coords.localToWindow(androidx.compose.ui.geometry.Offset.Zero).x
-                            }
+                            dragTileWindowX = coords.localToWindow(androidx.compose.ui.geometry.Offset.Zero).x
                         }
                         .clip(RoundedCornerShape(22.dp))
                         .background(c.menuCard)
                         .border(if (active) 2.dp else 1.dp, if (active) accentColor ?: c.accent else c.stroke, RoundedCornerShape(22.dp))
-                        .alpha(if (dragOrigin == key) 0.6f else 1f)
+                        .alpha(1f)
                         .padding(vertical = 10.dp)
-                        .pointerInput(pin.key) {
+                        .pointerInput(pin.id) {
                             awaitEachGesture {
                                 val down = awaitFirstDown()
                                 val slop = viewConfiguration.touchSlop
@@ -603,8 +601,8 @@ private fun EssentialRow(vm: BrowserViewModel) {
                                         } else {
                                             vm.persistEssentials()
                                         }
+
                                         unpinMode = null
-                                        dragOrigin = null
                                         accumulatedDragPx = 0f
                                         if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                         return@awaitEachGesture
@@ -616,7 +614,6 @@ private fun EssentialRow(vm: BrowserViewModel) {
                                             // Drag engaged instead of unpin (horizontal only).
                                             dragging = true
                                             unpinMode = null
-                                            dragOrigin = key
                                             accumulatedDragPx = 0f
                                             swapLock = 0
                                             ch.consume()
