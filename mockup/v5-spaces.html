@@ -247,6 +247,8 @@ let spaces = [
 ];
 let active = 0, expanded = false, collapsed = false, typed = '', priv = false, selectedEss = 0, selectedTab = -1, folderOpen = true;
 let editing = -1, draft = {name:'', icon:'plus', c1:PALETTES[0][0], c2:PALETTES[0][1]};
+let pressTimer = null;
+function clearPress() { if (pressTimer !== null) { clearTimeout(pressTimer); pressTimer = null; } }
 const $ = id => document.getElementById(id);
 const svg = key => '<svg viewBox="0 0 24 24">' + (ICONS[key] || ICONS.plus) + '</svg>';
 
@@ -259,6 +261,7 @@ function hint(text) {
 function fav(letter, color, cls) { return `<span class="favicon ${cls || ''}" style="background:${color}">${letter}</span>`; }
 
 function render() {
+  clearPress();
   const sp = spaces[active];
   const phone = $('phone');
   phone.style.setProperty('--c1', sp.c1);
@@ -302,9 +305,18 @@ function render() {
   document.querySelectorAll('[data-ess]').forEach(el => el.onclick = () => { selectedEss = +el.dataset.ess; render(); });
   document.querySelectorAll('[data-ws]').forEach(el => {
     const i = +el.dataset.ws;
-    let timer = setTimeout(() => openManager(i), 550);
-    el.onclick = () => { clearTimeout(timer); if (i !== active) { active = i; expanded = false; collapsed = false; selectedTab = -1; render(); hint('Space: ' + spaces[i].name); } };
-    el.oncontextmenu = e => { e.preventDefault(); clearTimeout(timer); openManager(i); };
+    // Long-press only starts on an actual press, and is always cancelled on
+    // release/leave/cancel — no timers survive a re-render.
+    el.onpointerdown = e => {
+      if (e.button !== 0) return;
+      clearPress();
+      pressTimer = setTimeout(() => { pressTimer = null; openManager(i); }, 550);
+    };
+    el.onpointerup = clearPress;
+    el.onpointerleave = clearPress;
+    el.onpointercancel = clearPress;
+    el.onclick = () => { clearPress(); if (i !== active) { active = i; expanded = false; collapsed = false; selectedTab = -1; render(); hint('Space: ' + spaces[i].name); } };
+    el.oncontextmenu = e => { e.preventDefault(); clearPress(); openManager(i); };
   });
   $('addWs').onclick = () => openManager(-1);
 }
@@ -323,6 +335,7 @@ function renderPicks() {
   });
 }
 function openManager(i) {
+  clearPress();
   editing = i;
   draft = i < 0
     ? {name:'', icon:'sparkles', c1:PALETTES[0][0], c2:PALETTES[0][1]}
