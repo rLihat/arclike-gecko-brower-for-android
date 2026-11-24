@@ -43,7 +43,7 @@ class FxaSync(private val context: Context) {
 
     private fun config(): FxaConfig = FxaConfig(
         // Matches Mozilla's Firefox Accounts sample client config.
-        FxaServer.Custom("accounts.firefox.com"),
+        FxaServer.Custom("https://accounts.firefox.com"),
         BuildConfig.FXA_CLIENT_ID,
         BuildConfig.FXA_REDIRECT_URI,
         null,

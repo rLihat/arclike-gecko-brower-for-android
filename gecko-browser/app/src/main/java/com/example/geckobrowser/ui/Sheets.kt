@@ -63,6 +63,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
@@ -75,6 +76,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.window.Popup
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -92,6 +94,7 @@ import com.example.geckobrowser.PinType
 import com.example.geckobrowser.PinNode
 import com.example.geckobrowser.Space
 import com.example.geckobrowser.SpacePalettes
+import com.example.geckobrowser.TabInfo
 import com.example.geckobrowser.SpaceIcons
 import com.example.geckobrowser.DEFAULT_SPACE_C1
 import com.example.geckobrowser.DEFAULT_SPACE_C2
@@ -512,51 +515,6 @@ fun SearchSheet(
                             Glyph(Ico.clock, c.muted, size = 14.dp, strokeWidth = 1.8f)
                             Spacer(Modifier.width(8.dp))
                         }
-                        Glyph(Ico.chevronLeft, c.muted, size = 15.dp, strokeWidth = 2f,
-                            modifier = Modifier.rotate(180f))
-                    }
-                }
-            }
-        }
-
-        // v5: a resting sheet shows four quick suggestions, not a blank panel.
-        AnimatedVisibility(
-            visible = rows.isEmpty() && !engineMenu && !expanded,
-            enter = fadeIn(tween(160)),
-            exit = fadeOut(tween(110)),
-        ) {
-            Column(Modifier.fillMaxWidth()) {
-                listOf(
-                    Triple("Search with ${engine.name}", "", true),
-                    Triple("github.com", "github.com", false),
-                    Triple("docs.google.com", "docs.google.com", false),
-                    Triple("addons.mozilla.org", "addons.mozilla.org", false),
-                ).forEach { (label, url, isSearch) ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable {
-                                if (isSearch) {
-                                    focus.requestFocus()
-                                    keyboard?.show()
-                                } else {
-                                    vm.submit(url)
-                                }
-                            }
-                            .padding(horizontal = 10.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        SiteFavicon(if (isSearch) engine.host else url, label.take(1), 20.dp)
-                        Spacer(Modifier.width(12.dp))
-                        Text(label, color = c.text, fontSize = 14.sp,
-                            modifier = Modifier.weight(1f), maxLines = 1,
-                            overflow = TextOverflow.Ellipsis)
-                        if (!isSearch) {
-                            Text(url, color = c.muted, fontSize = 11.sp, maxLines = 1,
-                                overflow = TextOverflow.Ellipsis)
-                        }
-                        Spacer(Modifier.width(8.dp))
                         Glyph(Ico.chevronLeft, c.muted, size = 15.dp, strokeWidth = 2f,
                             modifier = Modifier.rotate(180f))
                     }
@@ -1431,6 +1389,7 @@ private fun MenuItem(c: ArcColors, text: String, color: Color = Color.Unspecifie
 }
 
 /** Open-tabs section shown when the sheet is expanded. */
+@OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun OpenTabsSection(vm: BrowserViewModel, c: ArcColors) {
     val tabs = vm.activeSpaceTabs.filter { it.url.isNotBlank() }
@@ -1463,23 +1422,90 @@ private fun OpenTabsSection(vm: BrowserViewModel, c: ArcColors) {
                 }.padding(horizontal = 6.dp, vertical = 4.dp),
             )
         }
+        var menuTab by remember { mutableStateOf<TabInfo?>(null) }
         tabs.forEach { tab ->
             val host = BrowserViewModel.hostOf(tab.url)
             val active = tab.id == vm.activeId
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .then(if (active) Modifier.border(2.dp, faviconAccent(host) ?: c.accent, RoundedCornerShape(12.dp)) else Modifier)
-                    .clickable { vm.openTabOfSpace(vm.activeSpaceId, tab.id) }
-                    .padding(horizontal = 12.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SiteFavicon(host, BrowserViewModel.hostOf(tab.url).ifBlank { tab.title.take(1) }, 20.dp)
-                Spacer(Modifier.width(8.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(tab.title.ifBlank { "New tab" }, color = c.text, fontSize = 14.sp, maxLines = 1)
+            Box(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .then(if (active) Modifier.border(2.dp, faviconAccent(host) ?: c.accent, RoundedCornerShape(12.dp)) else Modifier)
+                        .combinedClickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = { if (menuTab == null) vm.openTabOfSpace(vm.activeSpaceId, tab.id) },
+                            onLongClick = { menuTab = tab },
+                        )
+                        .padding(horizontal = 12.dp, vertical = 11.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SiteFavicon(host, host.ifBlank { tab.title.take(1) }, 20.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(tab.title.ifBlank { "New tab" }, color = c.text, fontSize = 14.sp, maxLines = 1)
+                    }
                 }
+                if (menuTab?.id == tab.id) {
+                    TabContextMenu(vm, tab, c) { menuTab = null }
+                }
+            }
+        }
+    }
+}
+
+/** Website-style floating glass menu for a tab in the expanded sheet. */
+@Composable
+private fun TabContextMenu(vm: BrowserViewModel, tab: TabInfo, c: ArcColors, onDismiss: () -> Unit) {
+    Popup(onDismissRequest = onDismiss, alignment = Alignment.TopStart) {
+        Column(
+            Modifier
+                .widthIn(min = 198.dp, max = 248.dp)
+                .shadow(20.dp, RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(16.dp))
+                .background(c.sheet)
+                .border(1.dp, c.stroke, RoundedCornerShape(16.dp))
+                .padding(6.dp),
+        ) {
+            Text(
+                tab.title.ifBlank { BrowserViewModel.hostOf(tab.url) },
+                color = c.muted,
+                fontSize = 10.5.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 7.dp, bottom = 6.dp),
+            )
+            MenuItem(c, "Reload") {
+                vm.selectTab(tab.id)
+                vm.reload()
+                onDismiss()
+            }
+            MenuItem(c, "Add to folder") {
+                val folder = vm.pinNodes.firstOrNull {
+                    it.spaceId == vm.activeSpaceId && it.type == PinType.FOLDER && it.deletedAt == null
+                } ?: vm.createFolder(null)
+                if (folder != null) {
+                    vm.addPinNode(
+                        PinType.PIN,
+                        url = tab.url,
+                        title = tab.title.ifBlank { BrowserViewModel.hostOf(tab.url) },
+                        parentId = folder.id,
+                    )
+                    vm.showToast("Added to folder")
+                }
+                onDismiss()
+            }
+            val key = vm.pinKeyOf(tab.url)
+            val essential = vm.essentialsSorted.firstOrNull { vm.pinKeyOf(it.url) == key }
+            MenuItem(c, if (essential != null) "Remove from Essentials" else "Add to Essentials") {
+                if (essential != null) vm.removeEssential(essential.id)
+                else vm.createEssential(tab.url, tab.title.ifBlank { BrowserViewModel.hostOf(tab.url) })
+                onDismiss()
+            }
+            MenuItem(c, "Remove", color = c.press) {
+                vm.closeTab(tab.id)
+                onDismiss()
             }
         }
     }
