@@ -344,7 +344,7 @@ fun SearchSheet(
             ) {
                 PinTreeSection(vm, c)
                 OpenTabsSection(vm, c)
-                SyncStrip(c)
+                SyncStrip(vm, c)
             }
         }
 
@@ -1307,13 +1307,17 @@ private fun OpenTabsSection(vm: BrowserViewModel, c: ArcColors) {
     }
 }
 
-/** Phase-2 placeholder: sync status strip at the bottom of the expanded list. */
+/** Sync status at the bottom of the expanded list — wired to Mozilla account. */
 @Composable
-private fun SyncStrip(c: ArcColors) {
-    Text(
-        "Not synced",
-        color = c.muted,
-        fontSize = 11.5.sp,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 14.dp),
-    )
+private fun SyncStrip(vm: BrowserViewModel, c: ArcColors) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 12.dp)
+            .clickable { if (vm.fxaSignedIn) vm.syncSpacesNow() },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(vm.syncStatus, color = c.muted, fontSize = 11.5.sp, modifier = Modifier.weight(1f))
+        if (vm.fxaSignedIn) Text("Sync now", color = c.accent, fontSize = 11.5.sp)
+    }
 }

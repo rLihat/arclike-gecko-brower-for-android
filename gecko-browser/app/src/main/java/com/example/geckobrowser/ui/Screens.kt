@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -1032,37 +1033,56 @@ fun AccountScreen(vm: BrowserViewModel, onBack: () -> Unit) {
             ) {
                 PillAvatar("M", 62.dp)
                 Spacer(Modifier.height(12.dp))
-                Text("tahilr38@gmail.com", color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text(vm.fxaEmail ?: "Not signed in", color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.height(4.dp))
-                Text("Signed in · sync active", color = c.muted, fontSize = 12.sp)
+                Text(if (vm.fxaSignedIn) "Signed in · spaces sync active" else "Sign in to sync Spaces across devices",
+                    color = c.muted, fontSize = 12.sp)
                 Spacer(Modifier.height(16.dp))
-                Box(
-                    Modifier
-                        .fillMaxWidth()
-                        .height(44.dp)
-                        .clip(CircleShape)
-                        .background(c.accent)
-                        .clickable { vm.showToast("Syncing…") },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("Sync now", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                if (vm.fxaSignedIn) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .clip(CircleShape)
+                            .background(c.accent)
+                            .clickable { vm.syncSpacesNow() },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("Sync now", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Text(vm.syncStatus, color = c.muted, fontSize = 11.5.sp)
+                } else {
+                    val context = LocalContext.current
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(44.dp)
+                            .clip(CircleShape)
+                            .background(c.accent)
+                            .clickable {
+                                val url = vm.beginFxaSignIn()
+                                if (url != null) {
+                                    androidx.browser.customtabs.CustomTabsIntent.Builder()
+                                        .build().launchUrl(context, android.net.Uri.parse(url))
+                                } else vm.showToast("Sign-in unavailable")
+                            },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("Sign in with Mozilla account", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    }
                 }
-                Spacer(Modifier.height(8.dp))
-                Text("Last synced 2 minutes ago", color = c.muted, fontSize = 11.5.sp)
             }
 
             SectionLabel("Synced data")
             SettingsGroup {
-                SettingsRow("Bookmarks", value = "128", onClick = { vm.showToast("Bookmarks synced") })
-                SettingsRow("History", value = "1,204", onClick = { vm.showToast("History synced") })
-                SettingsRow("Passwords", value = "32", onClick = { vm.showToast("Passwords synced") })
-                SettingsRow("Add-ons", value = "4", onClick = { vm.showToast("Add-ons synced") })
+                SettingsRow("Spaces & pins", value = if (vm.fxaSignedIn) "On" else "Off", onClick = { vm.syncSpacesNow() })
             }
 
             SectionLabel("Device")
             SettingsGroup {
                 SettingsRow("This phone", value = "Active", onClick = { vm.showToast("This device is active") })
-                SettingsRow("Disconnect", onClick = { vm.showToast("Device disconnected") })
+                SettingsRow("Disconnect", onClick = { vm.signOutFxa(); vm.showToast("Signed out") })
             }
 
             Spacer(Modifier.height(18.dp))
@@ -1072,7 +1092,7 @@ fun AccountScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     .height(46.dp)
                     .clip(CircleShape)
                     .background(c.menuCard)
-                    .clickable { vm.showToast("Signed out") },
+                    .clickable { vm.signOutFxa(); vm.showToast("Signed out") },
                 contentAlignment = Alignment.Center,
             ) {
                 Text("Sign out", color = c.text, fontSize = 14.sp, fontWeight = FontWeight.Medium)

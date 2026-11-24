@@ -156,6 +156,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private val settingsStore = AppSettings(app)
     private val tabsManager = TabManager(runtime)
     private val historyStore = HistoryStore(app)
+    val fxaSync = FxaSync(app)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val webExecutor by lazy { GeckoWebExecutor(runtime) }
 
@@ -256,6 +257,37 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Tabs belonging to the active space. */
     val activeSpaceTabs: List<TabInfo> get() = tabsOfSpace(tabs, activeSpaceId)
+
+    /** Mozilla-account sync (spaces, essentials, pins — never passwords). */
+    val fxaSignedIn: Boolean get() = fxaSync.isSignedIn
+    val fxaEmail: String? get() = fxaSync.email
+    var syncStatus by mutableStateOf("Not synced")
+
+    fun beginFxaSignIn(): String? = fxaSync.beginSignIn()
+
+    fun syncSpacesNow() {
+        scope.launch(Dispatchers.IO) {
+            val snapshot = SpaceSyncSnapshot(spaces, essentials, pinNodes)
+            val merged = fxaSync.syncNow(snapshot)
+            withContext(Dispatchers.Main) {
+                if (merged != null) {
+                    spaces = merged.spaces
+                    essentials = merged.essentials
+                    pinNodes = merged.pinNodes
+                    persistSpaces(); persistEssentials(); persistPinNodes()
+                    syncStatus = "Synced just now"
+                    showToast("Spaces synced")
+                } else {
+                    syncStatus = if (fxaSignedIn) "Sync failed" else "Not synced"
+                }
+            }
+        }
+    }
+
+    fun signOutFxa() {
+        fxaSync.signOut()
+        syncStatus = "Not synced"
+    }
 
     /** Set when the search sheet is expanded (58% → 78% height). */
     var searchExpanded by mutableStateOf(false)
@@ -3122,6 +3154,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         when (intent.action) {
             Intent.ACTION_VIEW -> {
                 val url = intent.dataString ?: return
+                if (fxaSync.handleIntent(intent.data)) {
+                    showToast("Mozilla account connected")
+                    return
+                }
                 val scheme = runCatching { Uri.parse(url).scheme?.lowercase(Locale.US) }.getOrNull()
                 if (scheme == "http" || scheme == "https" || scheme == "about" || scheme == "file") {
                     openInNewTab(url)
