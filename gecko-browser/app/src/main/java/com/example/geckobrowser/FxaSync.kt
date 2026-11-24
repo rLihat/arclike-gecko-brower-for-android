@@ -35,11 +35,15 @@ class FxaSync(private val context: Context) {
 
     val redirectUrl: String get() = BuildConfig.FXA_REDIRECT_URI
 
+    var lastError: String? = null
+        private set
+
     var lastSyncAt: Long get() = prefs.getLong(KEY_LAST_SYNC, 0L)
         private set(value) { prefs.edit().putLong(KEY_LAST_SYNC, value).apply() }
 
     private fun config(): FxaConfig = FxaConfig(
-        FxaServer.Release,
+        // Matches Mozilla's Firefox Accounts sample client config.
+        FxaServer.Custom("accounts.firefox.com"),
         BuildConfig.FXA_CLIENT_ID,
         BuildConfig.FXA_REDIRECT_URI,
         null,
@@ -59,16 +63,15 @@ class FxaSync(private val context: Context) {
 
     /** URL to open in the in-app sign-in WebView. */
     fun beginSignIn(): String? {
+        lastError = null
         return try {
             val url = account().beginOauthFlow(listOf(SCOPE_PROFILE, SCOPE_OLDSYNC), "browser")
             saveState()
             android.util.Log.i("HZ-FxA", "beginOauthFlow ok")
             url
-        } catch (e: FxaException) {
-            android.util.Log.e("HZ-FxA", "beginOauthFlow failed: ${e.message}", e)
-            null
         } catch (e: Throwable) {
-            android.util.Log.e("HZ-FxA", "beginOauthFlow crashed: ${e.message}", e)
+            lastError = e.message ?: e.javaClass.simpleName
+            android.util.Log.e("HZ-FxA", "beginOauthFlow failed: $lastError", e)
             null
         }
     }

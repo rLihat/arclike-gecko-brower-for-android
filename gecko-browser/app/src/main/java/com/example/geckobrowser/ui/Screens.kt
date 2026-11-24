@@ -1065,6 +1065,16 @@ fun AccountScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     ) {
                         Text("Sign in with Mozilla account", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
+                    vm.fxaLastError?.let { err ->
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            err,
+                            color = Color(0xFFE05252),
+                            fontSize = 11.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                 }
             }
 

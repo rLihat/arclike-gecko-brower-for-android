@@ -854,11 +854,10 @@ fun MenuSheet(vm: BrowserViewModel) {
             // Replaces the old Pin action, in the same slot with the same icon.
             val essential = vm.activeTabEssential
             MenuAction(
-                if (essential != null) "Remove from Essentials" else "Add to Essentials",
+                if (essential != null) "Remove" else "Add",
                 if (essential != null) Ico.pinOff else Ico.pin,
                 accent = essential != null,
                 enabled = essential != null || vm.activePinKey.isNotEmpty(),
-                labelSize = 9.5.sp,
             ) {
                 if (essential != null) {
                     vm.removeEssential(essential.id)

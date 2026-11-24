@@ -265,6 +265,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Set while the in-app sign-in WebView is open. */
     var fxaAuthUrl by mutableStateOf<String?>(null)
+    var fxaLastError by mutableStateOf<String?>(null)
     val fxaRedirectUrl: String get() = fxaSync.redirectUrl
 
     fun beginFxaSignIn() {
@@ -272,7 +273,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             val url = fxaSync.beginSignIn()
             withContext(Dispatchers.Main) {
                 fxaAuthUrl = url
-                if (url == null) showToast("Sign-in unavailable")
+                fxaLastError = fxaSync.lastError
+                if (url == null) showToast("Sign-in unavailable: ${fxaSync.lastError}")
             }
         }
     }
@@ -333,6 +335,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         activeSpaceId = id
         spaceC1 = target.colorA.takeIf { it != 0L } ?: DEFAULT_SPACE_C1
         spaceC2 = target.colorB.takeIf { it != 0L } ?: DEFAULT_SPACE_C2
+        // Show a tab from the space we just entered, not the previous space's tab.
+        tabsOfSpace(id).firstOrNull()?.let { selectTab(it.id) }
         persistSpaces()
     }
 
@@ -1409,7 +1413,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         makeActive: Boolean = true,
         forcedId: Long? = null,
         privateTab: Boolean = false,
-        spaceId: UUID = Space.PERSONAL_ID,
+        // New tabs belong to whichever space is currently active.
+        spaceId: UUID = activeSpaceId,
     ): Long {
         val id = if (forcedId == null) {
             tabsManager.create(restored, ::attachDelegates)
