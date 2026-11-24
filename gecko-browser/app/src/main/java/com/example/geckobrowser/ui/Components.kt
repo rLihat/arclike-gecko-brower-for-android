@@ -2,6 +2,7 @@
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.os.SystemClock
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -19,10 +20,16 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.awaitPointerEvent
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -555,35 +562,56 @@ fun PillButton(
     content: @Composable () -> Unit,
 ) {
     val c = LocalArc.current
-    var longFired by remember { mutableStateOf(false) }
+    val haptics = LocalHapticFeedback.current
+    val threshold = LocalViewConfiguration.current.touchSlop
+    val horizontalSlop = if (strictHorizontal) 36.dp.toPx() else threshold
     Box(
         Modifier
             .size(46.dp)
             .clip(CircleShape)
+            // One gesture handler per button, the way Fenix does it: a single
+            // detector so taps, long presses and swipes can't steal each other's events.
             .pointerInput(Unit) {
-                if (onLongClick != null) {
-                    detectTapGestures(onLongPress = {
-                        longFired = true
-                        onLongClick()
-                    })
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = true)
+                    if (down.isConsumed) return@awaitEachGesture
+                    down.consume()
+                    var dx = 0f
+                    var dy = 0f
+                    var longFired = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull { it.id == down.id } ?: continue
+                        if (change.isConsumed) break
+                        dx += change.delta.x
+                        dy += change.delta.y
+                        val barelyMoved = abs(dx) <= threshold && abs(dy) <= threshold
+                        val longPressMs = ViewConfiguration.getLongPressTimeout().toLong()
+                        if (!longFired && SystemClock.uptimeMillis() - down.uptimeMillis >= longPressMs && barelyMoved) {
+                            longFired = true
+                            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onLongClick?.invoke()
+                            break
+                        }
+                        if (event.type == PointerEventType.Released) {
+                            if (longFired) break
+                            if (abs(dx) >= threshold || abs(dy) >= threshold) {
+                                val ax = abs(dx)
+                                val ay = abs(dy)
+                                when {
+                                    ay >= threshold && ay > ax * 1.25f && dy < 0f -> onSwipeUp?.invoke()
+                                    ay >= threshold && ay > ax * 1.25f && dy > 0f -> onSwipeDown?.invoke()
+                                    ax >= horizontalSlop && ax > ay * (if (strictHorizontal) 2.2f else 1.25f) && dx < 0f -> onSwipeLeft?.invoke()
+                                    ax >= horizontalSlop && ax > ay * (if (strictHorizontal) 2.2f else 1.25f) && dx > 0f -> onSwipeRight?.invoke()
+                                }
+                            } else {
+                                onClick()
+                            }
+                            break
+                        }
+                    }
                 }
-            }
-            .swipeActions(
-                onUp = onSwipeUp,
-                onDown = onSwipeDown,
-                onLeft = onSwipeLeft,
-                onRight = onSwipeRight,
-                strictHorizontal = strictHorizontal,
-            )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = {
-                    // The release after a long press can still look like a click;
-                    // swallow it so the chooser is not replaced by a search.
-                    if (longFired) longFired = false else onClick()
-                },
-            ),
+            },
         contentAlignment = Alignment.Center,
     ) { content() }
 }

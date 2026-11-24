@@ -2800,9 +2800,6 @@ private fun BoxScope.NavPill(
                             onClick = { vm.openSearch() },
                             onLongClick = {
                                 showNewTabChooser = true
-                                if (vm.hapticFeedback) {
-                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                }
                             },
                             onSwipeUp = { vm.openSearch() },
                             onSwipeDown = { vm.closeOverlay() },
