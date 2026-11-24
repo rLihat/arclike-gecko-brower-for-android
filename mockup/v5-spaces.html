@@ -154,6 +154,20 @@
   .actions button { flex: 1; min-width: 64px; border: 0; border-radius: 10px; background: var(--chip); padding: 9px 6px; font: inherit; font-size: 12px; cursor: pointer; color: var(--text); }
   .actions button.primary { background: var(--c1); color: #fff; }
 
+  /* Identical to the website long-press context menu (glass, anchored, Lucide rows). */
+  .ctx-menu { position: absolute; z-index: 30; min-width: 198px; max-width: 248px; padding: 6px;
+    background: var(--sheet-soft); border: 1px solid var(--stroke); border-radius: 16px;
+    -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3);
+    box-shadow: 0 20px 54px rgba(20,30,35,0.26); opacity: 0; visibility: hidden; transform: scale(.86);
+    transition: opacity .15s ease, transform .22s cubic-bezier(0.2,0.9,0.25,1.04), visibility .15s; }
+  .ctx-menu.open { opacity: 1; visibility: visible; transform: none; }
+  .ctx-head { padding: 7px 10px 6px; font-size: 10.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ctx-row { width: 100%; display: flex; align-items: center; gap: 10px; padding: 9px 10px; border: 0; border-radius: 10px;
+    background: transparent; color: var(--text); font: inherit; font-size: 13.5px; text-align: left; cursor: pointer; }
+  .ctx-row:hover, .ctx-row:active { background: var(--chip); }
+  .ctx-row svg { width: 17px; height: 17px; flex: 0 0 17px; stroke: var(--muted); stroke-width: 1.9; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .ctx-sep { height: 1px; margin: 4px 6px; background: var(--hairline); }
+
   .hint { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; color: #fff; opacity: 0; font-size: 12px; pointer-events: none; transition: opacity 180ms; z-index: 20; }
   .hint.show { opacity: 1; }
   .notes { max-width: 820px; color: var(--muted); font-size: 12.5px; }
@@ -220,21 +234,7 @@
     </div>
   </div>
 
-  <div class="backdrop" id="tabBackdrop">
-    <div class="manager">
-      <h2 id="tabMenuTitle">Tab options</h2>
-      <div class="actions" style="flex-direction:column">
-        <button id="tabReload">Reload</button>
-        <button id="tabFolder">Add to folder</button>
-        <button id="tabPin">Pin / unpin</button>
-        <button id="tabEssential">Add / remove to Essentials</button>
-        <button id="tabRemove">Remove</button>
-        <button id="tabCancel">Cancel</button>
-      </div>
-      <div class="picks" id="folderPicks" style="display:none"></div>
-    </div>
-  </div>
-
+  <div class="ctx-menu" id="tabCtx" role="menu" aria-label="Tab options"></div>
   <div class="hint" id="hint">Saved</div>
 </div>
 
@@ -353,14 +353,18 @@ function render() {
     document.querySelectorAll('[data-pin]').forEach(el => el.onclick = () => hint('Opened ' + el.dataset.pin + ' in ' + sp.name));
     document.querySelectorAll('[data-tab]').forEach(el => {
       const i = +el.dataset.tab;
-      el.onpointerdown = e => { if (e.button !== 0) return; clearTabPress(); tabTarget = i; tabPressTimer = setTimeout(() => { tabPressTimer = null; openTabMenu(tabTarget); }, 550); };
+      el.onpointerdown = e => { if (e.button !== 0) return; clearTabPress(); tabTarget = i; tabPressTimer = setTimeout(() => { tabPressTimer = null; openTabMenu(tabTarget, e.clientX, e.clientY); }, 550); };
       el.onpointerup = clearTabPress;
       el.onpointerleave = clearTabPress;
       el.onpointercancel = clearTabPress;
       el.onclick = e => { clearTabPress(); if (e.target.closest('[data-more]')) return; selectedTab = i; render(); };
-      el.oncontextmenu = e => { e.preventDefault(); clearTabPress(); openTabMenu(i); };
+      el.oncontextmenu = e => { e.preventDefault(); clearTabPress(); openTabMenu(i, e.clientX, e.clientY); };
     });
-    document.querySelectorAll('[data-more]').forEach(el => el.onclick = e => { e.stopPropagation(); openTabMenu(+el.dataset.more); });
+    document.querySelectorAll('[data-more]').forEach(el => el.onclick = e => {
+      e.stopPropagation();
+      const r = el.getBoundingClientRect();
+      openTabMenu(+el.dataset.more, r.left + r.width/2, r.top + r.height/2);
+    });
   } else {
     $('list').innerHTML = '<div class="suggestions">' + SUGGESTIONS.map(s =>
       `<div class="row">${fav(s[0],s[1],'sm')}<b>${s[2]}</b>${s[3]?`<small>${s[3]}</small>`:''}<span class="trail">↖</span></div>`).join('') + '</div>';
@@ -497,55 +501,85 @@ $('btnDelete').onclick = () => {
 $('btnCancel').onclick = closeManager;
 $('backdrop').onclick = e => { if (e.target === $('backdrop')) closeManager(); };
 
-/* ------- hold-a-tab options ------- */
-function openTabMenu(i) {
+/* ------- tab options: same floating glass menu as a website long-press ------- */
+const CTX_ICONS = {
+  reload: '<path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 3v6h-6"/>',
+  remove: '<path d="M18 6 6 18M6 6l12 12"/>',
+  folder: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+  pin: '<path d="M12 17v5"/><path d="M9 10.8a2 2 0 0 1-1.1 1.8l-1.8.9A2 2 0 0 0 5 15.2V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.8a2 2 0 0 0-1.1-1.8l-1.8-.9A2 2 0 0 1 15 10.8V7a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2z"/>',
+  essential: '<path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M19 16l.7 1.8L21.5 18.5l-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/>',
+  plus: '<path d="M5 12h14M12 5v14"/>',
+  back: '<path d="m15 18-6-6 6-6"/>'
+};
+const ctxRow = (act, label) => `<button class="ctx-row" data-ctx="${act}"><svg viewBox="0 0 24 24">${CTX_ICONS[act] || CTX_ICONS.folder}</svg>${label}</button>`;
+function placeCtx(x, y) {
+  const menu = $('tabCtx'), phone = $('phone'), r = phone.getBoundingClientRect();
+  menu.classList.remove('open'); menu.style.left = '0px'; menu.style.top = '0px';
+  const mw = menu.offsetWidth || 210, mh = menu.offsetHeight || 220;
+  const left = Math.max(8, Math.min(phone.clientWidth - mw - 8, x - r.left + 5));
+  const top = Math.max(8, Math.min(phone.clientHeight - mh - 8, y - r.top + 5));
+  menu.style.left = left + 'px'; menu.style.top = top + 'px';
+  menu.style.transformOrigin = Math.max(6, Math.min(mw-6, x - r.left - left)) + 'px ' +
+    Math.max(6, Math.min(mh-6, y - r.top - top)) + 'px';
+  requestAnimationFrame(() => menu.classList.add('open'));
+}
+function openTabMenu(i, x, y) {
   clearTabPress();
   const t = spaces[active].tabs[i];
   if (!t) return;
   tabTarget = i;
-  $('tabMenuTitle').textContent = 'Tab · ' + t[2];
-  $('folderPicks').style.display = 'none';
-  $('folderPicks').innerHTML = '';
-  $('tabBackdrop').classList.add('open');
+  $('tabCtx').innerHTML = '<div class="ctx-head">' + t[2] + '</div>' +
+    ctxRow('reload', 'Reload') +
+    '<div class="ctx-sep"></div>' +
+    ctxRow('folder', 'Add to folder') +
+    ctxRow('pin', 'Pin / unpin') +
+    ctxRow('essential', 'Add / remove to Essentials') +
+    '<div class="ctx-sep"></div>' +
+    ctxRow('remove', 'Remove');
+  placeCtx(x, y);
 }
-function closeTabMenu() { clearTabPress(); $('tabBackdrop').classList.remove('open'); render(); }
-$('tabReload').onclick = () => { hint('Reloaded ' + spaces[active].tabs[tabTarget][2]); closeTabMenu(); };
-$('tabRemove').onclick = () => { spaces[active].tabs.splice(tabTarget,1); selectedTab = -1; hint('Tab removed'); closeTabMenu(); };
-$('tabPin').onclick = () => {
+function openFolderMenu(x, y) {
   const t = spaces[active].tabs[tabTarget];
   const folders = spaces[active].pins.filter(p => Array.isArray(p.children));
-  const pinned = folders.some(f => f.children.some(c => c[2] === t[2]));
-  if (pinned) { folders.forEach(f => f.children = f.children.filter(c => c[2] !== t[2])); hint('Unpinned'); }
-  else if (folders.length) { folders[0].children.push([t[0], t[1], t[2]]); hint('Pinned to ' + folders[0].t); }
-  else hint('No folder to pin into');
-  closeTabMenu();
-};
-$('tabEssential').onclick = () => {
-  const t = spaces[active].tabs[tabTarget];
-  const at = ESSENTIALS.findIndex(e => e[2] === t[2]);
-  if (at >= 0) { ESSENTIALS.splice(at,1); hint('Removed from Essentials'); }
-  else { ESSENTIALS.push([t[0], t[1], t[2]]); hint('Added to Essentials'); }
-  closeTabMenu();
-};
-$('tabFolder').onclick = () => {
-  const t = spaces[active].tabs[tabTarget];
-  const folders = spaces[active].pins.filter(p => Array.isArray(p.children));
-  const box = $('folderPicks');
-  const btn = 'border:0;border-radius:8px;background:var(--chip);padding:6px 10px;cursor:pointer;font:inherit;font-size:12px';
-  box.innerHTML = folders.map((f,i) => `<button style="${btn}" data-folder-idx="${i}">${f.t}</button>`).join('') +
-    `<button style="${btn}" id="newFolder">+ Create folder</button>`;
-  box.style.display = 'flex';
-  box.querySelectorAll('[data-folder-idx]').forEach(el => el.onclick = () => {
-    folders[+el.dataset.folderIdx].children.push([t[0], t[1], t[2]]);
-    hint('Added to ' + folders[+el.dataset.folderIdx].t); closeTabMenu();
-  });
-  $('newFolder').onclick = () => {
-    spaces[active].pins.push({t:'New folder', f:[t[1], t[1]], children:[[t[0], t[1], t[2]]]});
+  $('tabCtx').innerHTML = '<div class="ctx-head">Add to folder</div>' +
+    ctxRow('back', 'Back') +
+    folders.map((f,i) => ctxRow('folder-' + i, f.t)).join('') +
+    ctxRow('newfolder', 'Create new folder');
+  placeCtx(x, y);
+}
+function closeTabMenu() { clearTabPress(); $('tabCtx').classList.remove('open'); render(); }
+$('tabCtx').onclick = e => {
+  const btn = e.target.closest('[data-ctx]');
+  if (!btn) return;
+  const act = btn.dataset.ctx, sp = spaces[active], t = sp.tabs[tabTarget];
+  const r = btn.getBoundingClientRect();
+  if (act === 'reload') { hint('Reloaded ' + t[2]); closeTabMenu(); }
+  else if (act === 'remove') { sp.tabs.splice(tabTarget,1); selectedTab = -1; hint('Tab removed'); closeTabMenu(); }
+  else if (act === 'pin') {
+    const folders = sp.pins.filter(p => Array.isArray(p.children));
+    const pinned = folders.some(f => f.children.some(c => c[2] === t[2]));
+    if (pinned) { folders.forEach(f => f.children = f.children.filter(c => c[2] !== t[2])); hint('Unpinned'); }
+    else if (folders.length) { folders[0].children.push([t[0],t[1],t[2]]); hint('Pinned to ' + folders[0].t); }
+    else hint('No folder to pin into');
+    closeTabMenu();
+  } else if (act === 'essential') {
+    const at = ESSENTIALS.findIndex(en => en[2] === t[2]);
+    if (at >= 0) { ESSENTIALS.splice(at,1); hint('Removed from Essentials'); }
+    else { ESSENTIALS.push([t[0],t[1],t[2]]); hint('Added to Essentials'); }
+    closeTabMenu();
+  } else if (act === 'folder') { openFolderMenu(r.left, r.top); }
+  else if (act === 'back') { openTabMenu(tabTarget, r.left, r.top); }
+  else if (act === 'newfolder') {
+    sp.pins.push({t:'New folder', f:[t[1],t[1]], children:[[t[0],t[1],t[2]]]});
     hint('Created folder with this tab'); closeTabMenu();
-  };
+  } else if (act.startsWith('folder-')) {
+    const f = sp.pins.filter(p => Array.isArray(p.children))[+act.slice(7)];
+    f.children.push([t[0],t[1],t[2]]); hint('Added to ' + f.t); closeTabMenu();
+  }
 };
-$('tabCancel').onclick = closeTabMenu;
-$('tabBackdrop').onclick = e => { if (e.target === $('tabBackdrop')) closeTabMenu(); };
+document.addEventListener('pointerdown', e => {
+  if ($('tabCtx').classList.contains('open') && !e.target.closest('#tabCtx')) closeTabMenu();
+});
 render();
 </script>
 </body>
