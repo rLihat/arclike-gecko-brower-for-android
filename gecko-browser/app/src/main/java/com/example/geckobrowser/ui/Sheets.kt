@@ -85,6 +85,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.geckobrowser.BrowserViewModel
 import com.example.geckobrowser.PinType
+import com.example.geckobrowser.PinNode
 import com.example.geckobrowser.Space
 import com.example.geckobrowser.SpacePalettes
 import java.util.Locale
