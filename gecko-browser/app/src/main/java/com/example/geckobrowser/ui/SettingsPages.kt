@@ -1,4 +1,4 @@
-﻿package com.example.geckobrowser.ui
+package com.example.geckobrowser.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -83,8 +83,8 @@ fun SettingsScreen(
         ) {
         when (route) {
             "look" -> LookAndFeelPage(vm)
-            "search" -> SearchPreferencesPage(vm)
-            "containers" -> ContainersPreferencesPage(vm)
+                        "es" to "Spanish", "fr" to "French", "ja" to "Japanese").forEach { (tag, label) ->
+                        "es" to "Spanish", "fr" to "French", "ja" to "Japanese").forEach { (tag, label) ->
             "privacy" -> PrivacyAndSecurityPage(vm)
             "siteSettingsGlobal" -> GlobalSiteSettingsPage(vm)
             "dataCollection" -> DataCollectionPage(vm)
@@ -579,11 +579,11 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
                 Column {
                     listOf(100, 115, 130, 150, 175, 200).forEach { size ->
                         TextButton(onClick = {
-                            vm.setZoom(size)
+                            vm.updateZoom(size)
                             textSizeDialog = false
                         }) {
                             Text(
-                                "$size%${if (size == vm.zoom) "  •" else ""}",
+                                "$size%${if (size == vm.zoom) "  �" else ""}",
                                 color = if (size == vm.zoom) c.accent else c.text,
                                 fontSize = 15.sp,
                             )
@@ -603,9 +603,9 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
             text = {
                 Column {
                     listOf("en-US" to "English (US)", "en-GB" to "English (UK)", "de" to "Deutsch",
-                        "es" to "Español", "fr" to "Français", "ja" to "日本語").forEach { (tag, label) ->
+                        "es" to "Spanish", "fr" to "French", "ja" to "Japanese").forEach { (tag, label) ->
                         TextButton(onClick = {
-                            vm.setAppLocale(tag)
+                            vm.updateAppLocale(tag)
                             languageDialog = false
                         }) {
                             Text(label, color = if (tag == vm.appLocale) c.accent else c.text, fontSize = 15.sp)
@@ -620,7 +620,7 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
 }
 
 @Composable
-private fun SearchPreferencesPage(vm: BrowserViewModel) {
+                        "es" to "Spanish", "fr" to "French", "ja" to "Japanese").forEach { (tag, label) ->
     val c = LocalArc.current
     var engineExpanded by remember { mutableStateOf(false) }
     var engineAdding by remember { mutableStateOf(false) }
@@ -943,8 +943,8 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
                 "DNS over HTTPS",
                 icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.8f) },
                 value = if (vm.dohEnabled) "On" else "Off",
-                onClick = { vm.setDohEnabled(!vm.dohEnabled) },
-                trailing = { ArcSwitch(vm.dohEnabled) { vm.setDohEnabled(it) } },
+                onClick = { vm.updateDohEnabled(!vm.dohEnabled) },
+                trailing = { ArcSwitch(vm.dohEnabled) { vm.updateDohEnabled(it) } },
             )
             SettingsRow(
                 "Data collection",
@@ -1069,8 +1069,8 @@ private fun GlobalSiteSettingsPage(vm: BrowserViewModel) {
                 "DNS over HTTPS",
                 icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.8f) },
                 value = if (vm.dohEnabled) "On" else "Off",
-                trailing = { ArcSwitch(vm.dohEnabled) { vm.setDohEnabled(it) } },
-                onClick = { vm.setDohEnabled(!vm.dohEnabled) },
+                trailing = { ArcSwitch(vm.dohEnabled) { vm.updateDohEnabled(it) } },
+                onClick = { vm.updateDohEnabled(!vm.dohEnabled) },
             )
         }
         SectionLabel("Current site")
@@ -1214,7 +1214,7 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
 }
 /** Create / rename / delete the Firefox-style containers used by spaces. */
 @Composable
-fun ContainersPreferencesPage(vm: BrowserViewModel) {
+                        "es" to "Spanish", "fr" to "French", "ja" to "Japanese").forEach { (tag, label) ->
     val c = LocalArc.current
     var editing by remember { mutableStateOf<com.example.geckobrowser.BrowserContainer?>(null) }
     var creating by remember { mutableStateOf(false) }
@@ -1276,7 +1276,7 @@ fun ContainersPreferencesPage(vm: BrowserViewModel) {
             }
             Spacer(Modifier.height(10.dp))
             Text(
-                "Containers are metadata on Android — pages are not isolated into separate cookie jars.",
+                "Containers are metadata on Android � pages are not isolated into separate cookie jars.",
                 color = c.muted,
                 fontSize = 11.sp,
             )

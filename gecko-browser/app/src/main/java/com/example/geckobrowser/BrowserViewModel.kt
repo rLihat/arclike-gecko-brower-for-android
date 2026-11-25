@@ -914,13 +914,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var dohEnabled by mutableStateOf(prefs.getBoolean("doh_enabled", true))
         private set
 
-    fun setDohEnabled(value: Boolean) {
+    fun updateDohEnabled(value: Boolean) {
         dohEnabled = value
         prefs.edit().putBoolean("doh_enabled", value).apply()
         showToast("DNS-over-HTTPS will apply after a restart")
     }
 
-    fun setAppLocale(tag: String) {
+    fun updateAppLocale(tag: String) {
         appLocale = tag
         prefs.edit().putString("app_locale", tag).apply()
         runCatching { runtime.settings.locales = arrayOf(tag) }
@@ -3601,7 +3601,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Sets the global page text scale from the Settings text-size picker. */
-    fun setZoom(percent: Int) {
+    fun updateZoom(percent: Int) {
         val next = percent.coerceIn(100, 200)
         zoom = next
         applyZoom(next)
