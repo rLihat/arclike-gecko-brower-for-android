@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId "com.example.geckobrowser"
-        minSdk 24
+        minSdk 26
         targetSdk 35
         // Written by .github/workflows/ci.yml's tag step; falls back to the
         // runner's built-in GITHUB_RUN_NUMBER (which mis-numbered builds as
