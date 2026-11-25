@@ -35,6 +35,7 @@ class ArcApplication : Application() {
     private fun writeGeckoConfig(): String {
         val prefs = getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
         val doh = prefs.getBoolean("doh_enabled", true)
+        val resist = prefs.getBoolean("resist_fingerprinting", false)
         val file = File(filesDir, "geckoview-config.yaml")
         file.writeText(
             """
@@ -48,6 +49,12 @@ class ArcApplication : Application() {
               datareporting.policy.dataSubmissionEnabled: false
               network.trr.mode: ${if (doh) 2 else 0}
               network.trr.uri: "https://mozilla.cloudflare-dns.com/dns-query"
+              privacy.trackingprotection.fingerprinting.enabled: true
+              privacy.trackingprotection.cryptomining.enabled: true
+              privacy.fingerprintingProtection: true
+              privacy.fingerprintingProtection.pbmode: true
+              privacy.resistFingerprinting: $resist
+              privacy.resistFingerprinting.pbmode: $resist
             """.trimIndent(),
         )
         return file.absolutePath

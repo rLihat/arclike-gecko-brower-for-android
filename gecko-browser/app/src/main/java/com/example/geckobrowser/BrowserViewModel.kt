@@ -920,6 +920,16 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         showToast("DNS-over-HTTPS will apply after a restart")
     }
 
+    /** Advanced, site-breaking fingerprint resistance; off unless opted in. */
+    var resistFingerprinting by mutableStateOf(prefs.getBoolean("resist_fingerprinting", false))
+        private set
+
+    fun updateResistFingerprinting(value: Boolean) {
+        resistFingerprinting = value
+        prefs.edit().putBoolean("resist_fingerprinting", value).apply()
+        showToast("Fingerprint resistance will apply after a restart")
+    }
+
     fun updateAppLocale(tag: String) {
         appLocale = tag
         prefs.edit().putString("app_locale", tag).apply()
@@ -967,6 +977,20 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private var disabledEnginesState by mutableStateOf<Set<String>>(emptySet())
 
     private var engineOrderInitialized = false
+
+    /** Local-history suggestions in the search sheet; default on for convenience. */
+    var historySuggestionsEnabled by mutableStateOf(prefs.getBoolean("history_suggestions", true))
+        private set
+
+    fun updateHistorySuggestions(value: Boolean) {
+        historySuggestionsEnabled = value
+        prefs.edit().putBoolean("history_suggestions", value).apply()
+        if (!value) {
+            historySuggestions = emptyList()
+        } else if (searchText.isNotBlank()) {
+            historySuggestions = historyStore.suggest(searchText, 4)
+        }
+    }
 
     var suggestionsEnabled by mutableStateOf(true)
         private set
@@ -1504,10 +1528,19 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
         settings.setAntiTracking(flags)
         settings.setCookieBehavior(ContentBlocking.CookieBehavior.ACCEPT_NON_TRACKERS)
-        settings.setCookieBannerMode(
-            if (cookieBannerHandling) 2 /* reject or accept */
-            else 0 /* disabled */,
-        )
+        // Reject banners rather than settling for accept, and let Gecko's
+        // global rules hide them in frames too. Detect-only would leave the
+        // banner on screen, which is exactly what we want to avoid.
+        val bannerMode = if (cookieBannerHandling) {
+            ContentBlocking.CookieBannerMode.COOKIE_BANNER_MODE_REJECT
+        } else {
+            ContentBlocking.CookieBannerMode.COOKIE_BANNER_MODE_DISABLED
+        }
+        settings.setCookieBannerMode(bannerMode)
+        settings.setCookieBannerModePrivateBrowsing(bannerMode)
+        settings.setCookieBannerGlobalRulesEnabled(cookieBannerHandling)
+        settings.setCookieBannerGlobalRulesSubFramesEnabled(cookieBannerHandling)
+        settings.setCookieBannerDetectOnlyMode(false)
     }
 
     /**
@@ -2206,13 +2239,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 // A popup from a background tab, or while a sheet is open, is an
                 // interruption the user didn't ask for: deny it outright. The
                 // active page gets a short-lived pill instead.
-                if (id != activeId || overlay != Overlay.None || fullscreen) {
+                // Deny immediately for background tabs, sheets, fullscreen or a
+                // burst of popups. Completing a held popup's GeckoResult
+                // exceptionally from inside this delegate crashed on popup
+                // spam tests, so never hold more than one notice.
+                if (id != activeId || overlay != Overlay.None || fullscreen || popupBlocked != null) {
                     return GeckoResult.fromValue(prompt.confirm(AllowOrDeny.DENY))
                 }
-                // Only one popup can own the pill. Release the previous result
-                // without calling confirm() back into Gecko from inside its own
-                // delegate — a page spamming popups would otherwise recurse.
-                abandonPopupNotice()
                 val promptId = nextPromptId++
                 val result = registerPrompt(promptId, prompt)
                 popupBlocked = PopupNotice(
@@ -2526,19 +2559,20 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Quietly drops the popup notice, denying the request. */
     fun dismissPopupNotice() {
-        popupBlocked?.let { answerPopup(it.id, allow = false) }
+        abandonPopupNotice()
     }
 
     /**
-     * Releases the held popup without answering it through Gecko. Used from
-     * inside the popup delegate, where calling confirm() could re-enter and
-     * recurse on a page that opens popups in a tight loop.
+     * Releases a held popup by answering it normally, posted off Gecko's
+     * delegate thread so a page opening popups in a tight loop cannot recurse.
      */
     private fun abandonPopupNotice() {
         val popup = popupBlocked ?: return
         popupBlocked = null
         popupDismissJobs.remove(popup.id)?.cancel()
-        completePrompt(popup.id, null)
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            answerPopup(popup.id, allow = false)
+        }
     }
 
     /* ------------------------------------------------------------ selection */
@@ -3221,10 +3255,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun answerExtensionInstall(id: Long, allow: Boolean, useInPrivate: Boolean = false) {
         val name = (browserPrompt as? BrowserPromptState.ExtensionInstall)?.name.orEmpty()
+        android.util.Log.d("HZ-Ext", "answer id=$id allow=$allow private=$useInPrivate name=$name")
         if (browserPrompt?.id == id) browserPrompt = null
         val result = extensionInstallResults.remove(id) ?: return
         runCatching {
-            result.complete(WebExtension.PermissionPromptResponse(allow, useInPrivate))
+            // Gecko treats privateModeGranted=false as a cancelled install
+            // (-100) even when permissions are granted. Grant it here and set
+            // the real private-tab choice through setAllowedInPrivateBrowsing.
+            result.complete(WebExtension.PermissionPromptResponse(allow, true))
         }
         if (allow) {
             extensionBadge = true
@@ -4038,7 +4076,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                     showToast("Add-on installed")
                 },
                 { error ->
-                    val detail = (error as? WebExtension.InstallException)?.let { " (${it.code})" } ?: ""
+                    val code = (error as? WebExtension.InstallException)?.code
+                    val detail = when (code) {
+                        -100 -> " (cancelled by prompt)"
+                        -5 -> " (unsigned add-on)"
+                        null -> ""
+                        else -> " ($code)"
+                    }
                     android.util.Log.e("HZ-Ext", "install failed: ${error?.message ?: "unknown"}")
                     showToast("Add-on install failed$detail")
                 },
@@ -4748,7 +4792,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         clearNavNotice()
         searchText = prefill.orEmpty()
         suggestions = emptyList()
-        historySuggestions = historyStore.suggest(searchText, 4)
+        historySuggestions = if (historySuggestionsEnabled && searchText.isNotBlank()) {
+            historyStore.suggest(searchText, 4)
+        } else emptyList()
         pendingPrivateSearch = activeTabIsPrivate
         overlay = Overlay.Search
         compactPill = false
@@ -5080,7 +5126,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun onSearchTextChange(value: String) {
         searchText = value
         // History is in memory, so this never waits on the network.
-        historySuggestions = if (value.isBlank()) emptyList() else historyStore.suggest(value, 4)
+        historySuggestions = if (!historySuggestionsEnabled || value.isBlank()) {
+            emptyList()
+        } else historyStore.suggest(value, 4)
         requestSuggestions(value)
     }
 

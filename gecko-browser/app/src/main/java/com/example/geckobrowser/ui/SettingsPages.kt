@@ -691,6 +691,14 @@ private fun SearchPreferencesPage(vm: BrowserViewModel) {
                 trailing = { ArcSwitch(vm.suggestionsEnabled) { vm.toggleSearchSuggestions() } },
                 onClick = { vm.toggleSearchSuggestions() },
             )
+            SettingsRow(
+                "History suggestions",
+                icon = { Glyph(Ico.clock, c.text, size = 20.dp, strokeWidth = 1.9f) },
+                trailing = {
+                    ArcSwitch(vm.historySuggestionsEnabled) { vm.updateHistorySuggestions(it) }
+                },
+                onClick = { vm.updateHistorySuggestions(!vm.historySuggestionsEnabled) },
+            )
         }
 
         SectionLabel("Preferences")
@@ -990,6 +998,21 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
                 value = if (vm.dohEnabled) "On" else "Off",
                 onClick = { vm.updateDohEnabled(!vm.dohEnabled) },
                 trailing = { ArcSwitch(vm.dohEnabled) { vm.updateDohEnabled(it) } },
+            )
+            SettingsRow(
+                "Fingerprinting Protection",
+                icon = { Glyph(Ico.info, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                value = "On · all windows",
+                onClick = {
+                    vm.showToast("Canvas randomization and reduced system info are active")
+                },
+            )
+            SettingsRow(
+                "Advanced fingerprint resistance",
+                icon = { Glyph(Ico.shield, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                value = if (vm.resistFingerprinting) "On" else "Off",
+                onClick = { vm.updateResistFingerprinting(!vm.resistFingerprinting) },
+                trailing = { ArcSwitch(vm.resistFingerprinting) { vm.updateResistFingerprinting(it) } },
             )
             SettingsRow(
                 "Private tabs",
