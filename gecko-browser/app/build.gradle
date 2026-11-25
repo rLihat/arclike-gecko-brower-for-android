@@ -83,7 +83,8 @@ android {
 }
 
 dependencies {
-    implementation platform('androidx.compose:compose-bom:2024.12.01')
+    // Compose runtime must match the 2.4 compiler bundled with AGP 9/GV 161.
+    implementation platform('androidx.compose:compose-bom:2026.09.00')
     // Layer 1 — live blur over Compose-drawn backdrops. Pinned to 1.5.4: it is
     // built against Compose 1.7.x / Kotlin 2.1, matching this project's BOM and
     // compileSdk 35. Newer Haze pulls Compose 1.12 (needs compileSdk 37 / AGP 9.1).
