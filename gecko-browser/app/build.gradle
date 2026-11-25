@@ -98,18 +98,19 @@ dependencies {
     implementation 'androidx.compose.foundation:foundation'
     implementation 'androidx.compose.material3:material3'
     implementation 'androidx.compose.material:material-icons-core'
-    implementation 'org.mozilla.geckoview:geckoview:138.0.20250517143237'
+    implementation 'org.mozilla.geckoview:geckoview:161.0.20261118180411'
     // FxA's Rust bindings only — no Android Components account manager or Glean.
-    implementation('org.mozilla.appservices:fxaclient:138.0') {
+    implementation('org.mozilla.appservices:fxaclient:161.0') {
         // GeckoView already ships libxul.so; Glean's native copy collides.
         exclude group: 'org.mozilla.telemetry', module: 'glean-native'
     }
     implementation 'androidx.browser:browser:1.8.0'
     // FxA's Rust client needs an HTTP client installed at startup.
-    implementation 'org.mozilla.components:support-rusthttp:138.0.2'
-    implementation 'org.mozilla.components:lib-fetch-httpurlconnection:138.0.2'
+    // A-C support components stop at 140.x; appservices itself is at 161.
+    implementation 'org.mozilla.components:support-rusthttp:140.0.4'
+    implementation 'org.mozilla.components:lib-fetch-httpurlconnection:140.0.4'
     // fxa-client crypto needs NSS initialised before any account call.
-    implementation 'org.mozilla.appservices:init_rust_components:138.0'
+    implementation 'org.mozilla.appservices:init_rust_components:161.0'
     debugImplementation 'androidx.compose.ui:ui-tooling'
     testImplementation 'junit:junit:4.13.2'
     testImplementation 'org.json:json:20240303'
