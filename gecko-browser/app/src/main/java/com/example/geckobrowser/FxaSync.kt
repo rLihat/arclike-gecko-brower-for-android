@@ -148,13 +148,14 @@ class FxaSync(private val context: Context) {
             tokenConn.connectTimeout = 15000
             tokenConn.readTimeout = 15000
             tokenConn.setRequestProperty("Authorization", "Bearer ${info.token}")
+            tokenConn.setRequestProperty("Accept", "application/json")
             val tokenCode = tokenConn.responseCode
             if (tokenCode != 200) {
                 lastError = "Token server HTTP $tokenCode"
                 tokenConn.disconnect()
                 return null
             }
-            val tokens = JSONObject(tokenConn.inputStream.bufferedReader().use { it.readText() })
+            val tokens = readJson(tokenConn, "Token server")
             tokenConn.disconnect()
             val node = tokens.getString("node").trimEnd('/')
             val syncId = tokens.getString("id")
@@ -169,16 +170,16 @@ class FxaSync(private val context: Context) {
             get.connectTimeout = 15000
             get.readTimeout = 15000
             get.setRequestProperty("Authorization", hawk("GET", getUrl, "", syncId, hawkKey))
+            get.setRequestProperty("Accept", "application/json")
             val getCode = get.responseCode
-            val raw = if (getCode == 200) get.inputStream.bufferedReader().use { it.readText() } else null
+            val remoteJson = if (getCode == 200) readJson(get, "Sync storage") else null
             get.disconnect()
             if (getCode !in listOf(200, 404)) {
                 lastError = "Sync download HTTP $getCode"
                 android.util.Log.e("HZ-FxA", lastError ?: "unknown")
                 return null
             }
-            val remote = raw?.let { text ->
-                val obj = JSONObject(text)
+            val remote = remoteJson?.let { obj ->
                 decrypt(obj.optString("payload"), scopedKey)?.let { SpaceSyncSnapshot.fromJson(it) }
             }
             val merged = if (remote != null) SpaceSyncSnapshot.merge(snapshot, remote) else snapshot
@@ -233,6 +234,20 @@ class FxaSync(private val context: Context) {
             append("Hawk id=\"").append(id).append("\", ts=\"").append(ts)
             append("\", nonce=\"").append(nonce).append("\", mac=\"").append(mac).append('"')
             if (hash != null) append(", hash=\"").append(hash).append('"')
+        }
+    }
+
+    /** Reads a JSON response, with a useful error when a server returns HTML. */
+    private fun readJson(conn: HttpURLConnection, label: String): JSONObject {
+        val body = conn.inputStream.bufferedReader().use { it.readText() }
+        val type = conn.contentType.orEmpty()
+        if (!type.contains("json", ignoreCase = true)) {
+            throw IllegalStateException("$label returned $type: ${body.take(140)}")
+        }
+        return try {
+            JSONObject(body)
+        } catch (e: Throwable) {
+            throw IllegalStateException("$label returned invalid JSON: ${body.take(140)}", e)
         }
     }
 
