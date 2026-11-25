@@ -2734,7 +2734,7 @@ private fun BoxScope.NavPill(
         label = "pillBg",
     )
     val capsuleStroke by animateColorAsState(
-        Color.Transparent,
+        if (searchMode) Color.Transparent else c.stroke,
         tween(if (reduceMotion) 0 else 420, easing = morphEasing),
         label = "pillStroke",
     )

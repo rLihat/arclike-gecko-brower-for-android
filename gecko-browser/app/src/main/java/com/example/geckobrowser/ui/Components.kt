@@ -488,11 +488,14 @@ fun SettingsGroup(content: @Composable androidx.compose.foundation.layout.Column
     Box(
         Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp)),
+            .clip(RoundedCornerShape(16.dp))
+            // No filled group card in dark/OLED — a popup-style hairline is
+            // enough to group rows, matching the flat light-mode look.
+            .border(1.dp, c.hairline, RoundedCornerShape(16.dp)),
     ) {
         if (LocalFrost.current && LocalHazeState.current != null) {
             GlassFill(dark = c.dark)
-        } else {
+        } else if (!c.dark) {
             Box(Modifier.matchParentSize().background(c.surface))
         }
         androidx.compose.foundation.layout.Column(

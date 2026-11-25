@@ -245,6 +245,7 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit, hostArg: String
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(18.dp))
                     .background(c.menuCard)
+                    .border(1.dp, c.hairline, RoundedCornerShape(18.dp))
                     .padding(14.dp),
             ) {
                 Text("At a glance", color = c.muted, fontSize = 11.sp)

@@ -182,6 +182,7 @@ private fun accountCard(vm: BrowserViewModel, c: ArcColors) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(c.menuCard)
+            .border(1.dp, c.hairline, RoundedCornerShape(18.dp))
             .clickable { vm.openAccount() }
             .padding(14.dp),
     ) {
@@ -341,6 +342,7 @@ private fun CategoryTile(
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(c.menuCard)
+            .border(1.dp, c.hairline, RoundedCornerShape(18.dp))
             .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 17.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -349,7 +351,8 @@ private fun CategoryTile(
             Modifier
                 .size(46.dp)
                 .clip(RoundedCornerShape(14.dp))
-                .background(c.menuCard),
+                .background(c.menuCard)
+                .border(1.dp, c.hairline, RoundedCornerShape(14.dp)),
             contentAlignment = Alignment.Center,
         ) { icon() }
         Spacer(Modifier.width(14.dp))
