@@ -3268,14 +3268,15 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
         if (allow) {
             extensionBadge = true
-            if (name.isNotBlank()) setExtensionPrivate(name, useInPrivate)
+            showToast("Installing add-on…")
+            if (name.isNotBlank()) setExtensionPrivate(name, useInPrivate, notify = false)
         }
     }
 
     fun extensionAllowedInPrivate(name: String): Boolean =
         prefs.getBoolean("ext_private_$name", false)
 
-    fun setExtensionPrivate(name: String, value: Boolean) {
+    fun setExtensionPrivate(name: String, value: Boolean, notify: Boolean = true) {
         prefs.edit().putBoolean("ext_private_$name", value).apply()
         extensions.firstOrNull { it.name == name }?.let { item ->
             extensionObjects[item.id]?.let { ext ->
@@ -3284,7 +3285,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 }
             }
         }
-        showToast("$name ${if (value) "can" else "cannot"} be used in private tabs")
+        if (notify) {
+            showToast("$name ${if (value) "can" else "cannot"} be used in private tabs")
+        }
     }
 
     fun dismissPromptsForTab(tabId: Long) {
@@ -4091,7 +4094,6 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                     showToast("Add-on install failed$detail")
                 },
             )
-            showToast("Installing add-on…")
         } catch (t: Throwable) {
             android.util.Log.e("HZ-Ext", "install exception: ${t.message}", t)
             showToast("Add-on install failed")
