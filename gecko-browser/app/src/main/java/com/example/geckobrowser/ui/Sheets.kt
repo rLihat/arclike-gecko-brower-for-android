@@ -521,6 +521,7 @@ private fun EssentialRow(vm: BrowserViewModel) {
     val c = LocalArc.current
     val pins = vm.essentialsSorted
     var unpinMode by remember { mutableStateOf<java.util.UUID?>(null) }
+    var dragOrigin by remember { mutableStateOf<java.util.UUID?>(null) }
     val config = androidx.compose.ui.platform.LocalConfiguration.current
     val gap = 10.dp
     val listState = rememberLazyListState()
@@ -574,12 +575,14 @@ private fun EssentialRow(vm: BrowserViewModel) {
                             fadeOutSpec = null,
                         )
                         .onGloballyPositioned { coords ->
-                            dragTileWindowX = coords.localToWindow(androidx.compose.ui.geometry.Offset.Zero).x
+                            if (dragOrigin == key) {
+                                dragTileWindowX = coords.localToWindow(androidx.compose.ui.geometry.Offset.Zero).x
+                            }
                         }
                         .clip(RoundedCornerShape(22.dp))
                         .background(c.menuCard)
                         .border(if (active) 2.dp else 1.dp, if (active) accentColor ?: c.accent else c.stroke, RoundedCornerShape(22.dp))
-                        .alpha(1f)
+                        .alpha(if (dragOrigin == key) 0.6f else 1f)
                         .padding(vertical = 10.dp)
                         .pointerInput(pin.id) {
                             awaitEachGesture {
@@ -636,11 +639,49 @@ private fun EssentialRow(vm: BrowserViewModel) {
                                         } else {
                                             vm.persistEssentials()
                                         }
-
                                         unpinMode = null
+                                        dragOrigin = null
                                         accumulatedDragPx = 0f
                                         if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                         return@awaitEachGesture
+                                    }
+                                    val dx = ch.position.x - lastX
+                                    lastX = ch.position.x
+                                    if (!dragging) {
+                                        if (kotlin.math.abs(ch.position.x - startX) > slop) {
+                                            // Moved after arming: reorder instead of unpin.
+                                            dragging = true
+                                            unpinMode = null
+                                            dragOrigin = key
+                                            accumulatedDragPx = 0f
+                                            swapLock = 0
+                                            ch.consume()
+                                            if (vm.hapticFeedback) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        }
+                                    } else {
+                                        ch.consume()
+                                        accumulatedDragPx += dx
+                                        val threshold = tileWidthPx * 0.33f
+                                        if (kotlin.math.abs(accumulatedDragPx) >= threshold) {
+                                            val direction = if (accumulatedDragPx > 0f) 1 else -1
+                                            if (swapLock != 0 && direction != swapLock) {
+                                                accumulatedDragPx = 0f
+                                            } else {
+                                                val from = vm.essentialsSorted.indexOfFirst { it.id == key }
+                                                if (from >= 0) {
+                                                    val to = (from + direction).coerceIn(0, vm.essentialsSorted.lastIndex)
+                                                    if (to != from) vm.moveEssential(from, to)
+                                                }
+                                                accumulatedDragPx -= direction * threshold
+                                                swapLock = direction
+                                            }
+                                        }
+                                        val edge = tileWidthPx * 0.25f
+                                        edgeScroll = if (dragTileWindowX.isNaN()) 0 else when {
+                                            dragTileWindowX < rowLeftPx + edge -> -1
+                                            dragTileWindowX + tileWidthPx > rowRightPx - edge -> 1
+                                            else -> 0
+                                        }
                                     }
                                 }
                             }

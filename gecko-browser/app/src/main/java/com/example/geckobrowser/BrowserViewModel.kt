@@ -556,6 +556,22 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         return true
     }
 
+    /** Reorders two essentials inside the active space (drag-to-reorder). */
+    fun moveEssential(from: Int, to: Int) {
+        val ordered = essentialsSorted.toMutableList()
+        if (from !in ordered.indices || to !in ordered.indices || from == to) return
+        ordered.add(to, ordered.removeAt(from))
+        val slots = ordered.withIndex().associate { it.value.id to it.index }
+        val now = System.currentTimeMillis()
+        essentials = essentials.map { item ->
+            val index = slots[item.id]
+            if (index != null && item.spaceId == activeSpaceId && item.sortIndex != index) {
+                item.copy(sortIndex = index, updatedAt = now)
+            } else item
+        }
+        persistEssentials()
+    }
+
     /** Soft-deletes an essential. */
     fun removeEssential(id: UUID) {
         essentials = essentials.map { if (it.id == id) it.copy(deletedAt = System.currentTimeMillis()) else it }
@@ -1589,12 +1605,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                     // engine's host we were handing the search to that app and
                     // denying the load, which left a brand-new blank tab.
                     if (!request.isDirectNavigation && openLinksMode != "off") {
-                        val app = appNameForLink(raw)
+                        val app = appForLink(raw)
                         if (app != null) {
                             if (openLinksMode == "on") {
-                                openExternal(raw)
+                                openExternal(raw, app.packageName)
                             } else if (id == activeId) {
-                                askExternalLink(id, raw, app)
+                                askExternalLink(id, raw, app.label)
                             }
                             return GeckoResult.deny()
                         }
@@ -3236,7 +3252,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         compactPill = false
     }
 
-    private fun openExternal(url: String) {
+    private fun openExternal(url: String, packageName: String? = null) {
         if (url.isBlank()) return
         val intent = if (url.startsWith("intent:", ignoreCase = true)) {
             runCatching { Intent.parseUri(url, Intent.URI_INTENT_SCHEME) }.getOrNull()
@@ -3247,6 +3263,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             showToast("No app can open this link")
             return
         }
+        if (packageName != null) intent.setPackage(packageName)
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         try {
             application.startActivity(intent)
@@ -3255,35 +3272,48 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private data class LinkApp(val packageName: String, val label: String)
+
     /**
-     * Returns the display name of an installed app that is the verified/default
-     * handler for [url] (http/https), excluding other browsers. Firefox treats
-     * these as App Links that should open in the app rather than the browser.
+     * Returns the user's default non-browser handler for [url]. Resolving the
+     * default (instead of picking the first of MATCH_ALL) is what stops us
+     * handing links to random installed browsers.
      */
-    private fun appNameForLink(url: String): String? {
+    private fun appForLink(url: String): LinkApp? {
         val pm = application.packageManager
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        val uri = Uri.parse(url)
+        val host = uri.host?.lowercase(Locale.US).orEmpty()
+
+        // Android often leaves YouTube links with a browser as the default.
+        // Route them to the YouTube app explicitly when it is installed.
+        if (host == "youtube.com" || host.endsWith(".youtube.com") || host == "youtu.be") {
+            val yt = "com.google.android.youtube"
+            if (runCatching { pm.getApplicationInfo(yt, 0) }.isSuccess) {
+                return LinkApp(yt, "YouTube")
+            }
+        }
+
+        val intent = Intent(Intent.ACTION_VIEW, uri)
             .addCategory(Intent.CATEGORY_BROWSABLE)
             .addCategory(Intent.CATEGORY_DEFAULT)
-        val handlers = try {
-            pm.queryIntentActivities(
-                intent,
-                PackageManager.MATCH_ALL,
-            )
+        val resolved = try {
+            pm.resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY)
         } catch (_: Throwable) {
-            return null
+            null
         }
-        val ours = application.packageName
-        for (info in handlers) {
-            val p = info.activityInfo?.packageName ?: continue
-            if (p == ours) continue
-            if (p in BROWSER_PACKAGES) continue
-            val label = runCatching {
-                pm.getApplicationLabel(info.activityInfo.applicationInfo).toString()
-            }.getOrNull()
-            return label?.takeIf { it.isNotBlank() } ?: p
-        }
-        return null
+        val pkg = resolved?.activityInfo?.packageName ?: return null
+        if (pkg == application.packageName || isBrowserPackage(pkg)) return null
+        val label = runCatching {
+            pm.getApplicationLabel(resolved.activityInfo.applicationInfo).toString()
+        }.getOrNull()?.takeIf { it.isNotBlank() } ?: pkg
+        return LinkApp(pkg, label)
+    }
+
+    private fun isBrowserPackage(pkg: String): Boolean {
+        if (pkg in BROWSER_PACKAGES) return true
+        val tail = pkg.substringAfterLast('.').lowercase(Locale.US)
+        return listOf("browser", "chrome", "firefox", "duckduckgo", "brave", "opera", "vivaldi", "kiwi")
+            .any { tail.contains(it) }
     }
 
     /* ------------------------------------------------------------ intent entry */
