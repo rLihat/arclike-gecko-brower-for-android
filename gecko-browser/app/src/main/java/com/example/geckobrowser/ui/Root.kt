@@ -1670,8 +1670,8 @@ private fun BoxScope.BrowserPromptHost(vm: BrowserViewModel) {
                 .fillMaxWidth(0.86f)
                 .shadow(22.dp, RoundedCornerShape(26.dp))
                 .clip(RoundedCornerShape(26.dp))
-                .background(c.navSurface)
-                .then(rememberGlass(c.navSurface))
+                .background(c.menuCard)
+                .then(rememberGlass(c.navSurface, fps = 15, maxEdge = 140, radius = 6))
                 .border(1.dp, c.stroke, RoundedCornerShape(26.dp))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },

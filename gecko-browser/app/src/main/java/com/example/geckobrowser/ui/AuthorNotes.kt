@@ -16,6 +16,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,11 +28,30 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.geckobrowser.BrowserViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
 
 /** Replaces the old author-note page with a real call to support the project. */
 @Composable
 fun AuthorNotesScreen(vm: BrowserViewModel, onBack: () -> Unit) {
     val c = LocalArc.current
+    var avatarUrl by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        val url = withContext(Dispatchers.IO) {
+            runCatching {
+                val conn = URL("https://api.github.com/users/rLihat").openConnection() as HttpURLConnection
+                conn.connectTimeout = 5000
+                conn.readTimeout = 5000
+                conn.setRequestProperty("User-Agent", "horiZen-Android")
+                val body = conn.inputStream.bufferedReader().use { it.readText() }
+                JSONObject(body).optString("avatar_url").takeIf { it.isNotBlank() }
+            }.getOrNull()
+        }
+        avatarUrl = url
+    }
     Column(Modifier.fillMaxSize().background(c.settingsBg)) {
         SettingsHeader(
             title = "Star horiZen on GitHub",
@@ -64,7 +88,7 @@ fun AuthorNotesScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     .padding(18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                PillAvatar("R", 52.dp)
+                AccountAvatar(avatarUrl, "R", 52.dp)
                 Spacer(Modifier.height(12.dp))
                 Text("rLihat", color = c.text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                 Text("Developer by interest.", color = c.muted, fontSize = 13.sp)

@@ -240,6 +240,49 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit, hostArg: String
                 modifier = Modifier.padding(start = 4.dp, top = 8.dp, bottom = 4.dp),
             )
 
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(c.menuCard)
+                    .padding(14.dp),
+            ) {
+                Text("At a glance", color = c.muted, fontSize = 11.sp)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Site", color = c.muted, fontSize = 12.sp)
+                    Text(host, color = c.text, fontSize = 12.sp, maxLines = 1,
+                        overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 8.dp))
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Tracking protection", color = c.muted, fontSize = 12.sp)
+                    Text(
+                        if (vm.trackingProtectionEnabled(host))
+                            (if (vm.etpStrict) "Strict" else "Standard")
+                        else "Off for this site",
+                        color = c.text, fontSize = 12.sp,
+                    )
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Trackers blocked", color = c.muted, fontSize = 12.sp)
+                    Text(vm.blockedForHost(host).toString(), color = c.text, fontSize = 12.sp)
+                }
+                Spacer(Modifier.height(6.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text("Permissions set", color = c.muted, fontSize = 12.sp)
+                    Text(
+                        listOf(
+                            PermissionKind.Camera, PermissionKind.Microphone,
+                            PermissionKind.Location, PermissionKind.Notifications,
+                        ).count { vm.sitePermission(host, it) != null }.toString(),
+                        color = c.text, fontSize = 12.sp,
+                    )
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+
             if (vm.activeTab?.isHome != true) {
                 SectionLabel("Privacy")
                 SettingsGroup {
@@ -291,23 +334,19 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit, hostArg: String
                     "Trackers blocked here",
                     icon = { Glyph(Ico.shieldCheck, c.text, size = 19.dp, strokeWidth = 1.8f) },
                     value = vm.blockedForHost(host).toString(),
-                    onClick = { vm.showToast("Blocked on $host this session") },
                 )
                 SettingsRow(
-                    "Data sent by this site",
+                    "Data this site receives",
                     icon = { Glyph(Ico.info, c.text, size = 19.dp, strokeWidth = 1.8f) },
-                    value = "Request headers",
-                    onClick = {
-                        vm.showToast("Sites receive your IP, user agent and standard request headers")
-                    },
-                )
-                SettingsRow(
-                    "uBlock filter activity",
-                    icon = { Glyph(Ico.puzzle, c.text, size = 19.dp, strokeWidth = 1.8f) },
-                    value = "Not installed",
-                    onClick = { vm.showToast("uBlock filter bundle is not installed yet") },
+                    value = "IP · user agent",
                 )
             }
+            Text(
+                "Sites receive standard request headers. uBlock filter reporting will appear "
+                    + "here once the bundled filters are installed.",
+                color = c.muted, fontSize = 11.5.sp, lineHeight = 16.sp,
+                modifier = Modifier.padding(start = 6.dp, top = 6.dp, bottom = 8.dp),
+            )
 
             SectionLabel("Data")
             SettingsGroup {

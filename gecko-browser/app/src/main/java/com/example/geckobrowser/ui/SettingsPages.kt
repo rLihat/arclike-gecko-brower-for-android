@@ -910,18 +910,61 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
         Spacer(Modifier.height(6.dp))
         SectionLabel("Privacy")
         SettingsGroup {
-            SettingsRow(
-                "Tracking protection",
-                icon = { Glyph(Ico.shieldCheck, c.text, size = 20.dp, strokeWidth = 1.8f) },
-                value = if (vm.etpStrict) "Strict" else "Standard",
-                onClick = {
-                    vm.setTrackingStrict(!vm.etpStrict)
-                    vm.showToast(
-                        if (vm.etpStrict) "Tracking protection: strict"
-                        else "Tracking protection: standard"
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Glyph(Ico.shieldCheck, c.text, size = 20.dp, strokeWidth = 1.8f)
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        "Tracking protection", color = c.text, fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f),
                     )
-                },
-            )
+                    Text(
+                        if (vm.customTracking) "Custom" else if (vm.etpStrict) "Strict" else "Standard",
+                        color = c.muted, fontSize = 11.5.sp,
+                    )
+                }
+                Spacer(Modifier.height(9.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("Standard", "Strict", "Custom").forEachIndexed { index, label ->
+                        val selected = when (index) {
+                            0 -> !vm.customTracking && !vm.etpStrict
+                            1 -> !vm.customTracking && vm.etpStrict
+                            else -> vm.customTracking
+                        }
+                        Box(
+                            Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(9.dp))
+                                .background(if (selected) c.accent else c.surface)
+                                .clickable {
+                                    when (index) {
+                                        0 -> {
+                                            vm.updateCustomTracking(false)
+                                            if (vm.etpStrict) vm.setTrackingStrict(false)
+                                        }
+                                        1 -> {
+                                            vm.updateCustomTracking(false)
+                                            if (!vm.etpStrict) vm.setTrackingStrict(true)
+                                        }
+                                        else -> vm.updateCustomTracking(true)
+                                    }
+                                }
+                                .padding(vertical = 8.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                label, fontSize = 11.5.sp,
+                                color = if (selected) Color.White else c.text,
+                                fontWeight = FontWeight.SemiBold,
+                            )
+                        }
+                    }
+                }
+            }
             SettingsRow(
                 "Cookie banners",
                 icon = { Glyph(Ico.cookie, c.text, size = 19.dp, strokeWidth = 2f) },

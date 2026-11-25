@@ -1072,7 +1072,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var customTracking by mutableStateOf(prefs.getBoolean("custom_tracking", false))
         private set
     var trackingFlags by mutableIntStateOf(
-        prefs.getInt("tracking_flags", ContentBlocking.AntiTracking.DEFAULT)
+        prefs.getInt(
+            "tracking_flags",
+            ContentBlocking.AntiTracking.DEFAULT or
+                ContentBlocking.AntiTracking.CRYPTOMINING or
+                ContentBlocking.AntiTracking.FINGERPRINTING,
+        )
     )
         private set
 
@@ -1360,6 +1365,18 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
 
     init {
+        // Migrate older installs whose custom flags predate cryptomining and
+        // fingerprinting protection.
+        val savedFlags = prefs.getInt("tracking_flags", -1)
+        if (savedFlags != -1 &&
+            savedFlags and (ContentBlocking.AntiTracking.CRYPTOMINING or
+                ContentBlocking.AntiTracking.FINGERPRINTING) == 0
+        ) {
+            val migrated = savedFlags or ContentBlocking.AntiTracking.CRYPTOMINING or
+                ContentBlocking.AntiTracking.FINGERPRINTING
+            prefs.edit().putInt("tracking_flags", migrated).apply()
+            trackingFlags = migrated
+        }
         runCatching { runtime.settings.locales = arrayOf(appLocale) }
         com.example.geckobrowser.ui.initFaviconCache(application)
         scope.launch {
@@ -1472,13 +1489,20 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     /** Pushes the stored privacy choices into Gecko before any page loads. */
     private fun applyContentBlocking() {
         val settings = runtime.settings.contentBlocking
-        if (customTracking) {
-            settings.setAntiTracking(trackingFlags)
-        } else {
-            settings.setEnhancedTrackingProtectionLevel(
-                if (etpStrict) ContentBlocking.EtpLevel.STRICT else ContentBlocking.EtpLevel.DEFAULT,
-            )
+        val strict = etpStrict
+        settings.setEnhancedTrackingProtectionLevel(
+            if (strict) ContentBlocking.EtpLevel.STRICT else ContentBlocking.EtpLevel.DEFAULT,
+        )
+        settings.setStrictSocialTrackingProtection(strict)
+        // Set the explicit categories last: Gecko's ETP level presets do not
+        // include cryptomining or fingerprinting on Standard, and setting the
+        // level afterwards would overwrite these flags.
+        val flags = if (customTracking) trackingFlags else {
+            (if (strict) ContentBlocking.AntiTracking.STRICT else ContentBlocking.AntiTracking.DEFAULT) or
+                ContentBlocking.AntiTracking.CRYPTOMINING or
+                ContentBlocking.AntiTracking.FINGERPRINTING
         }
+        settings.setAntiTracking(flags)
         settings.setCookieBehavior(ContentBlocking.CookieBehavior.ACCEPT_NON_TRACKERS)
         settings.setCookieBannerMode(
             if (cookieBannerHandling) 2 /* reject or accept */
@@ -3200,11 +3224,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         if (browserPrompt?.id == id) browserPrompt = null
         val result = extensionInstallResults.remove(id) ?: return
         runCatching {
-            result.complete(WebExtension.PermissionPromptResponse(allow, false))
+            result.complete(WebExtension.PermissionPromptResponse(allow, useInPrivate))
         }
         if (allow) {
             extensionBadge = true
-            if (useInPrivate && name.isNotBlank()) setExtensionPrivate(name, true)
+            if (name.isNotBlank()) setExtensionPrivate(name, useInPrivate)
         }
     }
 
@@ -3213,6 +3237,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setExtensionPrivate(name: String, value: Boolean) {
         prefs.edit().putBoolean("ext_private_$name", value).apply()
+        extensions.firstOrNull { it.name == name }?.let { item ->
+            extensionObjects[item.id]?.let { ext ->
+                runCatching {
+                    runtime.webExtensionController.setAllowedInPrivateBrowsing(ext, value)
+                }
+            }
+        }
         showToast("$name ${if (value) "can" else "cannot"} be used in private tabs")
     }
 
@@ -3994,16 +4025,22 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 runtime.webExtensionController.install(uri.toString())
             }
             result.accept(
-                {
-                    // GeckoView only installs signed add-ons; unsigned XPI files fail here.
+                { ext ->
                     extensionBadge = true
                     refreshExtensions()
+                    val private = prefs.getBoolean("ext_private_${ext.metaData?.name}", false)
+                    runCatching { runtime.webExtensionController.setAllowedInPrivateBrowsing(ext, private) }
                     showToast("Add-on installed")
                 },
-                { showToast("Add-on install failed") },
+                { error ->
+                    val detail = (error as? WebExtension.InstallException)?.let { " (${it.code})" } ?: ""
+                    android.util.Log.e("HZ-Ext", "install failed: ${error.message}", error)
+                    showToast("Add-on install failed$detail")
+                },
             )
             showToast("Installing add-on…")
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            android.util.Log.e("HZ-Ext", "install exception: ${t.message}", t)
             showToast("Add-on install failed")
         }
     }
