@@ -2497,7 +2497,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
      * must survive this sweep.
      */
     private fun clearShownPrompt(exceptId: Long? = null) {
-        val ids = (promptObjects.keys + promptResults.keys + extensionInstallResults.keys).distinct()
+        // Never sweep a pending add-on install prompt: a denial here is what
+        // Gecko reports as -100 (user cancelled).
+        val ids = (promptObjects.keys + promptResults.keys).distinct()
         ids.forEach { id ->
             if (id != exceptId) cancelPromptById(id)
         }
@@ -3860,10 +3862,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 permissions: Array<String>,
                 origins: Array<String>,
             ): GeckoResult<WebExtension.PermissionPromptResponse>? {
+                clearShownPrompt()
                 val id = nextPromptId++
                 val result = GeckoResult<WebExtension.PermissionPromptResponse>()
+                // Keep this id out of any later sweep too: completing it early
+                // with a denial is what produced -100 before the user answered.
                 extensionInstallResults[id] = result
-                clearShownPrompt()
                 browserPrompt = BrowserPromptState.ExtensionInstall(
                     id = id,
                     name = extension.metaData?.name ?: "Add-on",
