@@ -2324,6 +2324,26 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         showToast("Browsing data cleared")
     }
 
+    /** Frees Gecko's network/image caches and our own one-shot files. */
+    fun clearCache() {
+        runCatching {
+            runtime.storageController.clearData(
+                StorageController.ClearFlags.NETWORK_CACHE or StorageController.ClearFlags.IMAGE_CACHE,
+            )
+        }
+        com.example.geckobrowser.AppUpdater.purgeStaleUpdates(application)
+        showToast("Cache cleared")
+    }
+
+    fun cacheSizeBytes(): Long = directorySize(application.cacheDir)
+
+    fun updatesSizeBytes(): Long = directorySize(java.io.File(application.filesDir, "updates"))
+
+    private fun directorySize(dir: java.io.File): Long {
+        if (!dir.isDirectory) return 0L
+        return dir.walkTopDown().filter { it.isFile }.map { it.length() }.sum()
+    }
+
     /**
      * Turns tracking protection off for one host and reloads the page so the
      * change takes effect. Exemptions are stored, so they survive a restart.
@@ -2903,10 +2923,6 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         private set
 
     var passwordSearch by mutableStateOf("")
-        private set
-
-    /** When set, the next submit() creates a new tab instead of reusing the active one. */
-    var newTabPending by mutableStateOf(false)
         private set
 
     /** Immersive mode: hide the chrome so the page owns the screen. */
@@ -4523,10 +4539,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         persistTabs()
     }
 
-    fun openNewTabSearch() {
-        newTabPending = true
-        openSearch()
-    }
+    fun openNewTabSearch() = openSearch()
 
     fun selectTab(id: Long) {
         if (!tabsManager.ids.contains(id)) return

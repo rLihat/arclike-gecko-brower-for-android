@@ -49,18 +49,20 @@ object AppUpdater {
     fun purgeStaleUpdates(context: Context, keep: File? = null) {
         try {
             val dir = File(context.filesDir, "updates")
-            if (!dir.isDirectory) return
-            val installed = installedVersionCode(context)
-            val keepPath = keep?.absolutePath
-            dir.listFiles { f -> f.isFile && f.name.endsWith(".apk", ignoreCase = true) }
-                ?.forEach { f ->
-                    if (keepPath != null && f.absolutePath == keepPath) return@forEach
-                    val n = Regex("-(\\d+)\\.apk$").find(f.name)?.groupValues?.getOrNull(1)?.toIntOrNull()
-                        ?: return@forEach
-                    // versionCode == runNumber + 1, so n+1 <= installed means the APK
-                    // is for the running build (or older) and can be thrown away.
-                    if (n + 1 <= installed) f.delete()
-                }
+            if (dir.isDirectory) {
+                val keepPath = keep?.absolutePath
+                dir.listFiles { f -> f.isFile && f.name.endsWith(".apk", ignoreCase = true) }
+                    ?.forEach { f ->
+                        // The installed APK is dead weight; interrupted or oddly
+                        // named downloads are too. Only preserve the file we are
+                        // about to hand to the installer.
+                        if (keepPath == null || f.absolutePath != keepPath) f.delete()
+                    }
+            }
+            // Staged add-on files are one-shot; a crashed install leaves them.
+            context.cacheDir.listFiles { f ->
+                f.isFile && f.name.startsWith("addon-") && f.name.endsWith(".xpi")
+            }?.forEach { it.delete() }
         } catch (_: Throwable) {
             // Storage hygiene must never break the updater.
         }

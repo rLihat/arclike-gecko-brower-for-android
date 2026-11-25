@@ -88,6 +88,7 @@ fun SettingsScreen(
             "privacy" -> PrivacyAndSecurityPage(vm)
             "siteSettingsGlobal" -> GlobalSiteSettingsPage(vm)
             "privateTabs" -> PrivateTabSettingsPage(vm)
+            "storage" -> StoragePage(vm)
             "dataCollection" -> DataCollectionPage(vm)
             "about" -> AboutPage(vm, onBack = { vm.updateSettingsRoute("hub") })
             "authorNotes" -> AuthorNotesScreen(vm) { vm.updateSettingsRoute("about") }
@@ -953,6 +954,12 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
                 onClick = { vm.updateSettingsRoute("privateTabs") },
             )
             SettingsRow(
+                "Storage",
+                icon = { Glyph(Ico.download, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                value = "${vm.cacheSizeBytes() / (1024 * 1024)} MB cache",
+                onClick = { vm.updateSettingsRoute("storage") },
+            )
+            SettingsRow(
                 "Data collection",
                 icon = { Glyph(Ico.info, c.text, size = 19.dp, strokeWidth = 1.8f) },
                 value = "None",
@@ -1148,6 +1155,48 @@ private fun GlobalSiteSettingsPage(vm: BrowserViewModel) {
                 }
             }
         }
+    }
+}
+
+/** Shows what is using space and lets the user drop caches and stale updates. */
+@Composable
+private fun StoragePage(vm: BrowserViewModel) {
+    val c = LocalArc.current
+    val cacheMb = vm.cacheSizeBytes() / (1024 * 1024)
+    val updatesMb = vm.updatesSizeBytes() / (1024 * 1024)
+    PageHeader("Storage", { vm.updateSettingsRoute("privacy") }) {
+        Glyph(Ico.download, c.text, size = 19.dp, strokeWidth = 1.8f)
+    }
+    Column(
+        Modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 40.dp),
+    ) {
+        Spacer(Modifier.height(6.dp))
+        SettingsGroup {
+            SettingsRow("Gecko and app cache", value = "$cacheMb MB")
+            SettingsRow("Stale update downloads", value = "$updatesMb MB")
+        }
+        Spacer(Modifier.height(14.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(46.dp)
+                .clip(CircleShape)
+                .background(c.accent)
+                .clickable { vm.clearCache() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("Clear cache", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Native libraries now stay compressed inside the APK, and old OTA APKs "
+                + "are removed on the next launch. Clearing the cache is safe; it only "
+                + "drops temporary page data.",
+            color = c.muted, fontSize = 11.5.sp, lineHeight = 17.sp,
+        )
     }
 }
 
