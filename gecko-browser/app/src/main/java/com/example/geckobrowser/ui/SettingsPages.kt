@@ -91,7 +91,7 @@ fun SettingsScreen(
             "about" -> AboutPage(vm, onBack = { vm.updateSettingsRoute("hub") })
             "authorNotes" -> AuthorNotesScreen(vm) { vm.updateSettingsRoute("about") }
             "releaseNotes" -> ReleaseNotesScreen(vm) { vm.updateSettingsRoute("about") }
-            "siteSettings" -> SiteSettingsScreen(vm) { vm.updateSettingsRoute("hub") }
+            "siteSettings" -> SiteSettingsScreen(vm, onBack = { vm.updateSettingsRoute("hub") })
             "extensions" -> {
                 // Extensions is its own overlay, not a settings sub-route.
                 vm.openExtensions()

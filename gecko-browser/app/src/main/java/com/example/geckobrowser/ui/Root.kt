@@ -692,7 +692,7 @@ private fun ChromeOverlay(
             Overlay.Settings -> ({
                 SettingsScreen(vm, onBack = { vm.onBackPressed() }, frost = pageFrost)
             })
-            Overlay.SiteSettings -> ({ SiteSettingsScreen(vm) { vm.onBackPressed() } })
+            Overlay.SiteSettings -> ({ SiteSettingsScreen(vm, onBack = { vm.onBackPressed() }) })
             Overlay.Account -> ({ AccountScreen(vm) { vm.onBackPressed() } })
             Overlay.Downloads -> ({ DownloadsScreen(vm) { vm.closeDownloads() } })
             Overlay.Extensions -> ({ ExtensionsScreen(vm) { vm.onBackPressed() } })
