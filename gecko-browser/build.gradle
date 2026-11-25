@@ -1,7 +1,12 @@
+buildscript {
+    // AGP 9 compiles Kotlin itself; bump the built-in KGP to match GeckoView's
+    // 2.4 metadata instead of applying the removed kotlin.android plugin.
+    dependencies {
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.21'
+    }
+}
+
 plugins {
-    // AGP 9.1+ is required by androidx.core 1.19 / compileSdk 37 pulled in by GV 161.
     id 'com.android.application' version '9.1.1' apply false
-    // GeckoView 161 ships Kotlin 2.4 metadata; the compiler must match it.
-    id 'org.jetbrains.kotlin.android' version '2.4.21' apply false
     id 'org.jetbrains.kotlin.plugin.compose' version '2.4.21' apply false
 }
