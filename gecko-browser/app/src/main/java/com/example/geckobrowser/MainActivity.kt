@@ -94,6 +94,16 @@ class MainActivity : ComponentActivity() {
 
             // Fullscreen video gets the whole screen and may turn; leaving it
             // hands the phone back to the portrait chrome.
+            // Screenshots stay blocked unless the user opts in; this covers
+            // private tabs and the rest of the app alike.
+            LaunchedEffect(vm.allowPrivateScreenshots) {
+                if (vm.allowPrivateScreenshots) {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                } else {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
+            }
+
             LaunchedEffect(vm.fullscreen) {
                 if (vm.fullscreen) {
                     requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED

@@ -285,6 +285,30 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit, hostArg: String
                 PermissionRow(vm, host, PermissionKind.Notifications, "Notifications", Ico.bell)
             }
 
+            SectionLabel("Activity")
+            SettingsGroup {
+                SettingsRow(
+                    "Trackers blocked here",
+                    icon = { Glyph(Ico.shieldCheck, c.text, size = 19.dp, strokeWidth = 1.8f) },
+                    value = vm.blockedForHost(host).toString(),
+                    onClick = { vm.showToast("Blocked on $host this session") },
+                )
+                SettingsRow(
+                    "Data sent by this site",
+                    icon = { Glyph(Ico.info, c.text, size = 19.dp, strokeWidth = 1.8f) },
+                    value = "Request headers",
+                    onClick = {
+                        vm.showToast("Sites receive your IP, user agent and standard request headers")
+                    },
+                )
+                SettingsRow(
+                    "uBlock filter activity",
+                    icon = { Glyph(Ico.puzzle, c.text, size = 19.dp, strokeWidth = 1.8f) },
+                    value = "Not installed",
+                    onClick = { vm.showToast("uBlock filter bundle is not installed yet") },
+                )
+            }
+
             SectionLabel("Data")
             SettingsGroup {
                 SettingsRow(
@@ -931,6 +955,18 @@ private fun ExtensionRow(vm: BrowserViewModel, item: ExtensionItem) {
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
+        }
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("Use in private tabs", color = c.text, fontSize = 12.sp,
+                modifier = Modifier.weight(1f))
+            ArcSwitch(vm.extensionAllowedInPrivate(item.name)) {
+                vm.setExtensionPrivate(item.name, it)
+            }
         }
         Row(
             Modifier

@@ -87,6 +87,7 @@ fun SettingsScreen(
             "containers" -> ContainersPreferencesPage(vm)
             "privacy" -> PrivacyAndSecurityPage(vm)
             "siteSettingsGlobal" -> GlobalSiteSettingsPage(vm)
+            "privateTabs" -> PrivateTabSettingsPage(vm)
             "dataCollection" -> DataCollectionPage(vm)
             "about" -> AboutPage(vm, onBack = { vm.updateSettingsRoute("hub") })
             "authorNotes" -> AuthorNotesScreen(vm) { vm.updateSettingsRoute("about") }
@@ -131,7 +132,7 @@ private val settingsEntries = listOf(
     SettingsEntry("Check for updates on launch", "Auto-check on cold start", "about", "download"),
     SettingsEntry("Check for updates", "Manual update check", "about", "refresh"),
     SettingsEntry("What's new", "Release notes for the current build", "releaseNotes", "copy"),
-    SettingsEntry("Author notes", "Notes from the author", "authorNotes", "person"),
+    SettingsEntry("Star horiZen on GitHub", "Follow the developer and star the repo", "authorNotes", "person"),
 )
 
 @Composable
@@ -947,6 +948,11 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
                 trailing = { ArcSwitch(vm.dohEnabled) { vm.updateDohEnabled(it) } },
             )
             SettingsRow(
+                "Private tabs",
+                icon = { Glyph(Ico.mask, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                onClick = { vm.updateSettingsRoute("privateTabs") },
+            )
+            SettingsRow(
                 "Data collection",
                 icon = { Glyph(Ico.info, c.text, size = 19.dp, strokeWidth = 1.8f) },
                 value = "None",
@@ -993,11 +999,13 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
                         Spacer(Modifier.width(10.dp))
                         Text("Cookies and site data", color = c.text, fontSize = 14.sp)
                     }
+                    Spacer(Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         ArcSwitch(cache) { cache = it }
                         Spacer(Modifier.width(10.dp))
                         Text("Cached images and files", color = c.text, fontSize = 14.sp)
                     }
+                    Spacer(Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         ArcSwitch(history) { history = it }
                         Spacer(Modifier.width(10.dp))
@@ -1054,6 +1062,38 @@ private fun GlobalSiteSettingsPage(vm: BrowserViewModel) {
                 onClick = { vm.setTrackingStrict(!vm.etpStrict) },
             )
             SettingsRow(
+                "Custom tracking protection",
+                icon = { Glyph(Ico.diagramFlow, c.text, size = 19.dp, strokeWidth = 1.8f) },
+                value = if (vm.customTracking) "On" else "Off",
+                trailing = { ArcSwitch(vm.customTracking) { vm.updateCustomTracking(it) } },
+                onClick = { vm.updateCustomTracking(!vm.customTracking) },
+            )
+            if (vm.customTracking) {
+                val fp = vm.trackingFlags and org.mozilla.geckoview.ContentBlocking.AntiTracking.FINGERPRINTING != 0
+                val ads = vm.trackingFlags and org.mozilla.geckoview.ContentBlocking.AntiTracking.AD != 0
+                val analytics = vm.trackingFlags and org.mozilla.geckoview.ContentBlocking.AntiTracking.ANALYTIC != 0
+                val social = vm.trackingFlags and org.mozilla.geckoview.ContentBlocking.AntiTracking.SOCIAL != 0
+                val crypto = vm.trackingFlags and org.mozilla.geckoview.ContentBlocking.AntiTracking.CRYPTOMINING != 0
+                listOf(
+                    "Block ads" to (ads to org.mozilla.geckoview.ContentBlocking.AntiTracking.AD),
+                    "Block analytics" to (analytics to org.mozilla.geckoview.ContentBlocking.AntiTracking.ANALYTIC),
+                    "Block social trackers" to (social to org.mozilla.geckoview.ContentBlocking.AntiTracking.SOCIAL),
+                    "Block cryptomining" to (crypto to org.mozilla.geckoview.ContentBlocking.AntiTracking.CRYPTOMINING),
+                    "Anti-fingerprinting" to (fp to org.mozilla.geckoview.ContentBlocking.AntiTracking.FINGERPRINTING),
+                ).forEach { (label, state) ->
+                    SettingsRow(
+                        label,
+                        icon = { Glyph(Ico.shield, c.text, size = 19.dp, strokeWidth = 1.8f) },
+                        trailing = {
+                            ArcSwitch(state.first) {
+                                vm.updateTrackingFlags(vm.trackingFlags xor state.second)
+                            }
+                        },
+                        onClick = { vm.updateTrackingFlags(vm.trackingFlags xor state.second) },
+                    )
+                }
+            }
+            SettingsRow(
                 "Reject cookie banners",
                 icon = { Glyph(Ico.cookie, c.text, size = 19.dp, strokeWidth = 2f) },
                 trailing = { ArcSwitch(vm.cookieBannerHandling) { vm.toggleCookieBannerHandling() } },
@@ -1088,6 +1128,65 @@ private fun GlobalSiteSettingsPage(vm: BrowserViewModel) {
                 onClick = { vm.toggleDesktopSite() },
             )
         }
+
+        SectionLabel("Whitelist")
+        SettingsGroup {
+            if (vm.trackingExceptionHosts.isEmpty()) {
+                Text(
+                    "No tracking exceptions. Sites where you turn protection off appear here.",
+                    color = c.muted, fontSize = 12.sp,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                )
+            } else {
+                vm.trackingExceptionHosts.sorted().forEach { host ->
+                    SettingsRow(
+                        host,
+                        icon = { Glyph(Ico.shield, c.text, size = 19.dp, strokeWidth = 1.8f) },
+                        value = "Allowed",
+                        onClick = { vm.removeTrackingException(host) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Behaviour of private tabs; screenshots are off unless explicitly enabled. */
+@Composable
+private fun PrivateTabSettingsPage(vm: BrowserViewModel) {
+    val c = LocalArc.current
+    PageHeader("Private tabs", { vm.updateSettingsRoute("privacy") }) {
+        Glyph(Ico.mask, c.text, size = 19.dp, strokeWidth = 1.8f)
+    }
+    Column(
+        Modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 40.dp),
+    ) {
+        Spacer(Modifier.height(6.dp))
+        SettingsGroup {
+            SettingsRow(
+                "Open links in private tabs",
+                icon = { Glyph(Ico.open, c.text, size = 19.dp, strokeWidth = 1.8f) },
+                trailing = { ArcSwitch(vm.openLinksInPrivate) { vm.updateOpenLinksInPrivate(it) } },
+                onClick = { vm.updateOpenLinksInPrivate(!vm.openLinksInPrivate) },
+            )
+            SettingsRow(
+                "Allow screenshots",
+                icon = { Glyph(Ico.image, c.text, size = 19.dp, strokeWidth = 1.8f) },
+                value = if (vm.allowPrivateScreenshots) "On" else "Off",
+                trailing = { ArcSwitch(vm.allowPrivateScreenshots) { vm.updatePrivateScreenshots(it) } },
+                onClick = { vm.updatePrivateScreenshots(!vm.allowPrivateScreenshots) },
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Screenshots are blocked by default, including in private tabs. Turn this on "
+                + "only if you want to capture what you see.",
+            color = c.muted, fontSize = 12.sp, lineHeight = 17.sp,
+            modifier = Modifier.padding(start = 6.dp),
+        )
     }
 }
 
@@ -1188,9 +1287,9 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
                 onClick = { vm.updateSettingsRoute("releaseNotes") },
             )
             SettingsRow(
-                "Author notes",
+                "Star horiZen on GitHub",
                 icon = { Glyph(Ico.badgeInfo, c.text, size = 19.dp, strokeWidth = 1.8f) },
-                value = "Notes from the author",
+                value = "rLihat",
                 onClick = { vm.updateSettingsRoute("authorNotes") },
             )
         }

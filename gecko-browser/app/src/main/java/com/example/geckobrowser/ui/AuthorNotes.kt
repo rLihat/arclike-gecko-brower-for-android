@@ -6,39 +6,36 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.geckobrowser.BrowserViewModel
-import com.example.geckobrowser.R
 
+/** Replaces the old author-note page with a real call to support the project. */
 @Composable
 fun AuthorNotesScreen(vm: BrowserViewModel, onBack: () -> Unit) {
     val c = LocalArc.current
-    val context = androidx.compose.ui.platform.LocalContext.current
-    val notes = remember {
-        runCatching {
-            context.resources.openRawResource(R.raw.author_notes).bufferedReader().use { it.readText() }
-        }.getOrDefault("No author notes yet.")
-    }
-
     Column(Modifier.fillMaxSize().background(c.settingsBg)) {
         SettingsHeader(
-            title = "Author notes",
+            title = "Star horiZen on GitHub",
             leading = {
-                Box(Modifier.size(34.dp).clip(CircleShape).clickable { onBack() },
-                    contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.size(34.dp).clip(CircleShape).clickable { onBack() },
+                    contentAlignment = Alignment.Center,
+                ) {
                     Glyph(Ico.chevronLeft, c.text, size = 20.dp, strokeWidth = 2.2f)
                 }
             },
@@ -59,7 +56,51 @@ fun AuthorNotesScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 fontSize = 12.sp,
                 modifier = Modifier.padding(start = 4.dp, bottom = 14.dp),
             )
-            rawMarkdown(notes)
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(c.menuCard)
+                    .padding(18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                PillAvatar("R", 52.dp)
+                Spacer(Modifier.height(12.dp))
+                Text("rLihat", color = c.text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Text("Developer by interest.", color = c.muted, fontSize = 13.sp)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    "horiZen is built in the open. A star helps others find it, "
+                        + "and issues and pull requests are welcome.",
+                    color = c.text, fontSize = 12.5.sp, lineHeight = 18.sp,
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            ActionButton("Star horiZen on GitHub") {
+                vm.openInNewTab("https://github.com/rLihat/arclike-gecko-brower-for-android")
+            }
+            Spacer(Modifier.height(10.dp))
+            ActionButton("View GitHub profile") { vm.openInNewTab("https://github.com/rLihat") }
+            Spacer(Modifier.height(10.dp))
+            ActionButton("Open the issue tracker") {
+                vm.openInNewTab("https://github.com/rLihat/arclike-gecko-brower-for-android/issues")
+            }
         }
+    }
+}
+
+@Composable
+private fun ActionButton(label: String, onClick: () -> Unit) {
+    val c = LocalArc.current
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(46.dp)
+            .clip(CircleShape)
+            .background(c.accent)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, color = androidx.compose.ui.graphics.Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
     }
 }

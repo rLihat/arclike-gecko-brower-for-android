@@ -1068,7 +1068,58 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var blockedCount by mutableStateOf(0)
         private set
 
-    private val trackingExceptions = HashSet<String>()
+    /** Custom tracking protection uses explicit Gecko anti-tracking flags. */
+    var customTracking by mutableStateOf(prefs.getBoolean("custom_tracking", false))
+        private set
+    var trackingFlags by mutableIntStateOf(
+        prefs.getInt("tracking_flags", ContentBlocking.AntiTracking.DEFAULT)
+    )
+        private set
+
+    /** Link taps inside pages open in a private tab. */
+    var openLinksInPrivate by mutableStateOf(prefs.getBoolean("open_links_private", false))
+        private set
+    /** Screenshots are blocked by default; opt in only if you want them. */
+    var allowPrivateScreenshots by mutableStateOf(prefs.getBoolean("private_screenshots", false))
+        private set
+
+    private val blockedByHost = HashMap<String, Int>()
+    val trackingExceptionHosts: Set<String> get() = trackingExceptions.toSet()
+    fun blockedForHost(host: String): Int = blockedByHost[host] ?: 0
+
+    fun updateCustomTracking(enabled: Boolean) {
+        customTracking = enabled
+        prefs.edit().putBoolean("custom_tracking", enabled).apply()
+        applyContentBlocking()
+    }
+
+    fun updateTrackingFlags(flags: Int) {
+        trackingFlags = flags
+        prefs.edit().putInt("tracking_flags", flags).apply()
+        applyContentBlocking()
+    }
+
+    fun toggleFingerprintingProtection() {
+        val flag = ContentBlocking.AntiTracking.FINGERPRINTING
+        updateTrackingFlags(trackingFlags xor flag)
+    }
+
+    fun removeTrackingException(host: String) {
+        trackingExceptions.remove(host)
+        scope.launch { settingsStore.setTrackingException(host, exempt = false) }
+    }
+
+    fun updateOpenLinksInPrivate(value: Boolean) {
+        openLinksInPrivate = value
+        prefs.edit().putBoolean("open_links_private", value).apply()
+    }
+
+    fun updatePrivateScreenshots(value: Boolean) {
+        allowPrivateScreenshots = value
+        prefs.edit().putBoolean("private_screenshots", value).apply()
+        showToast("Screenshot setting applies immediately")
+    }
+
     private val blockedByTab = HashMap<Long, Int>()
     private val popupDismissJobs = ConcurrentHashMap<Long, Job>()
     private val offlineRetries = HashMap<Long, Int>()
@@ -1420,9 +1471,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     /** Pushes the stored privacy choices into Gecko before any page loads. */
     private fun applyContentBlocking() {
         val settings = runtime.settings.contentBlocking
-        settings.setEnhancedTrackingProtectionLevel(
-            if (etpStrict) ContentBlocking.EtpLevel.STRICT else ContentBlocking.EtpLevel.DEFAULT,
-        )
+        if (customTracking) {
+            settings.setAntiTracking(trackingFlags)
+        } else {
+            settings.setEnhancedTrackingProtectionLevel(
+                if (etpStrict) ContentBlocking.EtpLevel.STRICT else ContentBlocking.EtpLevel.DEFAULT,
+            )
+        }
         settings.setCookieBehavior(ContentBlocking.CookieBehavior.ACCEPT_NON_TRACKERS)
         settings.setCookieBannerMode(
             if (cookieBannerHandling) 2 /* reject or accept */
@@ -1651,7 +1706,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 uri: String,
             ): GeckoResult<GeckoSession>? {
                 val target = uri
-                val newId = addTab(url = target, makeActive = false)
+                val newId = addTab(
+                    url = target,
+                    makeActive = false,
+                    privateTab = openLinksInPrivate && !activeTabIsPrivate,
+                )
                 val opened = tabsManager.session(newId) ?: return GeckoResult.fromValue(session)
                 return GeckoResult.fromValue(opened)
             }
@@ -2150,6 +2209,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 if (!event.isBlocking) return
                 val count = (blockedByTab[id] ?: 0) + 1
                 blockedByTab[id] = count
+                val host = tabs.firstOrNull { it.id == id }?.url?.let { hostOf(it) }.orEmpty()
+                if (host.isNotBlank()) blockedByHost[host] = (blockedByHost[host] ?: 0) + 1
                 if (id == activeId) blockedCount = count
             }
         }
@@ -3117,13 +3178,25 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         if (open) openExternal(link.url)
     }
 
-    fun answerExtensionInstall(id: Long, allow: Boolean) {
+    fun answerExtensionInstall(id: Long, allow: Boolean, useInPrivate: Boolean = false) {
+        val name = (browserPrompt as? BrowserPromptState.ExtensionInstall)?.name.orEmpty()
         if (browserPrompt?.id == id) browserPrompt = null
         val result = extensionInstallResults.remove(id) ?: return
         runCatching {
             result.complete(WebExtension.PermissionPromptResponse(allow, false))
         }
-        if (allow) extensionBadge = true
+        if (allow) {
+            extensionBadge = true
+            if (useInPrivate && name.isNotBlank()) setExtensionPrivate(name, true)
+        }
+    }
+
+    fun extensionAllowedInPrivate(name: String): Boolean =
+        prefs.getBoolean("ext_private_$name", false)
+
+    fun setExtensionPrivate(name: String, value: Boolean) {
+        prefs.edit().putBoolean("ext_private_$name", value).apply()
+        showToast("$name ${if (value) "can" else "cannot"} be used in private tabs")
     }
 
     fun dismissPromptsForTab(tabId: Long) {

@@ -1826,6 +1826,7 @@ private fun BoxScope.BrowserPromptHost(vm: BrowserViewModel) {
                 }
 
                 is BrowserPromptState.ExtensionInstall -> {
+                    var useInPrivate by remember(prompt.id) { mutableStateOf(false) }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (prompt.icon != null) {
                             Image(
@@ -1862,6 +1863,19 @@ private fun BoxScope.BrowserPromptHost(vm: BrowserViewModel) {
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                    Spacer(Modifier.height(10.dp))
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(c.chip)
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ArcSwitch(useInPrivate) { useInPrivate = it }
+                        Spacer(Modifier.width(10.dp))
+                        Text("Use in private tabs", color = c.text, fontSize = 12.5.sp)
+                    }
                     Spacer(Modifier.height(14.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                         PromptTextButton("Cancel", primary = false) {
@@ -1869,7 +1883,7 @@ private fun BoxScope.BrowserPromptHost(vm: BrowserViewModel) {
                         }
                         Spacer(Modifier.width(8.dp))
                         PromptTextButton("Add", primary = true) {
-                            vm.answerExtensionInstall(prompt.id, allow = true)
+                            vm.answerExtensionInstall(prompt.id, allow = true, useInPrivate = useInPrivate)
                         }
                     }
                 }
