@@ -1,4 +1,4 @@
-package com.example.geckobrowser.ui
+﻿package com.example.geckobrowser.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -83,8 +83,8 @@ fun SettingsScreen(
         ) {
         when (route) {
             "look" -> LookAndFeelPage(vm)
-                        "es" to "Spanish", "fr" to "French", "ja" to "Japanese").forEach { (tag, label) ->
-                        "es" to "Spanish", "fr" to "French", "ja" to "Japanese").forEach { (tag, label) ->
+            "search" -> SearchPreferencesPage(vm)
+            "containers" -> ContainersPreferencesPage(vm)
             "privacy" -> PrivacyAndSecurityPage(vm)
             "siteSettingsGlobal" -> GlobalSiteSettingsPage(vm)
             "dataCollection" -> DataCollectionPage(vm)
@@ -583,7 +583,7 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
                             textSizeDialog = false
                         }) {
                             Text(
-                                "$size%${if (size == vm.zoom) "  �" else ""}",
+                                "$size%${if (size == vm.zoom) "  •" else ""}",
                                 color = if (size == vm.zoom) c.accent else c.text,
                                 fontSize = 15.sp,
                             )
@@ -603,7 +603,7 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
             text = {
                 Column {
                     listOf("en-US" to "English (US)", "en-GB" to "English (UK)", "de" to "Deutsch",
-                        "es" to "Spanish", "fr" to "French", "ja" to "Japanese").forEach { (tag, label) ->
+                        "es" to "Español", "fr" to "Français", "ja" to "日本語").forEach { (tag, label) ->
                         TextButton(onClick = {
                             vm.updateAppLocale(tag)
                             languageDialog = false
@@ -620,7 +620,7 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
 }
 
 @Composable
-                        "es" to "Spanish", "fr" to "French", "ja" to "Japanese").forEach { (tag, label) ->
+private fun SearchPreferencesPage(vm: BrowserViewModel) {
     val c = LocalArc.current
     var engineExpanded by remember { mutableStateOf(false) }
     var engineAdding by remember { mutableStateOf(false) }
@@ -1214,7 +1214,7 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
 }
 /** Create / rename / delete the Firefox-style containers used by spaces. */
 @Composable
-                        "es" to "Spanish", "fr" to "French", "ja" to "Japanese").forEach { (tag, label) ->
+fun ContainersPreferencesPage(vm: BrowserViewModel) {
     val c = LocalArc.current
     var editing by remember { mutableStateOf<com.example.geckobrowser.BrowserContainer?>(null) }
     var creating by remember { mutableStateOf(false) }
@@ -1276,7 +1276,7 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
             }
             Spacer(Modifier.height(10.dp))
             Text(
-                "Containers are metadata on Android � pages are not isolated into separate cookie jars.",
+                "Containers are metadata on Android — pages are not isolated into separate cookie jars.",
                 color = c.muted,
                 fontSize = 11.sp,
             )
