@@ -4,7 +4,9 @@ import android.content.Context
 import android.content.SharedPreferences
 import mozilla.appservices.fxaclient.FxaConfig
 import mozilla.appservices.fxaclient.FxaServer
+import mozilla.appservices.fxaclient.FxaEvent
 import mozilla.appservices.fxaclient.FxaException
+import mozilla.appservices.fxaclient.FxaState
 import mozilla.appservices.fxaclient.FirefoxAccount
 import org.json.JSONArray
 import org.json.JSONObject
@@ -69,9 +71,13 @@ class FxaSync(private val context: Context) {
     fun beginSignIn(): String? {
         lastError = null
         return try {
-            val url = account().beginOauthFlow(listOf(SCOPE_PROFILE, SCOPE_OLDSYNC), "browser")
+            val state = account().processEvent(
+                FxaEvent.BeginOAuthFlow("sync", listOf(SCOPE_PROFILE, SCOPE_OLDSYNC), "browser"),
+            )
+            val url = (state as? FxaState.Authenticating)?.oauthUrl
+                ?: throw IllegalStateException("OAuth start returned ${state.javaClass.simpleName}")
             saveState()
-            android.util.Log.i("HZ-FxA", "beginOauthFlow ok")
+            android.util.Log.i("HZ-FxA", "BeginOAuthFlow ok")
             url
         } catch (e: Throwable) {
             lastError = e.message ?: e.javaClass.simpleName
@@ -81,7 +87,7 @@ class FxaSync(private val context: Context) {
     }
 
     fun completeSignIn(code: String, state: String): Boolean = try {
-        account().completeOauthFlow(code, state)
+        account().processEvent(FxaEvent.CompleteOAuthFlow(code, state))
         saveState()
         refreshProfile()
         true
@@ -132,7 +138,7 @@ class FxaSync(private val context: Context) {
     fun syncNow(snapshot: SpaceSyncSnapshot): SpaceSyncSnapshot? {
         if (!isSignedIn) return null
         return try {
-            val info = account().getAccessToken(SCOPE_OLDSYNC, null)
+            val info = account().getAccessToken(SCOPE_OLDSYNC, false)
             val scopedKey = info.key?.k ?: run {
                 val message = "No sync key for this account"
                 lastError = message

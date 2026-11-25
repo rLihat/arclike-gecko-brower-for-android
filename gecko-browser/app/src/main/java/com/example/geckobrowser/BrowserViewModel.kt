@@ -1528,19 +1528,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
         settings.setAntiTracking(flags)
         settings.setCookieBehavior(ContentBlocking.CookieBehavior.ACCEPT_NON_TRACKERS)
-        // Reject banners rather than settling for accept, and let Gecko's
-        // global rules hide them in frames too. Detect-only would leave the
-        // banner on screen, which is exactly what we want to avoid.
-        val bannerMode = if (cookieBannerHandling) {
-            ContentBlocking.CookieBannerMode.COOKIE_BANNER_MODE_REJECT
-        } else {
-            ContentBlocking.CookieBannerMode.COOKIE_BANNER_MODE_DISABLED
-        }
-        settings.setCookieBannerMode(bannerMode)
-        settings.setCookieBannerModePrivateBrowsing(bannerMode)
-        settings.setCookieBannerGlobalRulesEnabled(cookieBannerHandling)
-        settings.setCookieBannerGlobalRulesSubFramesEnabled(cookieBannerHandling)
-        settings.setCookieBannerDetectOnlyMode(false)
+        // GV 161 removed the cookie-banner API (Firefox retired the built-in
+        // banner handler). The preference is still parsed at startup for
+        // backwards compatibility; real banner hiding comes from uBlock
+        // filter lists once the built-in extension is bundled.
     }
 
     /**
@@ -2512,7 +2503,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             val response = prompt?.let { runCatching { it.dismiss() }.getOrNull() }
             completePrompt(id, response)
             val ext = extensionInstallResults.remove(id)
-            ext?.let { runCatching { it.complete(WebExtension.PermissionPromptResponse(false, false)) } }
+            ext?.let { runCatching { it.complete(WebExtension.PermissionPromptResponse(false, false, false)) } }
             if (browserPrompt?.id == id) browserPrompt = null
             if (filePickerRequest?.id == id) filePickerRequest = null
         } finally {
@@ -3264,7 +3255,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             // Gecko treats privateModeGranted=false as a cancelled install
             // (-100) even when permissions are granted. Grant it here and set
             // the real private-tab choice through setAllowedInPrivateBrowsing.
-            result.complete(WebExtension.PermissionPromptResponse(allow, true))
+            result.complete(WebExtension.PermissionPromptResponse(allow, true, false))
         }
         if (allow) {
             extensionBadge = true
@@ -3864,6 +3855,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 extension: WebExtension,
                 permissions: Array<String>,
                 origins: Array<String>,
+                dataCollectionPermissions: Array<String>,
             ): GeckoResult<WebExtension.PermissionPromptResponse>? {
                 clearShownPrompt()
                 val id = nextPromptId++
@@ -3896,15 +3888,16 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
             override fun onUpdatePrompt(
                 extension: WebExtension,
-                updated: WebExtension,
                 permissions: Array<String>,
                 origins: Array<String>,
+                dataCollectionPermissions: Array<String>,
             ): GeckoResult<AllowOrDeny>? = GeckoResult.allow()
 
             override fun onOptionalPrompt(
                 extension: WebExtension,
                 permissions: Array<String>,
                 origins: Array<String>,
+                dataCollectionPermissions: Array<String>,
             ): GeckoResult<AllowOrDeny>? = GeckoResult.deny()
         }
     }
@@ -4269,7 +4262,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             isImage = image,
             title = element.title?.takeIf { it.isNotBlank() },
             alt = element.altText?.takeIf { it.isNotBlank() },
-            text = element.textContent?.trim()?.take(70)?.takeIf { it.isNotBlank() },
+            text = element.linkText?.trim()?.take(70)?.takeIf { it.isNotBlank() },
             x = x,
             y = y,
         )
