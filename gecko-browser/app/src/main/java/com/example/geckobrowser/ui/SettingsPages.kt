@@ -48,6 +48,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.geckobrowser.BrowserViewModel
+import org.mozilla.geckoview.StorageController
 
 @Composable
 fun SettingsScreen(
@@ -85,6 +86,8 @@ fun SettingsScreen(
             "search" -> SearchPreferencesPage(vm)
             "containers" -> ContainersPreferencesPage(vm)
             "privacy" -> PrivacyAndSecurityPage(vm)
+            "siteSettingsGlobal" -> GlobalSiteSettingsPage(vm)
+            "dataCollection" -> DataCollectionPage(vm)
             "about" -> AboutPage(vm, onBack = { vm.updateSettingsRoute("hub") })
             "authorNotes" -> AuthorNotesScreen(vm) { vm.updateSettingsRoute("about") }
             "releaseNotes" -> ReleaseNotesScreen(vm) { vm.updateSettingsRoute("about") }
@@ -378,6 +381,8 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
     val c = LocalArc.current
     var accentPicker by remember { mutableStateOf(false) }
     var appearancePicker by remember { mutableStateOf(false) }
+    var textSizeDialog by remember { mutableStateOf(false) }
+    var languageDialog by remember { mutableStateOf(false) }
     PageHeader("Look and feel", { vm.updateSettingsRoute("hub") }) {
         Glyph(Ico.contrast, c.text, size = 19.dp, strokeWidth = 1.9f)
     }
@@ -543,14 +548,14 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
             SettingsRow(
                 "Text size",
                 icon = { Glyph(Ico.textSize, c.text, size = 20.dp, strokeWidth = 1.9f) },
-                value = if (vm.zoom != 100) "Reset zoom" else "100%",
-                onClick = { vm.resetZoom() },
+                value = "${vm.zoom}%",
+                onClick = { textSizeDialog = true },
             )
             SettingsRow(
                 "Language",
                 icon = { Glyph(Ico.languages, c.text, size = 20.dp, strokeWidth = 1.7f) },
-                value = "English (US)",
-                onClick = { vm.showToast("Language: English (US)") },
+                value = vm.appLocale,
+                onClick = { languageDialog = true },
             )
         }
         SectionLabel("Touch and motion")
@@ -564,6 +569,53 @@ private fun LookAndFeelPage(vm: BrowserViewModel) {
                 onClick = { vm.toggleHapticFeedback() },
             )
         }
+    }
+
+    if (textSizeDialog) {
+        AlertDialog(
+            onDismissRequest = { textSizeDialog = false },
+            title = { Text("Text size", color = c.text, fontWeight = FontWeight.SemiBold) },
+            text = {
+                Column {
+                    listOf(100, 115, 130, 150, 175, 200).forEach { size ->
+                        TextButton(onClick = {
+                            vm.setZoom(size)
+                            textSizeDialog = false
+                        }) {
+                            Text(
+                                "$size%${if (size == vm.zoom) "  •" else ""}",
+                                color = if (size == vm.zoom) c.accent else c.text,
+                                fontSize = 15.sp,
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { textSizeDialog = false }) { Text("Done", color = c.accent) } },
+            containerColor = c.surface,
+        )
+    }
+
+    if (languageDialog) {
+        AlertDialog(
+            onDismissRequest = { languageDialog = false },
+            title = { Text("Language", color = c.text, fontWeight = FontWeight.SemiBold) },
+            text = {
+                Column {
+                    listOf("en-US" to "English (US)", "en-GB" to "English (UK)", "de" to "Deutsch",
+                        "es" to "Español", "fr" to "Français", "ja" to "日本語").forEach { (tag, label) ->
+                        TextButton(onClick = {
+                            vm.setAppLocale(tag)
+                            languageDialog = false
+                        }) {
+                            Text(label, color = if (tag == vm.appLocale) c.accent else c.text, fontSize = 15.sp)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { languageDialog = false }) { Text("Done", color = c.accent) } },
+            containerColor = c.surface,
+        )
     }
 }
 
@@ -843,6 +895,7 @@ private fun EngineList(
 @Composable
 private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
     val c = LocalArc.current
+    var clearDataDialog by remember { mutableStateOf(false) }
     PageHeader("Privacy and security", { vm.updateSettingsRoute("hub") }) {
         Glyph(Ico.shieldCheck, c.text, size = 19.dp, strokeWidth = 1.8f)
     }
@@ -884,7 +937,20 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
             SettingsRow(
                 "Site permissions",
                 icon = { Glyph(Ico.panelTop, c.text, size = 20.dp, strokeWidth = 1.7f) },
-                onClick = { vm.updateSettingsRoute("siteSettings") },
+                onClick = { vm.updateSettingsRoute("siteSettingsGlobal") },
+            )
+            SettingsRow(
+                "DNS over HTTPS",
+                icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                value = if (vm.dohEnabled) "On" else "Off",
+                onClick = { vm.setDohEnabled(!vm.dohEnabled) },
+                trailing = { ArcSwitch(vm.dohEnabled) { vm.setDohEnabled(it) } },
+            )
+            SettingsRow(
+                "Data collection",
+                icon = { Glyph(Ico.info, c.text, size = 19.dp, strokeWidth = 1.8f) },
+                value = "None",
+                onClick = { vm.updateSettingsRoute("dataCollection") },
             )
         }
 
@@ -899,7 +965,7 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
             SettingsRow(
                 "Clear browsing data",
                 icon = { Glyph(Ico.trash, c.text, size = 19.dp, strokeWidth = 1.8f) },
-                onClick = { vm.showToast("Browsing data cleared") },
+                onClick = { clearDataDialog = true },
             )
         }
 
@@ -912,9 +978,151 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
             )
         }
     }
+
+    if (clearDataDialog) {
+        var cookies by remember { mutableStateOf(true) }
+        var cache by remember { mutableStateOf(true) }
+        var history by remember { mutableStateOf(true) }
+        AlertDialog(
+            onDismissRequest = { clearDataDialog = false },
+            title = { Text("Clear browsing data", color = c.text, fontWeight = FontWeight.SemiBold) },
+            text = {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ArcSwitch(cookies) { cookies = it }
+                        Spacer(Modifier.width(10.dp))
+                        Text("Cookies and site data", color = c.text, fontSize = 14.sp)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ArcSwitch(cache) { cache = it }
+                        Spacer(Modifier.width(10.dp))
+                        Text("Cached images and files", color = c.text, fontSize = 14.sp)
+                    }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        ArcSwitch(history) { history = it }
+                        Spacer(Modifier.width(10.dp))
+                        Text("Browsing history", color = c.text, fontSize = 14.sp)
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    var flags = 0L
+                    if (cookies) flags = flags or StorageController.ClearFlags.COOKIES or
+                        StorageController.ClearFlags.DOM_STORAGES
+                    if (cache) flags = flags or StorageController.ClearFlags.ALL_CACHES
+                    vm.clearBrowsingData(flags, history)
+                    clearDataDialog = false
+                }) { Text("Clear", color = c.accent) }
+            },
+            dismissButton = {
+                TextButton(onClick = { clearDataDialog = false }) { Text("Cancel", color = c.text) }
+            },
+            containerColor = c.surface,
+        )
+    }
 }
 
 /* ----------------------------------------------------------------- about --- */
+
+/** Global defaults for every site; per-site overrides live in SiteSettingsScreen. */
+@Composable
+private fun GlobalSiteSettingsPage(vm: BrowserViewModel) {
+    val c = LocalArc.current
+    PageHeader("Site settings", { vm.updateSettingsRoute("hub") }) {
+        Glyph(Ico.panelTop, c.text, size = 19.dp, strokeWidth = 1.8f)
+    }
+    Column(
+        Modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 40.dp),
+    ) {
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "These are the defaults for every site. New sites start privacy-focused; "
+                + "per-site changes override them.",
+            color = c.muted, fontSize = 12.sp, lineHeight = 17.sp,
+            modifier = Modifier.padding(start = 6.dp, bottom = 8.dp),
+        )
+        SectionLabel("Privacy defaults")
+        SettingsGroup {
+            SettingsRow(
+                "Tracking protection",
+                icon = { Glyph(Ico.shieldCheck, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                value = if (vm.etpStrict) "Strict" else "Standard",
+                onClick = { vm.setTrackingStrict(!vm.etpStrict) },
+            )
+            SettingsRow(
+                "Reject cookie banners",
+                icon = { Glyph(Ico.cookie, c.text, size = 19.dp, strokeWidth = 2f) },
+                trailing = { ArcSwitch(vm.cookieBannerHandling) { vm.toggleCookieBannerHandling() } },
+                onClick = { vm.toggleCookieBannerHandling() },
+            )
+            SettingsRow(
+                "Third-party cookies",
+                icon = { Glyph(Ico.lock, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                value = "Blocked",
+                onClick = { vm.showToast("Third-party cookies are blocked by default") },
+            )
+            SettingsRow(
+                "DNS over HTTPS",
+                icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                value = if (vm.dohEnabled) "On" else "Off",
+                trailing = { ArcSwitch(vm.dohEnabled) { vm.setDohEnabled(it) } },
+                onClick = { vm.setDohEnabled(!vm.dohEnabled) },
+            )
+        }
+        SectionLabel("Current site")
+        SettingsGroup {
+            SettingsRow(
+                "Exceptions for ${vm.domain}",
+                icon = { Glyph(Ico.panelTop, c.text, size = 20.dp, strokeWidth = 1.7f) },
+                onClick = { vm.updateSettingsRoute("siteSettings") },
+            )
+            SettingsRow(
+                "Desktop site",
+                icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                value = if (vm.desktopSite) "On" else "Off",
+                trailing = { ArcSwitch(vm.desktopSite) { vm.toggleDesktopSite() } },
+                onClick = { vm.toggleDesktopSite() },
+            )
+        }
+    }
+}
+
+/** A factual statement, not a placeholder: horiZen sends no telemetry. */
+@Composable
+private fun DataCollectionPage(vm: BrowserViewModel) {
+    val c = LocalArc.current
+    PageHeader("Data collection", { vm.updateSettingsRoute("privacy") }) {
+        Glyph(Ico.info, c.text, size = 19.dp, strokeWidth = 1.8f)
+    }
+    Column(
+        Modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 40.dp),
+    ) {
+        Spacer(Modifier.height(12.dp))
+        Text("No telemetry is collected.", color = c.text, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "horiZen has no analytics SDK, no crash reporter and no usage pings. "
+                + "Gecko data-submission preferences are forced off at startup. "
+                + "If you sign in to a Mozilla account, authentication and sync requests go to "
+                + "Mozilla's servers by necessity; your Spaces record is encrypted before upload.",
+            color = c.text, fontSize = 14.sp, lineHeight = 20.sp,
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            "Typing a search sends your query to the search engine you selected. "
+                + "Websites you visit can see standard request data such as your IP address. "
+                + "The update check contacts GitHub, and blocked-page filters are bundled locally.",
+            color = c.muted, fontSize = 12.5.sp, lineHeight = 18.sp,
+        )
+    }
+}
 
 @Composable
 private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {

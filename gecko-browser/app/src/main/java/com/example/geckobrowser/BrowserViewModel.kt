@@ -41,6 +41,7 @@ import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoView
 import org.mozilla.geckoview.GeckoWebExecutor
+import org.mozilla.geckoview.StorageController
 import org.mozilla.geckoview.TranslationsController
 import org.mozilla.geckoview.WebExtension
 import org.mozilla.geckoview.WebExtensionController
@@ -905,6 +906,27 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     )
         private set
 
+    /** Requested Gecko locale; applied at startup, fully effective after restart. */
+    var appLocale by mutableStateOf(prefs.getString("app_locale", "en-US") ?: "en-US")
+        private set
+
+    /** DNS-over-HTTPS is on by default; a restart applies a change. */
+    var dohEnabled by mutableStateOf(prefs.getBoolean("doh_enabled", true))
+        private set
+
+    fun setDohEnabled(value: Boolean) {
+        dohEnabled = value
+        prefs.edit().putBoolean("doh_enabled", value).apply()
+        showToast("DNS-over-HTTPS will apply after a restart")
+    }
+
+    fun setAppLocale(tag: String) {
+        appLocale = tag
+        prefs.edit().putString("app_locale", tag).apply()
+        runCatching { runtime.settings.locales = arrayOf(tag) }
+        showToast("Language will fully apply after a restart")
+    }
+
     /** Subfolder under the Downloads collection; "" = the Download root. */
     var downloadSubfolder by mutableStateOf("")
         private set
@@ -1286,6 +1308,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
 
     init {
+        runCatching { runtime.settings.locales = arrayOf(appLocale) }
         com.example.geckobrowser.ui.initFaviconCache(application)
         scope.launch {
             var previousDownloads = emptyList<com.example.geckobrowser.DownloadItem>()
@@ -2223,6 +2246,22 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         scope.launch(Dispatchers.IO) { settingsStore.setCookieBanner(value) }
     }
 
+    /** Clears cookies and site storage for one host (per-site settings). */
+    fun clearSiteData(host: String) {
+        if (host.isBlank()) return
+        runCatching {
+            runtime.storageController.clearDataFromHost(host, StorageController.ClearFlags.SITE_DATA)
+        }
+        showToast("Site data cleared for $host")
+    }
+
+    /** Clears the selected Gecko stores and, optionally, horiZen's own history. */
+    fun clearBrowsingData(flags: Long, clearHistory: Boolean) {
+        runCatching { runtime.storageController.clearData(flags) }
+        if (clearHistory) clearHistory(0)
+        showToast("Browsing data cleared")
+    }
+
     /**
      * Turns tracking protection off for one host and reloads the page so the
      * change takes effect. Exemptions are stored, so they survive a restart.
@@ -3104,8 +3143,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         return permissionsByHost["$host|${kind.key}"]
     }
 
-    fun setSitePermission(kind: PermissionKind, allowed: Boolean?) {
-        val host = hostOf(activeTab?.url.orEmpty())
+    fun setSitePermission(host: String, kind: PermissionKind, allowed: Boolean?) {
         if (host.isBlank()) return
         if (allowed == null) {
             permissionsByHost.remove("$host|${kind.key}")
@@ -3559,6 +3597,18 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             GeckoSessionSettings.VIEWPORT_MODE_DESKTOP
         } else {
             GeckoSessionSettings.VIEWPORT_MODE_MOBILE
+        }
+    }
+
+    /** Sets the global page text scale from the Settings text-size picker. */
+    fun setZoom(percent: Int) {
+        val next = percent.coerceIn(100, 200)
+        zoom = next
+        applyZoom(next)
+        val host = hostOfActive()
+        if (host.isNotBlank()) {
+            zoomByHost[host] = next
+            scope.launch { withContext(Dispatchers.IO) { settingsStore.setZoom(host, next) } }
         }
     }
 

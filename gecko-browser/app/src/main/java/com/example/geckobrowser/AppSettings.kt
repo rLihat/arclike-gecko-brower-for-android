@@ -13,7 +13,8 @@ import kotlinx.coroutines.flow.first
 /** Everything read out of DataStore at startup, applied before the first session. */
 data class SettingsSnapshot(
     val dark: Boolean = false,
-    val suggestions: Boolean = true,
+    /** Privacy-first: live suggestions send keystrokes to the search engine. */
+    val suggestions: Boolean = false,
     val schema: Int = 0,
     /** Selected search engine id; blank on a store written before engines were saved. */
     val engine: String = "",
@@ -21,10 +22,10 @@ data class SettingsSnapshot(
     /** Keyed by `host|kind`, value is "allow" or "deny". */
     val permissions: Map<String, String> = emptyMap(),
     val desktop: Map<String, Boolean> = emptyMap(),
-    /** Standard tracking protection unless the user switched to strict. */
-    val etpStrict: Boolean = false,
-    /** Whether Gecko tries to answer cookie banners on the user's behalf. */
-    val cookieBanner: Boolean = false,
+    /** Strict tracking protection is the privacy-focused default. */
+    val etpStrict: Boolean = true,
+    /** Rejecting cookie banners is the privacy-focused default. */
+    val cookieBanner: Boolean = true,
     /** Hosts where tracking protection is switched off. */
     val trackingExceptions: Set<String> = emptySet(),
     /** Accent preset key (see AccentPresets). Defaults to Dynamic. */
@@ -88,14 +89,14 @@ class AppSettings(context: Context) {
         }
         return SettingsSnapshot(
             dark = p[KEY_DARK] ?: false,
-            suggestions = p[KEY_SUGGESTIONS] ?: true,
+            suggestions = p[KEY_SUGGESTIONS] ?: false,
             schema = p[KEY_SCHEMA] ?: 0,
             engine = p[KEY_ENGINE].orEmpty(),
             zoom = zoom,
             permissions = permissions,
             desktop = desktop,
-            etpStrict = p[KEY_ETP_STRICT] ?: false,
-            cookieBanner = p[KEY_COOKIE_BANNER] ?: false,
+            etpStrict = p[KEY_ETP_STRICT] ?: true,
+            cookieBanner = p[KEY_COOKIE_BANNER] ?: true,
             trackingExceptions = trackingExceptions,
             accent = p[KEY_ACCENT] ?: "dynamic",
             appearance = p[KEY_APPEARANCE] ?: if (p[KEY_DARK] == true) "dark" else "system",

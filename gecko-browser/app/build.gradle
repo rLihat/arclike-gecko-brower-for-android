@@ -28,6 +28,10 @@ android {
         buildConfigField "String", "FXA_CLIENT_ID", '"3c49430b43dfba77"'
         // Registered redirect for the A-C reference client (absolute https URL).
         buildConfigField "String", "FXA_REDIRECT_URI", '"https://accounts.firefox.com/oauth/success/3c49430b43dfba77"'
+        ndk {
+            // The shipped builds are arm64-only; other ABIs just bloat the APK.
+            abiFilters 'arm64-v8a'
+        }
     }
 
     signingConfigs {
@@ -92,14 +96,11 @@ dependencies {
     implementation 'androidx.compose.material3:material3'
     implementation 'androidx.compose.material:material-icons-core'
     implementation 'org.mozilla.geckoview:geckoview:138.0.20250517143237'
-    implementation('org.mozilla.components:service-firefox-accounts:138.0.2') {
-        // GeckoView already provides libxul.so; Glean's native copy collides.
-        exclude group: 'org.mozilla.telemetry', module: 'glean-native'
-    }
+    // FxA's Rust bindings only — no Android Components account manager or Glean.
+    implementation 'org.mozilla.appservices:fxaclient:138.0'
     implementation 'androidx.browser:browser:1.8.0'
-    // FxA's Rust client needs an HTTP client and logger installed at startup.
+    // FxA's Rust client needs an HTTP client installed at startup.
     implementation 'org.mozilla.components:support-rusthttp:138.0.2'
-    implementation 'org.mozilla.components:support-rustlog:138.0.2'
     implementation 'org.mozilla.components:lib-fetch-httpurlconnection:138.0.2'
     // fxa-client crypto needs NSS initialised before any account call.
     implementation 'org.mozilla.appservices:init_rust_components:138.0'

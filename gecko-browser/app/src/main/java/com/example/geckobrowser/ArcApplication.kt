@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoRuntimeSettings
+import java.io.File
 
 /**
  * One GeckoRuntime for the whole process, created lazily on first use and kept
@@ -14,23 +15,55 @@ class ArcApplication : Application() {
     /** Set by MainActivity so notification actions can reach the live VM. */
     var browserVm: BrowserViewModel? = null
 
+    /** Gecko config file generated before the runtime starts. */
+    private var geckoConfigPath: String? = null
+
     override fun onCreate() {
         super.onCreate()
-        // Firefox Accounts' Rust client requires these before any account call;
-        // without them beginOauthFlow() fails and sign-in reports "unavailable".
+        // Firefox Accounts' Rust client requires NSS before any account call.
         mozilla.appservices.init_rust_components.initialize()
-        mozilla.components.support.rustlog.RustLog.enable()
         mozilla.components.support.rusthttp.RustHttpConfig.setClient(lazy {
             mozilla.components.lib.fetch.httpurlconnection.HttpURLConnectionClient()
         })
+        geckoConfigPath = writeGeckoConfig()
+    }
+
+    /**
+     * Hard-off telemetry/data submission and optional DNS-over-HTTPS, applied
+     * through Gecko prefs before Gecko starts. Nothing here uploads anything.
+     */
+    private fun writeGeckoConfig(): String {
+        val prefs = getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
+        val doh = prefs.getBoolean("doh_enabled", true)
+        val file = File(filesDir, "geckoview-config.yaml")
+        file.writeText(
+            """
+            env: {}
+            args: []
+            prefs:
+              toolkit.telemetry.enabled: false
+              toolkit.telemetry.unified: false
+              toolkit.telemetry.geckoview: false
+              datareporting.healthreport.uploadEnabled: false
+              datareporting.policy.dataSubmissionEnabled: false
+              network.trr.mode: ${if (doh) 2 else 0}
+              network.trr.uri: "https://mozilla.cloudflare-dns.com/dns-query"
+            """.trimIndent(),
+        )
+        return file.absolutePath
     }
 
     val runtime: GeckoRuntime by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         GeckoRuntime.create(
             this,
             GeckoRuntimeSettings.Builder()
-                .aboutConfigEnabled(true)
+                .aboutConfigEnabled(false)
                 .javaScriptEnabled(true)
+                .remoteDebuggingEnabled(false)
+                .consoleOutput(false)
+                .debugLogging(false)
+                .globalPrivacyControlEnabled(true)
+                .configFilePath(geckoConfigPath)
                 .build(),
         )
     }

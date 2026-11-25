@@ -207,9 +207,9 @@ fun SettingsHeader(
 /* --------------------------------------------------------- site settings */
 
 @Composable
-fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
+fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit, hostArg: String? = null) {
     val c = LocalArc.current
-    val host = vm.domain
+    val host = hostArg?.takeIf { it.isNotBlank() } ?: vm.domain
 
     Column(
         Modifier
@@ -261,6 +261,13 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                         icon = { Glyph(Ico.shieldCheck, c.text, size = 19.dp, strokeWidth = 1.7f) },
                         value = vm.blockedCount.toString(),
                     )
+                    SettingsRow(
+                        "Desktop site",
+                        icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                        value = if (vm.desktopSite) "On" else "Off",
+                        onClick = { vm.toggleDesktopSite() },
+                        trailing = { ArcSwitch(vm.desktopSite) { vm.toggleDesktopSite() } },
+                    )
                 }
             }
 
@@ -281,9 +288,9 @@ fun SiteSettingsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
             SectionLabel("Data")
             SettingsGroup {
                 SettingsRow(
-                    "Clear site data",
+                    "Clear cookies and site data",
                     icon = { Glyph(Ico.trash, c.text, size = 19.dp, strokeWidth = 1.8f) },
-                    onClick = { vm.showToast("Site data cleared for $host") },
+                    onClick = { vm.clearSiteData(host) },
                 )
             }
         }
@@ -308,9 +315,9 @@ private fun PermissionRow(
             false -> "Blocked"
             null -> "Ask"
         },
-        trailing = { ArcSwitch(allowed == true) { vm.setSitePermission(kind, it) } },
+        trailing = { ArcSwitch(allowed == true) { vm.setSitePermission(host, kind, it) } },
         // Tapping the row forgets the choice, so the next request asks again.
-        onClick = { vm.setSitePermission(kind, null) },
+        onClick = { vm.setSitePermission(host, kind, null) },
     )
 }
 
