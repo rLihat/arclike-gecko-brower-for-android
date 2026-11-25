@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace 'com.example.geckobrowser'
-    compileSdk 37
+    compileSdk 36
 
     defaultConfig {
         applicationId "com.example.geckobrowser"
@@ -77,6 +77,24 @@ android {
         resources {
             excludes += ['/META-INF/{AL2.0,LGPL2.1}']
         }
+    }
+}
+
+// GeckoView 161 pulls androidx 1.19/2.11, which demand compileSdk 37 (not yet
+// published on the CI SDK channel). Keep the app's tested androidx set so the
+// engine can be updated without dragging the whole toolchain to an unreleased SDK.
+configurations.all {
+    resolutionStrategy {
+        force 'androidx.core:core:1.15.0'
+        force 'androidx.core:core-ktx:1.15.0'
+        force 'androidx.collection:collection:1.4.2'
+        force 'androidx.annotation:annotation:1.9.1'
+        force 'androidx.annotation:annotation-experimental:1.4.1'
+        force 'androidx.lifecycle:lifecycle-common:2.8.7'
+        force 'androidx.lifecycle:lifecycle-process:2.8.7'
+        force 'androidx.lifecycle:lifecycle-runtime:2.8.7'
+        force 'androidx.lifecycle:lifecycle-runtime-compose:2.8.7'
+        force 'androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7'
     }
 }
 

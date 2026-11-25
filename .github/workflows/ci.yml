@@ -60,10 +60,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Install Android SDK platform 37
+      - name: Install Android SDK platform 36
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-37" "build-tools;36.0.0" > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-36" "build-tools;36.0.0" > /dev/null || true
 
       - uses: gradle/actions/setup-gradle@v4
 
