@@ -69,9 +69,10 @@ android {
     }
     packaging {
         jniLibs {
-            // Keep native libs compressed inside the APK. Extracting libxul.so
-            // was nearly tripling the installed footprint (287 MB vs 103 MB).
-            useLegacyPackaging = false
+            // Native libs stay compressed in the APK (103 MB download). Loading
+            // them in place would uncompress libxul.so and double the APK to
+            // ~198 MB, so extraction is the smaller distribution for now.
+            useLegacyPackaging = true
         }
         resources {
             excludes += ['/META-INF/{AL2.0,LGPL2.1}']
