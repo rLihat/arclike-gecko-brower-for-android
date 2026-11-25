@@ -85,10 +85,10 @@ android {
 dependencies {
     // Compose runtime must match the 2.4 compiler bundled with AGP 9/GV 161.
     implementation platform('androidx.compose:compose-bom:2026.09.00')
-    // Layer 1 — live blur over Compose-drawn backdrops. Pinned to 1.5.4: it is
-    // built against Compose 1.7.x / Kotlin 2.1, matching this project's BOM and
-    // compileSdk 35. Newer Haze pulls Compose 1.12 (needs compileSdk 37 / AGP 9.1).
-    implementation 'dev.chrisbanes.haze:haze:1.5.4'
+    // Layer 1 — live blur over Compose-drawn backdrops. Haze 2.1 targets
+    // Compose 1.12 / Kotlin 2.4.21, matching the GV 161 toolchain; 1.5.4 was
+    // compiled against Compose 1.7 and crashes on first composition.
+    implementation 'dev.chrisbanes.haze:haze:2.1.0'
     implementation 'androidx.activity:activity-compose:1.9.3'
     implementation 'androidx.core:core-ktx:1.15.0'
     implementation 'androidx.core:core-splashscreen:1.0.1'
