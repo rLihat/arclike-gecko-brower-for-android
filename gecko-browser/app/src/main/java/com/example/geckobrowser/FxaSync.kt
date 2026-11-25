@@ -174,7 +174,7 @@ class FxaSync(private val context: Context) {
             get.disconnect()
             if (getCode !in listOf(200, 404)) {
                 lastError = "Sync download HTTP $getCode"
-                android.util.Log.e("HZ-FxA", lastError)
+                android.util.Log.e("HZ-FxA", lastError ?: "unknown")
                 return null
             }
             val remote = raw?.let { text ->
@@ -200,7 +200,7 @@ class FxaSync(private val context: Context) {
             put.disconnect()
             if (putCode !in 200..299) {
                 lastError = "Sync upload HTTP $putCode"
-                android.util.Log.e("HZ-FxA", lastError)
+                android.util.Log.e("HZ-FxA", lastError ?: "unknown")
                 return null
             }
             lastError = null
