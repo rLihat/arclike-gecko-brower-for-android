@@ -4028,13 +4028,18 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 { ext ->
                     extensionBadge = true
                     refreshExtensions()
-                    val private = prefs.getBoolean("ext_private_${ext.metaData?.name}", false)
-                    runCatching { runtime.webExtensionController.setAllowedInPrivateBrowsing(ext, private) }
+                    val name = ext?.metaData?.name.orEmpty()
+                    val private = prefs.getBoolean("ext_private_$name", false)
+                    ext?.let { installed ->
+                        runCatching {
+                            runtime.webExtensionController.setAllowedInPrivateBrowsing(installed, private)
+                        }
+                    }
                     showToast("Add-on installed")
                 },
                 { error ->
                     val detail = (error as? WebExtension.InstallException)?.let { " (${it.code})" } ?: ""
-                    android.util.Log.e("HZ-Ext", "install failed: ${error.message}", error)
+                    android.util.Log.e("HZ-Ext", "install failed: ${error?.message ?: "unknown"}")
                     showToast("Add-on install failed$detail")
                 },
             )
