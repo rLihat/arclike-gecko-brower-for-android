@@ -128,50 +128,84 @@ class FxaSync(private val context: Context) {
         return completeSignIn(code, state)
     }
 
-    /** Push local spaces to Sync, then pull and return the merged record. */
+    /** Pull the remote record, merge it locally, then push the merged result. */
     fun syncNow(snapshot: SpaceSyncSnapshot): SpaceSyncSnapshot? {
         if (!isSignedIn) return null
         return try {
             val info = account().getAccessToken(SCOPE_OLDSYNC, null)
-            val key = info.key?.k ?: run {
+            val scopedKey = info.key?.k ?: run {
                 val message = "No sync key for this account"
                 lastError = message
                 android.util.Log.e("HZ-FxA", message)
                 return null
             }
-            val tokenServer = account().getTokenServerEndpointUrl().trimEnd('/')
-            val collection = "workspaces"
-            val syncId = COLLECTION_ID
 
-            val envelope = encrypt(snapshot.toJson(), key)
-            val bso = JSONObject().apply {
-                put("id", RECORD_ID)
-                put("payload", envelope)
-            }.toString()
-
-            // Upload the single record.
-            val url = URL("$tokenServer/1.5/$syncId/storage/$collection/$RECORD_ID")
-            val conn = url.openConnection() as HttpURLConnection
-            conn.requestMethod = "PUT"
-            conn.setRequestProperty("Authorization", "Bearer ${info.token}")
-            conn.setRequestProperty("Content-Type", "application/json")
-            conn.doOutput = true
-            conn.outputStream.use { it.write(bso.toByteArray(Charsets.UTF_8)) }
-            conn.responseCode // consume
-            conn.disconnect()
-
-            // Pull the record back (a device may have pushed newer data).
-            val get = URL("$tokenServer/1.5/$syncId/storage/$collection/$RECORD_ID").openConnection() as HttpURLConnection
-            get.setRequestProperty("Authorization", "Bearer ${info.token}")
-            val code = get.responseCode
-            val raw = if (code == 200) get.inputStream.bufferedReader().use { it.readText() } else null
-            get.disconnect()
-            val remote = raw?.let { body ->
-                val obj = JSONObject(body)
-                decrypt(obj.optString("payload"), key)?.let { SpaceSyncSnapshot.fromJson(it) }
+            // The FxA token server hands out the storage node plus the Hawk
+            // credentials for it. Its own URL is not a storage endpoint, and
+            // the storage node does not accept the OAuth Bearer token.
+            val tokenUrl = URL(account().getTokenServerEndpointUrl())
+            val tokenConn = tokenUrl.openConnection() as HttpURLConnection
+            tokenConn.connectTimeout = 15000
+            tokenConn.readTimeout = 15000
+            tokenConn.setRequestProperty("Authorization", "Bearer ${info.token}")
+            val tokenCode = tokenConn.responseCode
+            if (tokenCode != 200) {
+                lastError = "Token server HTTP $tokenCode"
+                tokenConn.disconnect()
+                return null
             }
+            val tokens = JSONObject(tokenConn.inputStream.bufferedReader().use { it.readText() })
+            tokenConn.disconnect()
+            val node = tokens.getString("node").trimEnd('/')
+            val syncId = tokens.getString("id")
+            val hawkKey = decodeHawkKey(tokens.getString("key"))
+
+            val endpoint = "$node/storage/$COLLECTION_NAME/$RECORD_ID"
+
+            // Pull first, merge, then push the merged record. Pushing our local
+            // snapshot first would overwrite anything another device wrote.
+            val getUrl = URL(endpoint)
+            val get = getUrl.openConnection() as HttpURLConnection
+            get.connectTimeout = 15000
+            get.readTimeout = 15000
+            get.setRequestProperty("Authorization", hawk("GET", getUrl, "", syncId, hawkKey))
+            val getCode = get.responseCode
+            val raw = if (getCode == 200) get.inputStream.bufferedReader().use { it.readText() } else null
+            get.disconnect()
+            if (getCode !in listOf(200, 404)) {
+                lastError = "Sync download HTTP $getCode"
+                android.util.Log.e("HZ-FxA", lastError)
+                return null
+            }
+            val remote = raw?.let { text ->
+                val obj = JSONObject(text)
+                decrypt(obj.optString("payload"), scopedKey)?.let { SpaceSyncSnapshot.fromJson(it) }
+            }
+            val merged = if (remote != null) SpaceSyncSnapshot.merge(snapshot, remote) else snapshot
+
+            val body = JSONObject().apply {
+                put("id", RECORD_ID)
+                put("payload", encrypt(merged.toJson(), scopedKey))
+            }.toString()
+            val putUrl = URL(endpoint)
+            val put = putUrl.openConnection() as HttpURLConnection
+            put.requestMethod = "PUT"
+            put.connectTimeout = 15000
+            put.readTimeout = 15000
+            put.setRequestProperty("Authorization", hawk("PUT", putUrl, body, syncId, hawkKey))
+            put.setRequestProperty("Content-Type", "application/json")
+            put.doOutput = true
+            put.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+            val putCode = put.responseCode
+            put.disconnect()
+            if (putCode !in 200..299) {
+                lastError = "Sync upload HTTP $putCode"
+                android.util.Log.e("HZ-FxA", lastError)
+                return null
+            }
+            lastError = null
             lastSyncAt = System.currentTimeMillis()
-            if (remote != null) SpaceSyncSnapshot.merge(snapshot, remote) else snapshot
+            merged
         } catch (e: Throwable) {
             lastError = e.message ?: e.javaClass.simpleName
             android.util.Log.e("HZ-FxA", "sync failed: $lastError", e)
@@ -179,12 +213,45 @@ class FxaSync(private val context: Context) {
         }
     }
 
+    /** Hawk 1.0 authorization header for a Sync 1.5 storage request. */
+    private fun hawk(method: String, url: URL, payload: String, id: String, key: ByteArray): String {
+        val ts = (System.currentTimeMillis() / 1000L).toString()
+        val nonce = b64url(ByteArray(8).also { java.security.SecureRandom().nextBytes(it) })
+        val hash = if (method == "GET" || method == "HEAD") null else
+            b64url(MessageDigest.getInstance("SHA-256").digest(payload.toByteArray(Charsets.UTF_8)))
+        val resource = url.path.ifEmpty { "/" } + (url.query?.let { "?$it" } ?: "")
+        val port = if (url.port != -1) url.port else if (url.protocol.equals("https", true)) 443 else 80
+        // scheme, ts, nonce, method, resource, host, port, hash, app, ext
+        val normalized = listOf(
+            "hawk.1.header", ts, nonce, method, resource,
+            url.host.lowercase(), port.toString(), hash ?: "", "", "",
+        ).joinToString("\n", postfix = "\n")
+        val mac = b64url(Mac.getInstance("HmacSHA256").apply {
+            init(SecretKeySpec(key, "HmacSHA256"))
+        }.doFinal(normalized.toByteArray(Charsets.UTF_8)))
+        return buildString {
+            append("Hawk id=\"").append(id).append("\", ts=\"").append(ts)
+            append("\", nonce=\"").append(nonce).append("\", mac=\"").append(mac).append('"')
+            if (hash != null) append(", hash=\"").append(hash).append('"')
+        }
+    }
+
+    /** Token-server keys are base64url, but some servers emit standard base64. */
+    private fun decodeHawkKey(value: String): ByteArray = try {
+        android.util.Base64.decode(
+            value,
+            android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING,
+        )
+    } catch (_: Throwable) {
+        android.util.Base64.decode(value, android.util.Base64.NO_WRAP)
+    }
+
     companion object {
         const val SCOPE_PROFILE = "profile"
         // Firefox Accounts expects the full URL form; the bare host form is
         // rejected by the authorization server ("Unexpected error").
         const val SCOPE_OLDSYNC = "https://identity.mozilla.com/apps/oldsync"
-        private const val COLLECTION_ID = "spaces"
+        private const val COLLECTION_NAME = "workspaces"
         private const val RECORD_ID = "spaces"
         private const val KEY_STATE = "fxa_state"
         private const val KEY_EMAIL = "fxa_email"
