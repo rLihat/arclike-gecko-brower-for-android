@@ -4,6 +4,11 @@ plugins {
     id 'org.jetbrains.kotlin.plugin.compose'
 }
 
+// GeckoView ships libxul.so; Glean's native copy collides on every ABI.
+configurations.all {
+    exclude group: 'org.mozilla.telemetry', module: 'glean-native'
+}
+
 android {
     namespace 'com.example.geckobrowser'
     compileSdk 37
