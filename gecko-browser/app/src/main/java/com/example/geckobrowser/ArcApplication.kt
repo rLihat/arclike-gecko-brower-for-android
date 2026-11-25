@@ -20,11 +20,9 @@ class ArcApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
-        // Firefox Accounts' Rust client requires NSS before any account call.
-        mozilla.appservices.init_rust_components.initialize()
-        mozilla.components.support.rusthttp.RustHttpConfig.setClient(lazy {
-            mozilla.components.lib.fetch.httpurlconnection.HttpURLConnectionClient()
-        })
+        // Rust/NSS init is deferred to the first account call: appservices 161
+        // ships its own NSS libraries, and initialising them before GeckoView
+        // starts crashed the app at launch.
         geckoConfigPath = writeGeckoConfig()
     }
 

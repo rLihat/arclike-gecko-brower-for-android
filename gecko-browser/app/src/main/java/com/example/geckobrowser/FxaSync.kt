@@ -30,6 +30,18 @@ class FxaSync(private val context: Context) {
         context.getSharedPreferences("horizen_fxa", Context.MODE_PRIVATE)
 
     private var account: FirefoxAccount? = null
+    private var rustReady = false
+
+    /** NSS + the Rust HTTP client are only needed once an account is used. */
+    @Synchronized
+    private fun ensureRust() {
+        if (rustReady) return
+        mozilla.appservices.init_rust_components.initialize()
+        mozilla.components.support.rusthttp.RustHttpConfig.setClient(lazy {
+            mozilla.components.lib.fetch.httpurlconnection.HttpURLConnectionClient()
+        })
+        rustReady = true
+    }
 
     val isSignedIn: Boolean get() = prefs.getString(KEY_STATE, null) != null
 
@@ -57,6 +69,7 @@ class FxaSync(private val context: Context) {
 
     private fun account(): FirefoxAccount {
         account?.let { return it }
+        ensureRust()
         val saved = prefs.getString(KEY_STATE, null)
         val restored = if (saved != null) {
             FirefoxAccount.fromJson(saved)
