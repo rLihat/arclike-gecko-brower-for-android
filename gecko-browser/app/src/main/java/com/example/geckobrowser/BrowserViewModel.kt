@@ -1083,6 +1083,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var allowPrivateScreenshots by mutableStateOf(prefs.getBoolean("private_screenshots", false))
         private set
 
+    private val trackingExceptions = HashSet<String>()
     private val blockedByHost = HashMap<String, Int>()
     val trackingExceptionHosts: Set<String> get() = trackingExceptions.toSet()
     fun blockedForHost(host: String): Int = blockedByHost[host] ?: 0
