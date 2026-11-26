@@ -363,6 +363,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         appendLine("Essentials: ${essentials.size}, pins/folders: ${pinNodes.size}")
         appendLine("Pin save: ${BrowserFiles.lastPinSave}")
         appendLine("Pin load: ${BrowserFiles.lastPinLoad}")
+        appendLine("Pin writes (newest last):")
+        BrowserFiles.pinWriteLog().forEach { appendLine("  $it") }
         appendLine("active_space_id pref: ${prefs.getString("active_space_id", null)}")
         appendLine("pin_nodes_backup: ${prefs.getString("pin_nodes_backup", null)?.length ?: 0} chars")
         appendLine("Signed in: ${fxaSync.isSignedIn}")
@@ -394,8 +396,15 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 if (merged != null) {
                     spaces = merged.spaces
                     essentials = merged.essentials
-                    pinNodes = merged.pinNodes
-                    persistSpaces(); persistEssentials(); persistPinNodes()
+                    // Extra guard: a remote record with no pin rows must never
+                    // wipe a tree we already have locally.
+                    val pinResult = if (merged.pinNodes.isEmpty() && pinNodes.isNotEmpty()) {
+                        android.util.Log.w("HZ-Pins", "sync returned no pins; keeping local tree")
+                        pinNodes
+                    } else merged.pinNodes
+                    pinNodes = pinResult
+                    persistSpaces(); persistEssentials()
+                    persistPinNodes("sync")
                     applySyncedTabs(merged.tabs)
                     syncStatus = "Synced just now"
                     showToast("Spaces synced")
@@ -589,7 +598,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             prefs.edit().putString("active_space_id", activeSpaceId.toString()).apply()
         }
         persistSpaces()
-        persistPinNodes()
+        persistPinNodes("delete-space")
     }
 
     fun persistSpaces() {
@@ -738,9 +747,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Small file, write synchronously so a quick kill can't lose folders. */
-    fun persistPinNodes() {
+    fun persistPinNodes(source: String = "mutation") {
         val snapshot = pinNodes
-        runCatching { runBlocking(Dispatchers.IO) { BrowserFiles.savePinNodes(application, snapshot) } }
+        runCatching {
+            runBlocking(Dispatchers.IO) { BrowserFiles.savePinNodes(application, snapshot, source) }
+        }
     }
 
     /* ------------------------------------------------------------ pins */
@@ -891,7 +902,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             }
             if (extras.isNotEmpty()) {
                 pinNodes = extras
-                persistPinNodes()
+                persistPinNodes("restore-migration")
             }
         }
     }

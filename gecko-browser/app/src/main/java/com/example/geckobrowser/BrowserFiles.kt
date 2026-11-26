@@ -38,6 +38,9 @@ object BrowserFiles {
     /** Last pin-tree I/O result, surfaced in Settings → Diagnostics. */
     var lastPinSave: String = "never"
     var lastPinLoad: String = "never"
+    private val pinWriteHistory = ArrayDeque<String>()
+
+    fun pinWriteLog(): List<String> = pinWriteHistory.toList()
 
     private fun browserDir(context: Context): File =
         File(context.filesDir, "browser").apply { if (!exists()) mkdirs() }
@@ -242,7 +245,7 @@ object BrowserFiles {
         }
     } ?: emptyList()
 
-    fun savePinNodes(context: Context, nodes: List<PinNode>) {
+    fun savePinNodes(context: Context, nodes: List<PinNode>, source: String = "mutation") {
         val json = JSONArray().apply {
             nodes.forEach { n ->
                 put(JSONObject().apply {
@@ -268,7 +271,11 @@ object BrowserFiles {
                 .edit().putString("pin_nodes_backup", json).apply()
         }
         val fileLen = runCatching { pinNodesFile(context).length() }.getOrDefault(-1L)
-        lastPinSave = "${nodes.size} nodes; file=$fileLen bytes; backup=${json.length} chars"
+        val stamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+            .format(java.util.Date())
+        pinWriteHistory.addLast("$stamp [$source] ${nodes.size} nodes; file=$fileLen bytes")
+        while (pinWriteHistory.size > 10) pinWriteHistory.removeFirst()
+        lastPinSave = "$stamp [$source] ${nodes.size} nodes; file=$fileLen bytes; backup=${json.length} chars"
         android.util.Log.i("HZ-Pins", "saved $lastPinSave")
     }
 

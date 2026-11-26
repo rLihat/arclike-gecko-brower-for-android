@@ -190,7 +190,12 @@ data class SpaceSyncSnapshot(
                 })
             val essentials = mergeById(local.essentials, remote.essentials,
                 idOf = { it.id }, pick = { a, b -> if (a.updatedAt >= b.updatedAt) a else b })
-            val pins = mergeById(local.pinNodes, remote.pinNodes,
+            // An empty `pins` array means "this device has no pin data to
+            // share", not "delete every pin/folder on the other device".
+            // Real deletions are sent as tombstones (deletedAt > 0).
+            val pins = if (remote.pinNodes.isEmpty() && local.pinNodes.isNotEmpty()) {
+                local.pinNodes
+            } else mergeById(local.pinNodes, remote.pinNodes,
                 idOf = { it.id }, pick = { a, b -> if (a.updatedAt >= b.updatedAt) a else b })
             val tabs = mergeById(local.tabs, remote.tabs,
                 idOf = { it.id }, pick = { a, b -> if (a.updatedAt >= b.updatedAt) a else b })
