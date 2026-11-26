@@ -61,7 +61,7 @@ class ArcApplication : Application() {
         GeckoRuntime.create(
             this,
             GeckoRuntimeSettings.Builder()
-                .aboutConfigEnabled(false)
+                .aboutConfigEnabled(true)
                 .javaScriptEnabled(true)
                 .remoteDebuggingEnabled(false)
                 .consoleOutput(false)

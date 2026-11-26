@@ -29,6 +29,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -664,9 +665,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         persistPinNodes()
     }
 
+    /** Small file, write synchronously so a quick kill can't lose folders. */
     fun persistPinNodes() {
         val snapshot = pinNodes
-        scope.launch(Dispatchers.IO) { BrowserFiles.savePinNodes(application, snapshot) }
+        runCatching { runBlocking(Dispatchers.IO) { BrowserFiles.savePinNodes(application, snapshot) } }
     }
 
     /* ------------------------------------------------------------ pins */
@@ -796,6 +798,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun restorePins() {
+        // restoreSpaces() already loaded the current pin/folder tree. Legacy
+        // migration must never overwrite it with the old flat pin list.
+        if (pinNodes.isNotEmpty()) return
         val loaded = BrowserFiles.loadPins(application)
         if (loaded.isEmpty()) return
         // Promote legacy origin pins to URL keys and drop duplicates (first wins).
