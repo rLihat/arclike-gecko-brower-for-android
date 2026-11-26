@@ -359,20 +359,24 @@ class FxaSync(private val context: Context) {
      * a 401 from syncstorage-rs.
      */
     private fun hawk(method: String, url: URL, payload: String, id: String, key: String): String {
-        val b64 = java.util.Base64.getEncoder()
+        val std = java.util.Base64.getEncoder()
+        // hawk's random_string(10) uses BEWIT_ENGINE: url-safe, no padding.
+        val urlSafe = java.util.Base64.getUrlEncoder().withoutPadding()
         val ts = (System.currentTimeMillis() / 1000L).toString()
-        val nonce = b64.encodeToString(ByteArray(16).also { java.security.SecureRandom().nextBytes(it) })
+        val nonce = urlSafe.encodeToString(ByteArray(10).also { java.security.SecureRandom().nextBytes(it) })
         val hash = if (method == "GET" || method == "HEAD") null else
-            b64.encodeToString(MessageDigest.getInstance("SHA-256")
+            std.encodeToString(MessageDigest.getInstance("SHA-256")
                 .digest(payload.toByteArray(Charsets.UTF_8)))
         val resource = url.path.ifEmpty { "/" } + (url.query?.let { "?$it" } ?: "")
         val port = if (url.port != -1) url.port else if (url.protocol.equals("https", true)) 443 else 80
-        // scheme, ts, nonce, method, resource, host, port, hash, app, ext
+        // hawk::mac::Mac::new signs exactly NINE newline-terminated lines.
+        // The old code had a spurious empty `app` line before `ext`, which
+        // produced a valid-looking header with an invalid MAC (401, body "0").
         val normalized = listOf(
             "hawk.1.header", ts, nonce, method, resource,
-            url.host.lowercase(), port.toString(), hash ?: "", "", "",
+            url.host.lowercase(), port.toString(), hash ?: "", "", // ext
         ).joinToString("\n", postfix = "\n")
-        val mac = b64.encodeToString(Mac.getInstance("HmacSHA256").apply {
+        val mac = std.encodeToString(Mac.getInstance("HmacSHA256").apply {
             init(SecretKeySpec(key.toByteArray(Charsets.UTF_8), "HmacSHA256"))
         }.doFinal(normalized.toByteArray(Charsets.UTF_8)))
         return buildString {

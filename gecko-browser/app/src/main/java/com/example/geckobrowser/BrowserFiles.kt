@@ -35,6 +35,10 @@ object BrowserFiles {
 
     private const val LIST_VERSION = 2
 
+    /** Last pin-tree I/O result, surfaced in Settings → Diagnostics. */
+    var lastPinSave: String = "never"
+    var lastPinLoad: String = "never"
+
     private fun browserDir(context: Context): File =
         File(context.filesDir, "browser").apply { if (!exists()) mkdirs() }
 
@@ -263,7 +267,9 @@ object BrowserFiles {
             context.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
                 .edit().putString("pin_nodes_backup", json).apply()
         }
-        android.util.Log.i("HZ-Pins", "saved ${nodes.size} nodes")
+        val fileLen = runCatching { pinNodesFile(context).length() }.getOrDefault(-1L)
+        lastPinSave = "${nodes.size} nodes; file=$fileLen bytes; backup=${json.length} chars"
+        android.util.Log.i("HZ-Pins", "saved $lastPinSave")
     }
 
     /**
@@ -285,10 +291,10 @@ object BrowserFiles {
             fromBackup != null -> fromBackup
             else -> emptyList()
         }
-        android.util.Log.i(
-            "HZ-Pins",
-            "loaded ${result.size} nodes (file=${fromFile?.size}, backup=${fromBackup?.size})",
-        )
+        lastPinLoad = "result=${result.size}; file=${fromFile?.size?.toString() ?: "unreadable"}; " +
+            "backup=${fromBackup?.size?.toString() ?: "none"}; " +
+            "fileBytes=${runCatching { pinNodesFile(context).length() }.getOrDefault(-1L)}"
+        android.util.Log.i("HZ-Pins", "loaded $lastPinLoad")
         return result
     }
 

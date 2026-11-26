@@ -337,6 +337,20 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Shown in Settings → Diagnostics when logcat isn't available. */
+    fun diagnosticsReport(): String = buildString {
+        appendLine("Active space: $activeSpaceId (${activeSpace?.name ?: "missing"})")
+        appendLine("Spaces: ${spaces.size}, tabs: ${tabs.size}")
+        appendLine("Essentials: ${essentials.size}, pins/folders: ${pinNodes.size}")
+        appendLine("Pin save: ${BrowserFiles.lastPinSave}")
+        appendLine("Pin load: ${BrowserFiles.lastPinLoad}")
+        appendLine("active_space_id pref: ${prefs.getString("active_space_id", null)}")
+        appendLine("pin_nodes_backup: ${prefs.getString("pin_nodes_backup", null)?.length ?: 0} chars")
+        appendLine("Signed in: ${fxaSync.isSignedIn}")
+        appendLine("Sync status: $syncStatus")
+        appendLine("Sync error: ${syncError ?: fxaSync.lastError ?: "none"}")
+    }
+
     fun syncSpacesNow() {
         if (!fxaSync.isSignedIn) {
             syncStatus = "Not synced"

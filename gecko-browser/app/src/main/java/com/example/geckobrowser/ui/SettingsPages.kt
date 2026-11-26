@@ -92,6 +92,7 @@ fun SettingsScreen(
             "dataCollection" -> DataCollectionPage(vm)
             "protections" -> AlwaysOnProtectionsPage(vm)
             "about" -> AboutPage(vm, onBack = { vm.updateSettingsRoute("hub") })
+            "diagnostics" -> DiagnosticsPage(vm, onBack = { vm.updateSettingsRoute("hub") })
             "authorNotes" -> AuthorNotesScreen(vm) { vm.updateSettingsRoute("about") }
             "releaseNotes" -> ReleaseNotesScreen(vm) { vm.updateSettingsRoute("about") }
             "siteSettings" -> SiteSettingsScreen(vm, onBack = { vm.updateSettingsRoute("hub") })
@@ -134,6 +135,7 @@ private val settingsEntries = listOf(
     SettingsEntry("Check for updates on launch", "Auto-check on cold start", "about", "download"),
     SettingsEntry("Check for updates", "Manual update check", "about", "refresh"),
     SettingsEntry("What's new", "Release notes for the current build", "releaseNotes", "copy"),
+    SettingsEntry("Diagnostics", "Pin restore and sync error details", "diagnostics", "copy"),
     SettingsEntry("Star horiZen on GitHub", "Follow the developer and star the repo", "authorNotes", "person"),
 )
 
@@ -378,6 +380,32 @@ private fun PageHeader(title: String, onBack: () -> Unit, icon: @Composable (() 
         },
         icon = icon,
     )
+}
+
+@Composable
+private fun DiagnosticsPage(vm: BrowserViewModel, onBack: () -> Unit) {
+    val c = LocalArc.current
+    Column(Modifier.fillMaxSize().background(c.settingsBg)) {
+        PageHeader("Diagnostics", onBack)
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp, vertical = 14.dp),
+        ) {
+            Text(
+                "Pin restore and sync details (no logcat needed):",
+                color = c.muted, fontSize = 12.sp,
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                vm.diagnosticsReport(),
+                color = c.text,
+                fontSize = 12.5.sp,
+                lineHeight = 19.sp,
+            )
+        }
+    }
 }
 
 /* ------------------------------------------------------ look and feel --- */
