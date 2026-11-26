@@ -41,7 +41,7 @@ class FxaSync(private val context: Context) {
     private fun ensureRust() {
         if (rustReady) return
         mozilla.appservices.init_rust_components.initialize()
-        mozilla.components.support.rusthttp.RustHttpConfig.setClient(lazy {
+        mozilla.appservices.viaduct.RustHttpConfig.setClient(lazy {
             mozilla.components.lib.fetch.httpurlconnection.HttpURLConnectionClient()
         })
         rustReady = true

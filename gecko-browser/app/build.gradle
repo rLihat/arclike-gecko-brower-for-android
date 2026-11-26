@@ -104,10 +104,11 @@ dependencies {
         exclude group: 'org.mozilla.telemetry', module: 'glean-native'
     }
     implementation 'androidx.browser:browser:1.8.0'
-    // FxA's Rust client needs an HTTP client installed at startup.
-    // A-C support components stop at 140.x; appservices itself is at 161.
-    implementation 'org.mozilla.components:support-rusthttp:140.0.4'
-    implementation 'org.mozilla.components:lib-fetch-httpurlconnection:140.0.4'
+    // Appservices 161 moved the Rust HTTP bridge to viaduct; the old A-C
+    // support-rusthttp uses a dead C ABI and silently breaks FxA config fetches.
+    implementation 'org.mozilla.appservices:viaduct:161.0'
+    implementation 'org.mozilla.appservices:full-megazord:161.0'
+    implementation 'org.mozilla.components:lib-fetch-httpurlconnection:161.0'
     // fxa-client crypto needs NSS initialised before any account call.
     implementation 'org.mozilla.appservices:init_rust_components:161.0'
     debugImplementation 'androidx.compose.ui:ui-tooling'

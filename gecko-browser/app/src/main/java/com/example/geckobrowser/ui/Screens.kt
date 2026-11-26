@@ -775,23 +775,6 @@ fun ExtensionsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
             if (vm.extensions.isEmpty()) {
                 EmptyExtensions()
             } else {
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Box(
-                        Modifier
-                            .weight(1f)
-                            .height(40.dp)
-                            .clip(CircleShape)
-                            .background(c.menuCard)
-                            .clickable { vm.updateAllExtensions() },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text("Check for updates", color = c.text, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
-                    }
-                }
                 val enabledList = vm.extensions.filter { it.enabled }
                 val disabledList = vm.extensions.filter { !it.enabled }
                 if (enabledList.isNotEmpty()) {
@@ -883,63 +866,6 @@ private fun EmptyExtensions() {
 @Composable
 private fun ExtensionRow(vm: BrowserViewModel, item: ExtensionItem) {
     val c = LocalArc.current
-    var confirmRemove by remember { mutableStateOf(false) }
-    var showPerms by remember { mutableStateOf(false) }
-
-    if (confirmRemove) {
-        AlertDialog(
-            onDismissRequest = { confirmRemove = false },
-            title = { Text("Remove add-on?") },
-            text = { Text("Remove ${item.name}? Its data will be deleted.") },
-            confirmButton = {
-                TextButton(onClick = { vm.uninstallExtension(item); confirmRemove = false }) {
-                    Text("Remove", color = Color(0xFFE0453C))
-                }
-            },
-            dismissButton = { TextButton(onClick = { confirmRemove = false }) { Text("Cancel") } },
-        )
-    }
-    if (showPerms) {
-        AlertDialog(
-            onDismissRequest = { showPerms = false },
-            title = { Text("${item.name} permissions") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    val lines = buildList {
-                        item.permissions.forEach { add("Permission: $it") }
-                        item.origins.forEach { add("Site: $it") }
-                        item.optionalPermissions.forEach { add("Optional permission: $it") }
-                        item.optionalOrigins.forEach { add("Optional site: $it") }
-                        if (item.grantedOptionalPermissions.isNotEmpty())
-                            add("Granted optional: ${item.grantedOptionalPermissions.joinToString()}")
-                        if (item.grantedOptionalOrigins.isNotEmpty())
-                            add("Granted sites: ${item.grantedOptionalOrigins.joinToString()}")
-                        if (isEmpty()) add("No special permissions or sites.")
-                    }
-                    lines.forEach { Text(it, fontSize = 12.sp, color = c.text) }
-                    if (item.updateDate.isNotBlank()) {
-                        Spacer(Modifier.height(6.dp))
-                        Text("Updated ${item.updateDate}", fontSize = 11.sp, color = c.muted)
-                    }
-                    if (item.amoListingUrl.isNotBlank()) {
-                        Spacer(Modifier.height(6.dp))
-                        Text(
-                            "View on addons.mozilla.org",
-                            color = c.accent,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .clickable { vm.openAmoListing(item) }
-                                .padding(horizontal = 4.dp, vertical = 2.dp),
-                        )
-                    }
-                }
-            },
-            confirmButton = { TextButton(onClick = { showPerms = false }) { Text("Done") } },
-        )
-    }
-
     Column(
         Modifier
             .fillMaxWidth()
@@ -947,6 +873,7 @@ private fun ExtensionRow(vm: BrowserViewModel, item: ExtensionItem) {
             .clip(RoundedCornerShape(16.dp))
             .background(c.menuCard)
             .border(1.dp, c.stroke, RoundedCornerShape(16.dp))
+            .clickable { vm.openExtensionDetails(item) }
             .padding(12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -954,7 +881,7 @@ private fun ExtensionRow(vm: BrowserViewModel, item: ExtensionItem) {
                 Modifier
                     .size(34.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(c.menuCard),
+                    .background(c.surface),
                 contentAlignment = Alignment.Center,
             ) {
                 if (item.icon != null) {
@@ -978,106 +905,163 @@ private fun ExtensionRow(vm: BrowserViewModel, item: ExtensionItem) {
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    "v${item.version.ifBlank { "1.0" }}",
+                    "v${item.version.ifBlank { "1.0" }} · ${item.permissions.size + item.origins.size} permissions",
                     color = c.muted,
                     fontSize = 11.sp,
                 )
             }
             ArcSwitch(item.enabled) { vm.toggleExtension(item) }
         }
-        if (item.description.isNotBlank()) {
-            Spacer(Modifier.height(7.dp))
-            Text(
-                item.description,
-                color = c.muted,
-                fontSize = 11.5.sp,
-                lineHeight = 16.sp,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-        Row(
+    }
+}
+
+/* --------------------------------------------------- extension details (Firefox-style) */
+
+@Composable
+fun ExtensionDetailsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
+    val c = LocalArc.current
+    val item = vm.extensions.firstOrNull { it.id == vm.extensionDetailsId }
+    var tab by remember { mutableStateOf(0) }
+    var confirmRemove by remember { mutableStateOf(false) }
+    if (item == null) {
+        LaunchedEffect(Unit) { onBack() }
+        return
+    }
+    Column(Modifier.fillMaxSize().background(c.settingsBg)) {
+        SettingsHeader(
+            title = item.name,
+            leading = {
+                Box(Modifier.size(34.dp).clip(CircleShape).clickable { onBack() },
+                    contentAlignment = Alignment.Center) {
+                    Glyph(Ico.chevronLeft, c.text, size = 20.dp, strokeWidth = 2.2f)
+                }
+            },
+            icon = { Glyph(Ico.puzzle, c.text, size = 19.dp, strokeWidth = 1.8f) },
+        )
+        Column(
             Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 40.dp),
         ) {
-            Text("Use in private tabs", color = c.text, fontSize = 12.sp,
-                modifier = Modifier.weight(1f))
-            ArcSwitch(vm.extensionAllowedInPrivate(item.name)) {
-                vm.setExtensionPrivate(item.name, it)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                if (item.creatorName.isNotBlank()) "by ${item.creatorName}" else "Extension",
+                color = c.muted, fontSize = 12.sp,
+            )
+            Text("v${item.version.ifBlank { "1.0" }}", color = c.muted, fontSize = 11.sp)
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(
+                    Modifier.weight(1f).height(44.dp).clip(CircleShape).background(c.accent)
+                        .clickable { vm.toggleExtension(item) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(if (item.enabled) "Disable" else "Enable", color = Color.White, fontSize = 13.sp)
+                }
+                Box(
+                    Modifier.height(44.dp).clip(CircleShape).background(c.menuCard)
+                        .clickable { confirmRemove = true }.padding(horizontal = 16.dp),
+                    contentAlignment = Alignment.Center,
+                ) { Text("Remove", color = c.press, fontSize = 13.sp) }
             }
-        }
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(top = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                if (item.permissions.isEmpty() && item.origins.isEmpty()) "No special permissions"
-                else "${item.permissions.size + item.origins.size} permission(s)",
-                color = c.muted,
-                fontSize = 10.5.sp,
-                modifier = Modifier.weight(1f),
-            )
-            Text(
-                "Update",
-                color = c.accent,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { vm.updateExtension(item) }
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
-            )
-            // Always offer Options: GeckoView 161 fills optionsPageUrl only once
-            // the add-on is ready, and the VM falls back to the AMO listing (or a
-            // toast) when there is genuinely no page to open.
-            Text(
-                "Options",
-                color = c.accent,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { vm.openExtensionOptions(item) }
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
-            )
-            Text(
-                "Permissions",
-                color = c.accent,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { showPerms = true }
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
-            )
-            if (item.amoListingUrl.isNotBlank() || item.homepageUrl.isNotBlank()) {
-                Text(
-                    "Listing",
-                    color = c.accent,
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { vm.openAmoListing(item) }
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
-                )
+            Spacer(Modifier.height(14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("Details", "Preferences", "Permissions").forEachIndexed { index, label ->
+                    if (index == 1 && item.optionsPageUrl.isBlank()) return@forEachIndexed
+                    val selected = tab == index
+                    Box(
+                        Modifier.weight(1f).clip(RoundedCornerShape(10.dp))
+                            .background(if (selected) c.accent else c.chip)
+                            .clickable { tab = index }.padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(label, color = if (selected) Color.White else c.text,
+                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
-            Text(
-                "Remove",
-                color = c.accent,
-                fontSize = 11.5.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable { confirmRemove = true }
-                    .padding(horizontal = 6.dp, vertical = 4.dp),
-            )
+            Spacer(Modifier.height(12.dp))
+            when (tab) {
+                0 -> {
+                    val description = item.fullDescription.ifBlank { item.description }
+                    if (description.isNotBlank()) {
+                        SettingsRow("Description", value = description.take(90))
+                    }
+                    val mode = vm.extensionUpdateMode(item.id)
+                    SettingsRow(
+                        "Allow automatic updates",
+                        value = when (mode) { 1 -> "On"; 2 -> "Off"; else -> "Default" },
+                        onClick = {
+                            val next = (mode + 1) % 3
+                            vm.setExtensionUpdateMode(item.id, next)
+                        },
+                    )
+                    SettingsRow("Check for Updates", onClick = {
+                        if (vm.extensionUpdateMode(item.id) != 2) vm.updateExtension(item)
+                        else vm.showToast("Automatic updates are off")
+                    })
+                    when {
+                        item.incognito == "not_allowed" -> SettingsRow("Not Allowed in Private Windows")
+                        item.incognito == "spanning" -> SettingsRow("Requires Access to Private Windows")
+                        else -> SettingsRow(
+                            "Run in Private Windows",
+                            value = if (vm.extensionAllowedInPrivate(item)) "Allow" else "Don't Allow",
+                            onClick = { vm.setExtensionPrivate(item, !vm.extensionAllowedInPrivate(item)) },
+                        )
+                    }
+                    if (item.creatorName.isNotBlank()) SettingsRow("Author", value = item.creatorName)
+                    SettingsRow("Version", value = item.version.ifBlank { "1.0" })
+                    if (item.updateDate.isNotBlank()) SettingsRow("Last Updated", value = item.updateDate)
+                    if (item.homepageUrl.isNotBlank()) SettingsRow("Homepage", value = BrowserViewModel.hostOf(item.homepageUrl),
+                        onClick = { vm.submit(item.homepageUrl) })
+                    if (item.reviewCount > 0) SettingsRow("Rating", value = "${item.averageRating} (${item.reviewCount})")
+                }
+                1 -> SettingsRow("Open add-on settings", onClick = { vm.openExtensionOptions(item) })
+                2 -> {
+                    SectionLabel("Required permissions for core functionality:")
+                    (item.permissions + item.origins).forEach { SettingsRow(humanizePermission(it)) }
+                    if (item.optionalPermissions.isNotEmpty() || item.optionalOrigins.isNotEmpty()) {
+                        SectionLabel("Optional permissions for added functionality:")
+                        (item.optionalPermissions + item.optionalOrigins).forEach { SettingsRow(humanizePermission(it)) }
+                    }
+                    if (item.requiredDataCollection.isNotEmpty()) {
+                        SectionLabel("Required data collection:")
+                        item.requiredDataCollection.forEach { SettingsRow(humanizePermission(it)) }
+                    }
+                    if (item.optionalDataCollection.isNotEmpty()) {
+                        SectionLabel("Optional data collection:")
+                        item.optionalDataCollection.forEach { SettingsRow("Share technical and interaction data") }
+                    }
+                }
+            }
         }
     }
+    if (confirmRemove) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { confirmRemove = false },
+            title = { Text("Remove ${item.name}?", color = c.text) },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmRemove = false
+                    vm.uninstallExtension(item)
+                    onBack()
+                }) { Text("Remove", color = c.press) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmRemove = false }) { Text("Cancel", color = c.text) }
+            },
+            containerColor = c.surface,
+        )
+    }
+}
+
+private fun humanizePermission(raw: String): String = when {
+    raw == "<all_urls>" -> "Access your data for all websites"
+    raw.startsWith("*://") -> "Access your data for sites in the ${raw.removePrefix("*://")} domain"
+    raw.startsWith("http") -> "Access your data for ${BrowserViewModel.hostOf(raw)}"
+    else -> raw.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 }
 
 /* --------------------------------------------------------------- account */

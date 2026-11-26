@@ -112,7 +112,7 @@ data class ContextMenuState(
 
 enum class Overlay {
     None, Search, Menu, Tabs, Settings, SiteSettings, Account, Downloads, Extensions, ExtensionPopup,
-    History, Translate, Passwords, About, ExtensionMenu, ReleaseNotes,
+    ExtensionDetails, History, Translate, Passwords, About, ExtensionMenu, ReleaseNotes,
 }
 
 /** What a tab's translation looks like right now; kept per tab. */
@@ -225,9 +225,24 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private var extensionPopupSession: GeckoSession? = null
     /** Toolbar actions reported by installed add-ons, keyed by extension id. */
     private val extensionActions = HashMap<String, WebExtension.Action>()
-    /** Per-site rules: key "host|extensionId", true = allowed, false = blocked. */
-    var extensionSiteRules by mutableStateOf(loadExtensionSiteRules())
+    /** Firefox-style Managed Extension detail screen. */
+    var extensionDetailsId by mutableStateOf<String?>(null)
         private set
+    private var extensionDetailsReturn = Overlay.Extensions
+
+    fun openExtensionDetails(item: ExtensionItem) {
+        extensionDetailsId = item.id
+        extensionDetailsReturn = if (overlay == Overlay.ExtensionMenu) Overlay.Menu else overlay
+        overlay = Overlay.ExtensionDetails
+        compactPill = false
+    }
+
+    fun closeExtensionDetails() {
+        extensionDetailsId = null
+        overlay = extensionDetailsReturn
+        extensionDetailsReturn = Overlay.Extensions
+        compactPill = false
+    }
 
     /* ------------------------------------------------------------- public state */
 
@@ -3357,7 +3372,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun answerExtensionInstall(id: Long, allow: Boolean, useInPrivate: Boolean = false) {
-        val name = (browserPrompt as? BrowserPromptState.ExtensionInstall)?.name.orEmpty()
+        val prompt = browserPrompt as? BrowserPromptState.ExtensionInstall
+        val name = prompt?.name.orEmpty()
+        val dataGranted = prompt?.dataCollectionPermissions?.isNotEmpty() == true
         android.util.Log.d("HZ-Ext", "answer id=$id allow=$allow private=$useInPrivate name=$name")
         if (browserPrompt?.id == id) browserPrompt = null
         val result = extensionInstallResults.remove(id) ?: return
@@ -3372,12 +3389,34 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             // privateModeGranted, technicalDataGranted). Keep privateModeGranted
             // true so Gecko does not cancel the install (-100); the user's real
             // private-tab choice is applied with setAllowedInPrivateBrowsing.
-            result.complete(WebExtension.PermissionPromptResponse(allow, true, false))
+            result.complete(WebExtension.PermissionPromptResponse(allow, true, dataGranted))
         }
         if (allow) {
             extensionBadge = true
             showToast("Installing add-on…")
         }
+    }
+
+    /** Firefox-style: Gecko metadata is authoritative, pref is only a fallback. */
+    fun extensionAllowedInPrivate(item: ExtensionItem): Boolean =
+        extensionObjects[item.id]?.metaData?.allowedInPrivateBrowsing
+            ?: prefs.getBoolean("ext_private_${item.id}", item.allowedInPrivateBrowsing)
+
+    fun setExtensionPrivate(item: ExtensionItem, value: Boolean) {
+        prefs.edit().putBoolean("ext_private_${item.id}", value).apply()
+        extensionObjects[item.id]?.let { ext ->
+            runCatching {
+                runtime.webExtensionController.setAllowedInPrivateBrowsing(ext, value)
+                    .accept({ refreshExtensions() }, { showToast("Could not change private access") })
+            }
+        }
+    }
+
+    /** Firefox-style automatic update mode: 0 default, 1 on, 2 off. */
+    fun extensionUpdateMode(id: String): Int = prefs.getInt("ext_update_mode_$id", 0)
+
+    fun setExtensionUpdateMode(id: String, mode: Int) {
+        prefs.edit().putInt("ext_update_mode_$id", mode).apply()
     }
 
     fun extensionAllowedInPrivate(name: String): Boolean =
@@ -3996,6 +4035,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                     name = extension.metaData?.name ?: "Add-on",
                     permissions = permissions?.toList().orEmpty(),
                     origins = origins?.toList().orEmpty(),
+                    dataCollectionPermissions = dataCollectionPermissions?.toList().orEmpty(),
                     icon = null,
                 )
                 // Load the icon asynchronously so the prompt never blocks Gecko's thread.
@@ -4038,6 +4078,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             override fun onUninstalled(extension: WebExtension) = refreshExtensions()
             override fun onEnabled(extension: WebExtension) = refreshExtensions()
             override fun onDisabled(extension: WebExtension) = refreshExtensions()
+            override fun onOptionalPermissionsChanged(extension: WebExtension) = refreshExtensions()
         })
     }
 
@@ -4189,6 +4230,19 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                             homepageUrl = meta?.homepageUrl.orEmpty(),
                             optionsPageUrl = optionsUrl,
                             openOptionsPageInTab = meta?.openOptionsPageInTab != false,
+                            allowedInPrivateBrowsing = meta?.allowedInPrivateBrowsing ?: false,
+                            incognito = meta?.incognito.orEmpty(),
+                            creatorName = meta?.creatorName.orEmpty(),
+                            creatorUrl = meta?.creatorUrl.orEmpty(),
+                            fullDescription = meta?.fullDescription.orEmpty(),
+                            averageRating = meta?.averageRating ?: 0.0,
+                            reviewCount = meta?.reviewCount ?: 0,
+                            blocklistState = meta?.blocklistState ?: 0,
+                            signedState = meta?.signedState ?: 0,
+                            temporary = meta?.temporary ?: false,
+                            requiredDataCollection = meta?.requiredDataCollectionPermissions?.toList().orEmpty(),
+                            optionalDataCollection = meta?.optionalDataCollectionPermissions?.toList().orEmpty(),
+                            grantedOptionalDataCollection = meta?.grantedOptionalDataCollectionPermissions?.toList().orEmpty(),
                         )
                     }
                     extensions = mapped
@@ -4293,6 +4347,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun updateExtension(item: ExtensionItem) {
+        if (extensionUpdateMode(item.id) == 2) {
+            showToast("Automatic updates are off")
+            return
+        }
         val extension = extensionObjects[item.id] ?: return
         runtime.webExtensionController.update(extension).accept(
             { updated ->
@@ -4359,30 +4417,6 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 openExtensionOptions(item)
             }
         }, 350L)
-    }
-
-    private fun loadExtensionSiteRules(): Map<String, Boolean> {
-        val raw = prefs.getString("extension_site_rules", null).orEmpty()
-        if (raw.isBlank()) return emptyMap()
-        return runCatching {
-            val obj = JSONObject(raw)
-            buildMap {
-                obj.keys().forEach { key -> put(key, obj.getBoolean(key)) }
-            }
-        }.getOrDefault(emptyMap())
-    }
-
-    fun extensionSiteRule(extensionId: String, host: String): Boolean? =
-        extensionSiteRules["$host|$extensionId"]
-
-    fun setExtensionSiteRule(extensionId: String, host: String, allowed: Boolean?) {
-        val key = "$host|$extensionId"
-        val next = extensionSiteRules.toMutableMap()
-        if (allowed == null) next.remove(key) else next[key] = allowed
-        extensionSiteRules = next
-        val obj = JSONObject()
-        next.forEach { (k, v) -> obj.put(k, v) }
-        prefs.edit().putString("extension_site_rules", obj.toString()).apply()
     }
 
     /**
@@ -5196,6 +5230,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             }
             Overlay.Extensions -> {
                 overlay = extensionsReturn
+                true
+            }
+            Overlay.ExtensionDetails -> {
+                closeExtensionDetails()
                 true
             }
             Overlay.ExtensionPopup -> {

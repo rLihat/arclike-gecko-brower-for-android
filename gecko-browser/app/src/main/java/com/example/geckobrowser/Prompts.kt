@@ -82,6 +82,20 @@ data class ExtensionItem(
     val homepageUrl: String = "",
     val optionsPageUrl: String = "",
     val openOptionsPageInTab: Boolean = true,
+    /** Authoritative Gecko metadata for the Firefox-style details screen. */
+    val allowedInPrivateBrowsing: Boolean = false,
+    val incognito: String = "",
+    val creatorName: String = "",
+    val creatorUrl: String = "",
+    val fullDescription: String = "",
+    val averageRating: Double = 0.0,
+    val reviewCount: Int = 0,
+    val blocklistState: Int = 0,
+    val signedState: Int = 0,
+    val temporary: Boolean = false,
+    val requiredDataCollection: List<String> = emptyList(),
+    val optionalDataCollection: List<String> = emptyList(),
+    val grantedOptionalDataCollection: List<String> = emptyList(),
     /** The add-on's decoded icon, when Gecko can supply one. */
     val icon: android.graphics.Bitmap? = null,
 )
@@ -155,6 +169,7 @@ sealed interface BrowserPromptState {
         val name: String,
         val permissions: List<String>,
         val origins: List<String>,
+        val dataCollectionPermissions: List<String> = emptyList(),
         /** The add-on's icon, if Gecko could decode it in time; a glyph is used otherwise. */
         val icon: android.graphics.Bitmap? = null,
     ) : BrowserPromptState {

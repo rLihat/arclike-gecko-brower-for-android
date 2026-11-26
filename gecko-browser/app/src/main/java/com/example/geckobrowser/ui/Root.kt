@@ -584,7 +584,7 @@ private fun WebHost(
 
 private val sheetOverlays = setOf(
     Overlay.Search, Overlay.Menu, Overlay.Settings, Overlay.SiteSettings, Overlay.Account,
-    Overlay.Downloads, Overlay.Extensions, Overlay.ExtensionPopup, Overlay.History,
+    Overlay.Downloads, Overlay.Extensions, Overlay.ExtensionDetails, Overlay.ExtensionPopup, Overlay.History,
     Overlay.Translate, Overlay.Passwords, Overlay.About, Overlay.ExtensionMenu, Overlay.ReleaseNotes,
 )
 
@@ -620,7 +620,7 @@ private fun ChromeOverlay(
         val sheetLift = if (overlay == Overlay.Search) imeDp else 0.dp
         val fullHeight = overlay == Overlay.Settings || overlay == Overlay.SiteSettings ||
             overlay == Overlay.Account || overlay == Overlay.Downloads ||
-            overlay == Overlay.Extensions || overlay == Overlay.History ||
+            overlay == Overlay.Extensions || overlay == Overlay.ExtensionDetails || overlay == Overlay.History ||
             overlay == Overlay.Translate || overlay == Overlay.Passwords ||
             overlay == Overlay.About || overlay == Overlay.ReleaseNotes ||
             // v5: expanding the space card grows the sheet to fill the screen.
@@ -723,6 +723,7 @@ private fun ChromeOverlay(
             Overlay.Account -> ({ AccountScreen(vm) { vm.onBackPressed() } })
             Overlay.Downloads -> ({ DownloadsScreen(vm) { vm.closeDownloads() } })
             Overlay.Extensions -> ({ ExtensionsScreen(vm) { vm.onBackPressed() } })
+            Overlay.ExtensionDetails -> ({ ExtensionDetailsScreen(vm) { vm.closeExtensionDetails() } })
             Overlay.History -> ({ HistoryScreen(vm) { vm.closeHistory() } })
             Overlay.Translate -> ({
                 TranslateScreen(vm, onBack = { vm.closeTranslate() }, frost = pageFrost)
@@ -1895,6 +1896,15 @@ private fun BoxScope.BrowserPromptHost(vm: BrowserViewModel) {
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                    if (prompt.dataCollectionPermissions.isNotEmpty()) {
+                        Text(
+                            "· Data: ${prompt.dataCollectionPermissions.take(3).joinToString()}",
+                            color = c.muted,
+                            fontSize = 11.5.sp,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                     Spacer(Modifier.height(10.dp))
                     Row(
                         Modifier
@@ -1906,7 +1916,7 @@ private fun BoxScope.BrowserPromptHost(vm: BrowserViewModel) {
                     ) {
                         ArcSwitch(useInPrivate) { useInPrivate = it }
                         Spacer(Modifier.width(10.dp))
-                        Text("Use in private tabs", color = c.text, fontSize = 12.5.sp)
+                        Text("Run in private browsing", color = c.text, fontSize = 12.5.sp)
                     }
                     Spacer(Modifier.height(14.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {

@@ -19,10 +19,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -32,7 +28,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.example.geckobrowser.BrowserViewModel
 import com.example.geckobrowser.ExtensionItem
 
@@ -45,7 +40,6 @@ import com.example.geckobrowser.ExtensionItem
 fun ExtensionMenuSheet(vm: BrowserViewModel) {
     val c = LocalArc.current
     val frostOn = LocalFrost.current
-    var siteItem by remember { mutableStateOf<ExtensionItem?>(null) }
     // GV 161 can report enabled=false before onReady; keep add-ons visible so
     // their popup/options remain reachable.
     val enabled = vm.extensions.filter { it.enabled || it.optionsPageUrl.isNotBlank() }
@@ -110,7 +104,7 @@ fun ExtensionMenuSheet(vm: BrowserViewModel) {
 
         LazyColumn(Modifier.weight(1f)) {
             items(enabled, key = { it.id }) { item ->
-                ExtensionMenuRow(vm, item, onSiteSettings = { siteItem = item })
+                ExtensionMenuRow(vm, item)
             }
         }
 
@@ -121,53 +115,11 @@ fun ExtensionMenuSheet(vm: BrowserViewModel) {
             onClick = { vm.openExtensions() },
         )
 
-        val selected = siteItem
-        if (selected != null) {
-            Dialog(onDismissRequest = { siteItem = null }) {
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(c.menuCard)
-                        .padding(16.dp),
-                ) {
-                    Text(selected.name, color = c.text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "Site: ${vm.domain}",
-                        color = c.muted, fontSize = 11.5.sp,
-                        modifier = Modifier.padding(top = 2.dp, bottom = 10.dp),
-                    )
-                    val host = vm.domain
-                    val rule = vm.extensionSiteRule(selected.id, host)
-                    SiteRuleRow("Allow on this site", c.accent, rule == true) {
-                        vm.setExtensionSiteRule(selected.id, host, true)
-                        siteItem = null
-                    }
-                    SiteRuleRow("Block on this site", c.press, rule == false) {
-                        vm.setExtensionSiteRule(selected.id, host, false)
-                        siteItem = null
-                    }
-                    SiteRuleRow("Use global setting", c.text, rule == null) {
-                        vm.setExtensionSiteRule(selected.id, host, null)
-                        siteItem = null
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    StoreButton(label = "Open global settings", primary = true) {
-                        siteItem = null
-                        vm.openExtensionOptions(selected)
-                    }
-                }
-            }
-        }
     }
 }
 
 @Composable
-private fun ExtensionMenuRow(
-    vm: BrowserViewModel,
-    item: ExtensionItem,
-    onSiteSettings: () -> Unit,
-) {
+private fun ExtensionMenuRow(vm: BrowserViewModel, item: ExtensionItem) {
     val c = LocalArc.current
     Row(
         Modifier
@@ -216,30 +168,12 @@ private fun ExtensionMenuRow(
             Modifier
                 .size(34.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .clickable { onSiteSettings() },
+                .clickable { vm.openExtensionDetails(item) },
             contentAlignment = Alignment.Center,
         ) {
             Glyph(Ico.gear, c.muted, size = 17.dp, strokeWidth = 1.8f)
         }
         Glyph(Ico.chevronRight, c.muted, size = 16.dp, strokeWidth = 1.9f)
-    }
-}
-
-@Composable
-private fun SiteRuleRow(label: String, tint: Color, selected: Boolean, onClick: () -> Unit) {
-    val c = LocalArc.current
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 9.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, color = if (selected) tint else c.text, fontSize = 13.5.sp,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            modifier = Modifier.weight(1f))
-        if (selected) Glyph(Ico.check, tint, size = 16.dp, strokeWidth = 2.2f)
     }
 }
 
