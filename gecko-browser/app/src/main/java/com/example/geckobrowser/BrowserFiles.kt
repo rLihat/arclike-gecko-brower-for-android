@@ -273,15 +273,23 @@ object BrowserFiles {
     fun loadPinNodes(context: Context): List<PinNode> {
         val backup = context.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
             .getString("pin_nodes_backup", null)
-        for (raw in listOfNotNull(readText(pinNodesFile(context)), backup)) {
-            val parsed = runCatching { parsePinNodes(raw) }.getOrNull()
-            if (parsed != null) {
-                android.util.Log.i("HZ-Pins", "loaded ${parsed.size} nodes")
-                return parsed
-            }
+        val fromFile = readText(pinNodesFile(context))?.let {
+            runCatching { parsePinNodes(it) }.getOrNull()
         }
-        android.util.Log.w("HZ-Pins", "no readable pin tree")
-        return emptyList()
+        val fromBackup = backup?.let { runCatching { parsePinNodes(it) }.getOrNull() }
+        // An empty/truncated file must not win over a good prefs copy.
+        val result = when {
+            !fromFile.isNullOrEmpty() -> fromFile
+            !fromBackup.isNullOrEmpty() -> fromBackup
+            fromFile != null -> fromFile
+            fromBackup != null -> fromBackup
+            else -> emptyList()
+        }
+        android.util.Log.i(
+            "HZ-Pins",
+            "loaded ${result.size} nodes (file=${fromFile?.size}, backup=${fromBackup?.size})",
+        )
+        return result
     }
 
     private fun parsePinNodes(raw: String): List<PinNode> {

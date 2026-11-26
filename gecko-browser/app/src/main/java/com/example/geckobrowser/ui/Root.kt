@@ -2070,25 +2070,28 @@ private fun ExtensionPopupSheet(vm: BrowserViewModel) {
             }
         }
         Box(Modifier.fillMaxWidth().height(1.dp).background(c.hairline))
-        AndroidView(
-            factory = { ctx ->
-                GeckoView(ctx).apply {
-                    // SurfaceView cannot be animated or layered over the page's
-                    // GeckoView; GV's own popup example uses a texture-backed view.
-                    setViewBackend(GeckoView.BACKEND_TEXTURE_VIEW)
-                    setBackgroundColor(c.sheet.toArgb())
-                    vm.extensionPopup?.let { setSession(it) }
-                }
-            },
-            update = { view ->
-                val session = vm.extensionPopup
-                if (view.session !== session) {
-                    view.releaseSession()
-                    if (session != null) view.setSession(session)
-                }
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
+        val popup = vm.extensionPopup
+        if (popup != null) {
+            AndroidView(
+                factory = { ctx ->
+                    GeckoView(ctx).apply {
+                        // SurfaceView cannot be animated or layered over the
+                        // page's GeckoView; GV's popup example uses a texture view.
+                        setViewBackend(GeckoView.BACKEND_TEXTURE_VIEW)
+                        setBackgroundColor(c.sheet.toArgb())
+                        setSession(popup)
+                    }
+                },
+                update = { view ->
+                    if (view.session !== popup) {
+                        view.releaseSession()
+                        view.setSession(popup)
+                    }
+                },
+                key = popup,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
     }
 }
 

@@ -2,6 +2,7 @@ package com.example.geckobrowser
 
 import org.mozilla.geckoview.GeckoRuntime
 import org.mozilla.geckoview.GeckoSession
+import org.mozilla.geckoview.GeckoSessionSettings
 
 /**
  * Owns exactly one open GeckoSession per tab. The browser keeps every session
@@ -18,10 +19,11 @@ class TabManager(private val runtime: GeckoRuntime) {
     /** Creates and opens a session, restoring history when a blob is supplied. */
     fun create(
         restored: GeckoSession.SessionState? = null,
+        privateMode: Boolean = false,
         attach: (Long, GeckoSession) -> Unit,
     ): Long {
         val id = nextId++
-        open(id, restored, attach)
+        open(id, restored, privateMode, attach)
         return id
     }
 
@@ -29,15 +31,22 @@ class TabManager(private val runtime: GeckoRuntime) {
     fun createWithId(
         id: Long,
         restored: GeckoSession.SessionState? = null,
+        privateMode: Boolean = false,
         attach: (Long, GeckoSession) -> Unit,
     ): Long {
         reserveAbove(id)
-        open(id, restored, attach)
+        open(id, restored, privateMode, attach)
         return id
     }
 
-    private fun open(id: Long, restored: GeckoSession.SessionState?, attach: (Long, GeckoSession) -> Unit) {
-        val session = GeckoSession()
+    private fun open(
+        id: Long,
+        restored: GeckoSession.SessionState?,
+        privateMode: Boolean,
+        attach: (Long, GeckoSession) -> Unit,
+    ) {
+        val settings = GeckoSessionSettings.Builder().usePrivateMode(privateMode).build()
+        val session = GeckoSession(settings)
         session.open(runtime)
         sessions[id] = session
         attach(id, session)
@@ -75,10 +84,12 @@ class TabManager(private val runtime: GeckoRuntime) {
     fun reopen(
         id: Long,
         restored: GeckoSession.SessionState? = null,
+        privateMode: Boolean = false,
         attach: (Long, GeckoSession) -> Unit,
     ): GeckoSession? {
         sessions.remove(id)?.close()
-        val session = GeckoSession()
+        val settings = GeckoSessionSettings.Builder().usePrivateMode(privateMode).build()
+        val session = GeckoSession(settings)
         session.open(runtime)
         sessions[id] = session
         attach(id, session)

@@ -42,7 +42,9 @@ fun ExtensionMenuSheet(vm: BrowserViewModel) {
     val frostOn = LocalFrost.current
     // GV 161 can report enabled=false before onReady; keep add-ons visible so
     // their popup/options remain reachable.
-    val enabled = vm.extensions.filter { it.enabled || it.optionsPageUrl.isNotBlank() }
+    val enabled = vm.extensions.filter {
+        it.enabled || vm.hasAction(it.id) || it.optionsPageUrl.isNotBlank()
+    }
 
     Column(
         Modifier

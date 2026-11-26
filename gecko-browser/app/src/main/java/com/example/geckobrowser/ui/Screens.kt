@@ -966,6 +966,25 @@ fun ExtensionDetailsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                     contentAlignment = Alignment.Center,
                 ) { Text("Remove", color = c.press, fontSize = 13.sp) }
             }
+            Spacer(Modifier.height(10.dp))
+            // Firefox Android's private-browsing switch lives on the details
+            // screen itself — always visible, not buried in a tab as text.
+            val privateForbidden = item.incognito == "not_allowed"
+            SettingsRow(
+                "Allow in private browsing",
+                trailing = {
+                    ArcSwitch(!privateForbidden && vm.extensionAllowedInPrivate(item)) { value ->
+                        if (!privateForbidden) vm.setExtensionPrivate(item, value)
+                    }
+                },
+            )
+            if (privateForbidden) {
+                Text(
+                    "This add-on does not allow private browsing",
+                    color = c.muted, fontSize = 11.5.sp,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 listOf("Details", "Preferences", "Permissions").forEachIndexed { index, label ->
@@ -1002,15 +1021,6 @@ fun ExtensionDetailsScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                         if (vm.extensionUpdateMode(item.id) != 2) vm.updateExtension(item)
                         else vm.showToast("Automatic updates are off")
                     })
-                    when {
-                        item.incognito == "not_allowed" -> SettingsRow("Not Allowed in Private Windows")
-                        item.incognito == "spanning" -> SettingsRow("Requires Access to Private Windows")
-                        else -> SettingsRow(
-                            "Run in Private Windows",
-                            value = if (vm.extensionAllowedInPrivate(item)) "Allow" else "Don't Allow",
-                            onClick = { vm.setExtensionPrivate(item, !vm.extensionAllowedInPrivate(item)) },
-                        )
-                    }
                     if (item.creatorName.isNotBlank()) SettingsRow("Author", value = item.creatorName)
                     SettingsRow("Version", value = item.version.ifBlank { "1.0" })
                     if (item.updateDate.isNotBlank()) SettingsRow("Last Updated", value = item.updateDate)

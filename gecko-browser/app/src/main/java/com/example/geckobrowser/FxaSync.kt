@@ -236,7 +236,7 @@ class FxaSync(private val context: Context) {
             // https://token.services.mozilla.com/). The tokenserver exposes a
             // single API, GET /1.0/sync/1.5; requesting the bare base URL
             // returns its text/html documentation page instead of JSON.
-            val tokenBase = account().getTokenServerEndpointUrl().trimEnd('/')
+            val tokenBase = ensureInitialized().getTokenServerEndpointUrl().trimEnd('/')
             val tokenPath = "/1.0/sync/1.5"
             val tokenUrl = URL(if (tokenBase.endsWith(tokenPath)) tokenBase else tokenBase + tokenPath)
 
@@ -244,7 +244,7 @@ class FxaSync(private val context: Context) {
             for (attempt in 0..1) {
                 // `false` asks for a fresh token. OAuth tokenserver requests
                 // must also carry the scoped key's `kid` in X-KeyID.
-                val info = account().getAccessToken(SCOPE_OLDSYNC, false)
+                val info = ensureInitialized().getAccessToken(SCOPE_OLDSYNC, false)
                 val scoped = info.key ?: run {
                     val message = "No sync key for this account"
                     lastError = message
@@ -292,7 +292,9 @@ class FxaSync(private val context: Context) {
             }
             val endpoint = "$apiEndpoint/storage/$COLLECTION_NAME/$RECORD_ID"
             val syncId = tokens.getString("id")
-            val hawkKey = decodeHawkKey(tokens.getString("key"))
+            // Tokenserver's `key` is a base64url STRING; Mozilla clients HMAC
+            // its ASCII bytes. Decoding it produced invalid Hawk MACs (401).
+            val hawkKey = tokens.getString("key")
 
             // Pull first, merge, then push the merged record. Pushing our local
             // snapshot first would overwrite anything another device wrote.
@@ -303,13 +305,16 @@ class FxaSync(private val context: Context) {
             get.setRequestProperty("Authorization", hawk("GET", getUrl, "", syncId, hawkKey))
             get.setRequestProperty("Accept", "application/json")
             val getCode = get.responseCode
-            val remoteJson = if (getCode == 200) readJson(get, "Sync storage") else null
+            val getBody = responseBody(get)
             get.disconnect()
             if (getCode !in listOf(200, 404)) {
-                lastError = "Sync download HTTP $getCode"
+                lastError = "Sync download HTTP $getCode: ${getBody.take(160)}"
                 android.util.Log.e("HZ-FxA", lastError ?: "unknown")
                 return null
             }
+            val remoteJson = if (getCode == 200) {
+                runCatching { JSONObject(getBody) }.getOrNull()
+            } else null
             val remote = remoteJson?.let { obj ->
                 decrypt(obj.optString("payload"), scopedKey)?.let { SpaceSyncSnapshot.fromJson(it) }
             }
@@ -329,9 +334,10 @@ class FxaSync(private val context: Context) {
             put.doOutput = true
             put.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
             val putCode = put.responseCode
+            val putBody = responseBody(put)
             put.disconnect()
             if (putCode !in 200..299) {
-                lastError = "Sync upload HTTP $putCode"
+                lastError = "Sync upload HTTP $putCode: ${putBody.take(160)}"
                 android.util.Log.e("HZ-FxA", lastError ?: "unknown")
                 return null
             }
@@ -345,12 +351,20 @@ class FxaSync(private val context: Context) {
         }
     }
 
-    /** Hawk 1.0 authorization header for a Sync 1.5 storage request. */
-    private fun hawk(method: String, url: URL, payload: String, id: String, key: ByteArray): String {
+    /**
+     * Hawk 1.0 authorization header for a Sync 1.5 storage request.
+     * application-services signs with the ASCII bytes of tokenserver's `key`
+     * string (NOT its base64-decoded form), and the hawk crate emits standard
+     * padded base64 for nonce/hash/mac. Both matter: getting either wrong gives
+     * a 401 from syncstorage-rs.
+     */
+    private fun hawk(method: String, url: URL, payload: String, id: String, key: String): String {
+        val b64 = java.util.Base64.getEncoder()
         val ts = (System.currentTimeMillis() / 1000L).toString()
-        val nonce = b64url(ByteArray(8).also { java.security.SecureRandom().nextBytes(it) })
+        val nonce = b64.encodeToString(ByteArray(16).also { java.security.SecureRandom().nextBytes(it) })
         val hash = if (method == "GET" || method == "HEAD") null else
-            b64url(MessageDigest.getInstance("SHA-256").digest(payload.toByteArray(Charsets.UTF_8)))
+            b64.encodeToString(MessageDigest.getInstance("SHA-256")
+                .digest(payload.toByteArray(Charsets.UTF_8)))
         val resource = url.path.ifEmpty { "/" } + (url.query?.let { "?$it" } ?: "")
         val port = if (url.port != -1) url.port else if (url.protocol.equals("https", true)) 443 else 80
         // scheme, ts, nonce, method, resource, host, port, hash, app, ext
@@ -358,8 +372,8 @@ class FxaSync(private val context: Context) {
             "hawk.1.header", ts, nonce, method, resource,
             url.host.lowercase(), port.toString(), hash ?: "", "", "",
         ).joinToString("\n", postfix = "\n")
-        val mac = b64url(Mac.getInstance("HmacSHA256").apply {
-            init(SecretKeySpec(key, "HmacSHA256"))
+        val mac = b64.encodeToString(Mac.getInstance("HmacSHA256").apply {
+            init(SecretKeySpec(key.toByteArray(Charsets.UTF_8), "HmacSHA256"))
         }.doFinal(normalized.toByteArray(Charsets.UTF_8)))
         return buildString {
             append("Hawk id=\"").append(id).append("\", ts=\"").append(ts)
@@ -387,16 +401,6 @@ class FxaSync(private val context: Context) {
         } catch (e: Throwable) {
             throw IllegalStateException("$label returned invalid JSON: ${body.take(140)}", e)
         }
-    }
-
-    /** Token-server keys are base64url, but some servers emit standard base64. */
-    private fun decodeHawkKey(value: String): ByteArray = try {
-        android.util.Base64.decode(
-            value,
-            android.util.Base64.URL_SAFE or android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING,
-        )
-    } catch (_: Throwable) {
-        android.util.Base64.decode(value, android.util.Base64.NO_WRAP)
     }
 
     companion object {

@@ -1692,7 +1692,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 runCatching { GeckoSession.SessionState.fromString(it) }.getOrNull()
             }
             if (state != null) stateBlobs[record.id] = blob
-            val id = tabsManager.createWithId(record.id, state, ::attachDelegates)
+            val id = tabsManager.createWithId(
+                record.id, state, privateMode = record.private, attach = ::attachDelegates,
+            )
             if (record.desktopMode) applyDesktop(id, true)
             if (record.private) privateTabs.add(id)
             val tab = TabInfo(
@@ -1719,13 +1721,24 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         if (restored.isEmpty()) return
         tabs = restored
         activeId = restored.firstOrNull { it.id == list.activeId }?.id ?: restored.first().id
+        markActiveWebExtensionTab(activeId)
         syncZoomForActive()
         persistTabs()
     }
 
     private fun persistTabs() {
         val records = tabs.map {
-            TabRecord(it.id, it.url, it.title, it.desktopMode, it.secure, it.isPrivate)
+            // spaceId must be written: TabRecord defaults to Personal, which
+            // silently moved every tab there on the next launch.
+            TabRecord(
+                id = it.id,
+                url = it.url,
+                title = it.title,
+                desktopMode = it.desktopMode,
+                secure = it.secure,
+                private = it.isPrivate,
+                spaceId = it.spaceId,
+            )
         }
         val active = activeId
         scope.launch {
@@ -1776,9 +1789,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         spaceId: UUID = activeSpaceId,
     ): Long {
         val id = if (forcedId == null) {
-            tabsManager.create(restored, ::attachDelegates)
+            tabsManager.create(restored, privateMode = privateTab, attach = ::attachDelegates)
         } else {
-            tabsManager.createWithId(forcedId, restored, ::attachDelegates)
+            tabsManager.createWithId(
+                forcedId, restored, privateMode = privateTab, attach = ::attachDelegates,
+            )
         }
         if (desktop) applyDesktop(id, true)
         if (privateTab) privateTabs.add(id)
@@ -1798,9 +1813,25 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             spaceId = spaceId,
         )
         if (!url.isNullOrBlank() && restored == null) tabsManager.load(id, url)
-        if (makeActive) activeId = id
+        if (makeActive) {
+            activeId = id
+            markActiveWebExtensionTab(id)
+        }
         persistTabs()
         return id
+    }
+
+    /**
+     * GV's browserAction click resolves the popup URL for the tab marked
+     * active in GeckoViewWebExtension.sys.mjs. Without this, Action.click()
+     * returns an empty URL and onTogglePopup is never called.
+     */
+    private fun markActiveWebExtensionTab(id: Long) {
+        val active = tabsManager.session(id) ?: return
+        runCatching { runtime.webExtensionController.setTabActive(active, true) }
+        tabsManager.all.forEach { (otherId, session) ->
+            if (otherId != id) runCatching { runtime.webExtensionController.setTabActive(session, false) }
+        }
     }
 
     /* ---------------------------------------------------------------- delegates */
@@ -4176,7 +4207,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     ): GeckoResult<GeckoSession> {
         closeExtensionPopup(returnToPrevious = false)
         popupReturn = overlay
-        val session = GeckoSession()
+        val session = GeckoSession(
+            GeckoSessionSettings.Builder().usePrivateMode(activeTabIsPrivate).build(),
+        )
         session.open(runtime)
         session.contentDelegate = extensionPopupContentDelegate
         extensionPopupSession = session
@@ -4381,6 +4414,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         )
     }
 
+    /** GV may report enabled=false before onReady; actions still make it clickable. */
+    fun hasAction(extensionId: String): Boolean =
+        defaultBrowserActions.containsKey(extensionId) || extensionActions.containsKey(extensionId)
+
     fun updateExtension(item: ExtensionItem) {
         if (extensionUpdateMode(item.id) == 2) {
             showToast("Automatic updates are off")
@@ -4447,10 +4484,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             showToast("${item.name} is not allowed in private tabs")
             return
         }
-        val action = extensionActions[item.id]
-            ?: defaultBrowserActions[item.id]
+        // Fenix clicks the global browser action. A per-tab page-action
+        // override (often enabled=false) must not suppress the click.
+        val action = defaultBrowserActions[item.id]
+            ?: extensionActions[item.id]
             ?: defaultPageActions[item.id]
-        if (action == null || action.enabled == false) {
+        if (action == null) {
             showToast("${item.name} isn't ready yet")
             refreshExtensions()
             return
@@ -4779,7 +4818,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         val state = stateBlobs[id]?.let {
             runCatching { GeckoSession.SessionState.fromString(it) }.getOrNull()
         }
-        tabsManager.reopen(id, state, ::attachDelegates)
+        tabsManager.reopen(
+            id, state, privateMode = isPrivateTab(id), attach = ::attachDelegates,
+        )
         if (tab.desktopMode) applyDesktop(id, true)
         if (state == null && tab.url.isNotBlank() && !tab.isHome) {
             tabsManager.load(id, tab.url)
@@ -4941,6 +4982,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
         loadZoomEnd++
         activeId = id
+        markActiveWebExtensionTab(id)
         blockedCount = blockedByTab[id] ?: 0
         closeOverlay()
         expandPill()
@@ -4980,6 +5022,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             tabs = remaining
             if (activeId == id) {
                 activeId = remaining[getSafeIndex(idx, remaining.size)].id
+                markActiveWebExtensionTab(activeId)
             }
         }
         blockedCount = blockedByTab[activeId] ?: 0
