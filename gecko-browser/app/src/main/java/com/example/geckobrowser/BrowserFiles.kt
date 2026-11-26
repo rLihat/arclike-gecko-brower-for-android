@@ -239,7 +239,7 @@ object BrowserFiles {
     } ?: emptyList()
 
     fun savePinNodes(context: Context, nodes: List<PinNode>) {
-        writeText(pinNodesFile(context), JSONArray().apply {
+        val json = JSONArray().apply {
             nodes.forEach { n ->
                 put(JSONObject().apply {
                     put("id", n.id.toString())
@@ -256,13 +256,24 @@ object BrowserFiles {
                     put("deletedAt", n.deletedAt ?: JSONObject.NULL)
                 })
             }
-        }.toString())
+        }.toString()
+        writeText(pinNodesFile(context), json)
+        // Keep a prefs copy too: a failed file write must never lose folders.
+        runCatching {
+            context.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
+                .edit().putString("pin_nodes_backup", json).apply()
+        }
+        android.util.Log.i("HZ-Pins", "saved ${nodes.size} nodes")
     }
 
-    fun loadPinNodes(context: Context): List<PinNode> = readText(pinNodesFile(context))?.let { raw ->
+    fun loadPinNodes(context: Context): List<PinNode> = (
+        readText(pinNodesFile(context))
+            ?: context.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
+                .getString("pin_nodes_backup", null)
+        )?.let { raw ->
         try {
             val arr = JSONArray(raw)
-            buildList {
+            val result = buildList {
                 for (i in 0 until arr.length()) {
                     val o = arr.optJSONObject(i) ?: continue
                     val id = optUuid(o, "id") ?: continue
@@ -284,6 +295,8 @@ object BrowserFiles {
                     )
                 }
             }
+            android.util.Log.i("HZ-Pins", "loaded ${result.size} nodes")
+            result
         } catch (_: Throwable) {
             emptyList()
         }
