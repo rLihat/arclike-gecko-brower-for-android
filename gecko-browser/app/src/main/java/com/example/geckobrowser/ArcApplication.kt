@@ -58,7 +58,6 @@ class ArcApplication : Application() {
     val runtime: GeckoRuntime by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
         val prefs = getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
         val doh = prefs.getBoolean("doh_enabled", true)
-        val isolated = prefs.getBoolean("process_isolation", false)
         GeckoRuntime.create(
             this,
             GeckoRuntimeSettings.Builder()
@@ -73,8 +72,10 @@ class ArcApplication : Application() {
                     if (doh) GeckoRuntimeSettings.TRR_MODE_FIRST else GeckoRuntimeSettings.TRR_MODE_OFF,
                 )
                 .trustedRecursiveResolverUri("https://mozilla.cloudflare-dns.com/dns-query")
-                .extensionsProcessEnabled(isolated)
-                .isolatedProcessEnabled(isolated)
+                // Process isolation is intentionally off: GV 161 breaks page
+                // loads with it enabled on this device class.
+                .extensionsProcessEnabled(false)
+                .isolatedProcessEnabled(false)
                 .configFilePath(geckoConfigPath)
                 .build(),
         )

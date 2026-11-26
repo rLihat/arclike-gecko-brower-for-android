@@ -90,6 +90,7 @@ fun SettingsScreen(
             "privateTabs" -> PrivateTabSettingsPage(vm)
             "storage" -> StoragePage(vm)
             "dataCollection" -> DataCollectionPage(vm)
+            "protections" -> AlwaysOnProtectionsPage(vm)
             "about" -> AboutPage(vm, onBack = { vm.updateSettingsRoute("hub") })
             "authorNotes" -> AuthorNotesScreen(vm) { vm.updateSettingsRoute("about") }
             "releaseNotes" -> ReleaseNotesScreen(vm) { vm.updateSettingsRoute("about") }
@@ -808,54 +809,42 @@ private fun EngineList(
         all.forEach { e ->
             val enabled = vm.isEngineEnabled(e.id)
             val selected = enabled && e.id == vm.defaultSearchEngineId
-            Column(
+            Row(
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(11.dp))
                     .background(if (selected) c.menuCard else Color.Transparent)
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 12.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SiteFavicon(e.host, e.name, 18.dp)
-                    Spacer(Modifier.width(9.dp))
+                SiteFavicon(e.host, e.name, 21.dp)
+                Spacer(Modifier.width(11.dp))
+                Text(
+                    e.name,
+                    color = if (enabled) c.text else c.muted,
+                    fontSize = 13.5.sp,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                if (e.custom) {
                     Text(
-                        e.name,
-                        color = if (enabled) c.text else c.muted,
-                        fontSize = 13.sp,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
+                        "Custom",
+                        color = c.muted,
+                        fontSize = 10.sp,
+                        modifier = Modifier
+                            .border(1.dp, c.stroke, RoundedCornerShape(6.dp))
+                            .padding(horizontal = 5.dp, vertical = 1.dp),
                     )
-                    ArcSwitch(enabled) { vm.setEngineEnabled(e.id, it) }
+                    Spacer(Modifier.width(8.dp))
                 }
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 2.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    if (e.custom) {
-                        Text(
-                            "Custom",
-                            color = c.muted,
-                            fontSize = 10.sp,
-                            modifier = Modifier
-                                .border(1.dp, c.stroke, RoundedCornerShape(6.dp))
-                                .padding(horizontal = 5.dp, vertical = 1.dp),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                    }
-                    IconBtn(Ico.chevronUp) { vm.moveEngine(e.id, up = true) }
-                    IconBtn(Ico.chevronDown) { vm.moveEngine(e.id, up = false) }
-                    if (e.custom) {
-                        Spacer(Modifier.width(6.dp))
-                        IconBtn(Ico.trash) { vm.removeEngine(e.id) }
-                    }
+                IconBtn(Ico.chevronUp) { vm.moveEngine(e.id, up = true) }
+                IconBtn(Ico.chevronDown) { vm.moveEngine(e.id, up = false) }
+                ArcSwitch(enabled) { vm.setEngineEnabled(e.id, it) }
+                if (e.custom) {
+                    Spacer(Modifier.width(6.dp))
+                    IconBtn(Ico.trash) { vm.removeEngine(e.id) }
                 }
             }
         }
@@ -997,12 +986,6 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
                 onClick = { vm.toggleCookieBannerHandling() },
             )
             SettingsRow(
-                "HTTPS-Only Mode",
-                icon = { Glyph(Ico.lock, c.text, size = 20.dp, strokeWidth = 1.8f) },
-                trailing = { ArcSwitch(true) { } },
-                onClick = { },
-            )
-            SettingsRow(
                 "Site permissions",
                 icon = { Glyph(Ico.panelTop, c.text, size = 20.dp, strokeWidth = 1.7f) },
                 onClick = { vm.updateSettingsRoute("siteSettingsGlobal") },
@@ -1013,29 +996,6 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
                 value = if (vm.dohEnabled) "On" else "Off",
                 onClick = { vm.updateDohEnabled(!vm.dohEnabled) },
                 trailing = { ArcSwitch(vm.dohEnabled) { vm.updateDohEnabled(it) } },
-            )
-            SettingsRow(
-                "Fingerprinting Protection",
-                icon = { Glyph(Ico.info, c.text, size = 20.dp, strokeWidth = 1.8f) },
-                value = "On · all windows",
-                onClick = {
-                    vm.showToast("Canvas randomization and reduced system info are active")
-                },
-            )
-            SettingsRow(
-                "Advanced fingerprint resistance",
-                icon = { Glyph(Ico.shield, c.text, size = 20.dp, strokeWidth = 1.8f) },
-                value = if (vm.resistFingerprinting) "On" else "Off",
-                onClick = { vm.updateResistFingerprinting(!vm.resistFingerprinting) },
-                trailing = { ArcSwitch(vm.resistFingerprinting) { vm.updateResistFingerprinting(it) } },
-            )
-            SettingsRow(
-                "Bounce tracking protection",
-                icon = { Glyph(Ico.diagramFlow, c.text, size = 19.dp, strokeWidth = 1.8f) },
-                value = if (vm.etpStrict || vm.customTracking) "On" else "Standard only",
-                onClick = {
-                    vm.showToast("Bounce tracking protection is on in Strict and Custom modes")
-                },
             )
             SettingsRow(
                 "Strip tracking parameters",
@@ -1057,20 +1017,6 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
                 onClick = { vm.updateLnaBlocking(!vm.lnaBlocking) },
             )
             SettingsRow(
-                "Process isolation",
-                icon = { Glyph(Ico.shield, c.text, size = 20.dp, strokeWidth = 1.8f) },
-                value = if (vm.processIsolation) "On" else "Off",
-                trailing = { ArcSwitch(vm.processIsolation) { vm.updateProcessIsolation(it) } },
-                onClick = { vm.updateProcessIsolation(!vm.processIsolation) },
-            )
-            Text(
-                "Process isolation runs tabs and extensions in separate processes. "
-                    + "It hardens the browser but can use more memory and needs a restart. "
-                    + "Turn it off if a site or add-on stops working.",
-                color = c.muted, fontSize = 11.5.sp, lineHeight = 16.sp,
-                modifier = Modifier.padding(start = 6.dp, top = 4.dp, bottom = 8.dp),
-            )
-            SettingsRow(
                 "Private tabs",
                 icon = { Glyph(Ico.mask, c.text, size = 20.dp, strokeWidth = 1.8f) },
                 onClick = { vm.updateSettingsRoute("privateTabs") },
@@ -1082,10 +1028,10 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
                 onClick = { vm.updateSettingsRoute("storage") },
             )
             SettingsRow(
-                "Data collection",
+                "Always-on protections",
                 icon = { Glyph(Ico.info, c.text, size = 19.dp, strokeWidth = 1.8f) },
-                value = "None",
-                onClick = { vm.updateSettingsRoute("dataCollection") },
+                value = "None collected",
+                onClick = { vm.updateSettingsRoute("protections") },
             )
         }
 
@@ -1358,6 +1304,80 @@ private fun PrivateTabSettingsPage(vm: BrowserViewModel) {
             color = c.muted, fontSize = 12.sp, lineHeight = 17.sp,
             modifier = Modifier.padding(start = 6.dp),
         )
+    }
+}
+
+/** Always-on protections plus the plain-language data-collection policy. */
+@Composable
+private fun AlwaysOnProtectionsPage(vm: BrowserViewModel) {
+    val c = LocalArc.current
+    PageHeader("Always-on protections", { vm.updateSettingsRoute("privacy") }) {
+        Glyph(Ico.shieldCheck, c.text, size = 19.dp, strokeWidth = 1.8f)
+    }
+    Column(
+        Modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 40.dp),
+    ) {
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "No telemetry is collected.",
+            color = c.text, fontSize = 19.sp, fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(start = 4.dp, bottom = 10.dp),
+        )
+        SettingsGroup {
+            ProtectionInfo("Fingerprinting protection", "Canvas randomization and reduced system info, on in all windows")
+            ProtectionInfo(
+                "Bounce tracking protection",
+                if (vm.etpStrict || vm.customTracking) "On in Strict and Custom" else "Off in Standard",
+            )
+            ProtectionInfo("Third-party cookies", "Blocked in normal and private tabs")
+            ProtectionInfo("Query parameters", "Tracking parameters stripped from links")
+            ProtectionInfo("Safe Browsing", "v5 and real-time checks")
+            SettingsRow(
+                "Advanced fingerprint resistance",
+                icon = { Glyph(Ico.shield, c.text, size = 19.dp, strokeWidth = 1.8f) },
+                value = if (vm.resistFingerprinting) "On" else "Off",
+                trailing = { ArcSwitch(vm.resistFingerprinting) { vm.updateResistFingerprinting(it) } },
+                onClick = { vm.updateResistFingerprinting(!vm.resistFingerprinting) },
+            )
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            "Advanced fingerprint resistance is stricter and can break some sites. "
+                + "It applies after a restart.",
+            color = c.muted, fontSize = 11.5.sp, lineHeight = 16.sp,
+            modifier = Modifier.padding(start = 6.dp),
+        )
+        Spacer(Modifier.height(14.dp))
+        Text(
+            "horiZen has no analytics SDK, no crash reporter and no usage pings. "
+                + "Gecko data-submission preferences are forced off at startup. "
+                + "If you sign in to a Mozilla account, authentication and sync requests go to "
+                + "Mozilla's servers by necessity; your Spaces record is encrypted before upload. "
+                + "Typing a search sends your query to the search engine you selected. "
+                + "Websites you visit can see standard request data such as your IP address. "
+                + "The update check contacts GitHub, and blocked-page filters are bundled locally.",
+            color = c.muted, fontSize = 12.5.sp, lineHeight = 18.sp,
+            modifier = Modifier.padding(start = 6.dp),
+        )
+    }
+}
+
+@Composable
+private fun ProtectionInfo(label: String, detail: String) {
+    val c = LocalArc.current
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Glyph(Ico.check, c.accent, size = 16.dp, strokeWidth = 2.2f)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(label, color = c.text, fontSize = 14.sp)
+            Text(detail, color = c.muted, fontSize = 11.5.sp, lineHeight = 15.sp)
+        }
     }
 }
 

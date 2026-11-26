@@ -334,33 +334,8 @@ fun SearchSheet(
             }
         }
 
-        AnimatedVisibility(
-            visible = vm.essentialsSorted.isNotEmpty(),
-            enter = fadeIn(tween(150)) +
-                expandVertically(animationSpec = tween(240), expandFrom = Alignment.Top),
-            exit = fadeOut(tween(110)) +
-                shrinkVertically(animationSpec = tween(150), shrinkTowards = Alignment.Top),
-        ) {
-            EssentialRow(vm)
-        }
-        SpaceRow(vm, c, expanded) { expanded = !expanded; onExpandedChange?.invoke(expanded) }
-
-        LaunchedEffect(expanded) {
-            vm.searchExpanded = expanded
-        }
-
-        if (expanded) {
-            Column(
-                Modifier
-                    .weight(1f)
-                    .verticalScroll(rememberScrollState()),
-            ) {
-                PinTreeSection(vm, c)
-                OpenTabsSection(vm, c)
-                SyncStrip(vm, c)
-            }
-        }
-
+        // Engine picker sits directly under the field so it is never pushed
+        // out of view by the expanded space list.
         AnimatedVisibility(
             visible = engineMenu,
             enter = fadeIn(tween(150)) +
@@ -455,6 +430,33 @@ fun SearchSheet(
                         Text("Manage search providers", color = c.accent, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
+            }
+        }
+
+        AnimatedVisibility(
+            visible = vm.essentialsSorted.isNotEmpty(),
+            enter = fadeIn(tween(150)) +
+                expandVertically(animationSpec = tween(240), expandFrom = Alignment.Top),
+            exit = fadeOut(tween(110)) +
+                shrinkVertically(animationSpec = tween(150), shrinkTowards = Alignment.Top),
+        ) {
+            EssentialRow(vm)
+        }
+        SpaceRow(vm, c, expanded) { expanded = !expanded; onExpandedChange?.invoke(expanded) }
+
+        LaunchedEffect(expanded) {
+            vm.searchExpanded = expanded
+        }
+
+        if (expanded) {
+            Column(
+                Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
+            ) {
+                PinTreeSection(vm, c)
+                OpenTabsSection(vm, c)
+                SyncStrip(vm, c)
             }
         }
 

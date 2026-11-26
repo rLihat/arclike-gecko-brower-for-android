@@ -951,8 +951,6 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var lnaBlocking by mutableStateOf(prefs.getBoolean("lna_blocking", false))
         private set
-    var processIsolation by mutableStateOf(prefs.getBoolean("process_isolation", false))
-        private set
 
     fun updateQueryStripping(value: Boolean) {
         queryStripping = value
@@ -976,11 +974,6 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun updateProcessIsolation(value: Boolean) {
-        processIsolation = value
-        prefs.edit().putBoolean("process_isolation", value).apply()
-        showToast("Process isolation applies after a restart")
-    }
 
     fun updateAppLocale(tag: String) {
         appLocale = tag
@@ -1596,7 +1589,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         settings.setQueryParameterStrippingPrivateBrowsingEnabled(queryStripping)
         settings.setSafeBrowsingV5Enabled(safeBrowsingV5)
         settings.setSafeBrowsingRealTimeEnabled(safeBrowsingV5)
-        settings.setCookieBehavior(ContentBlocking.CookieBehavior.ACCEPT_NON_TRACKERS)
+        // Third-party cookies are blocked globally, in normal and private tabs.
+        settings.setCookieBehavior(ContentBlocking.CookieBehavior.ACCEPT_FIRST_PARTY)
+        settings.setCookieBehaviorPrivateMode(ContentBlocking.CookieBehavior.ACCEPT_FIRST_PARTY)
         // GV 161 removed the cookie-banner API (Firefox retired the built-in
         // banner handler). The preference is still parsed at startup for
         // backwards compatibility; real banner hiding comes from uBlock
