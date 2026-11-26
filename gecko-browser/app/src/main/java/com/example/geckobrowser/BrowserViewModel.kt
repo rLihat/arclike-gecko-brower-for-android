@@ -4332,7 +4332,17 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
      * Add-ons that only declare an AMO listing fall back to that URL.
      */
     fun openExtensionOptions(item: ExtensionItem) {
-        val url = item.optionsPageUrl.ifBlank { item.amoListingUrl }
+        val live = extensionObjects[item.id]
+        val meta = runCatching { live?.metaData }.getOrNull()
+        val raw = item.optionsPageUrl.ifBlank { meta?.optionsPageUrl.orEmpty() }
+        val base = meta?.baseUrl.orEmpty().trimEnd('/')
+        val candidates = listOf(
+            raw,
+            if (base.isNotBlank() && raw.isNotBlank() && !raw.startsWith("moz-extension")) "$base/$raw" else "",
+            if (base.isNotBlank()) "$base/options.html" else "",
+            if (base.isNotBlank()) "$base/options/options.html" else "",
+        )
+        val url = candidates.firstOrNull { it.isNotBlank() } ?: item.amoListingUrl
         if (url.isBlank()) {
             showToast("This add-on has no options page")
             return

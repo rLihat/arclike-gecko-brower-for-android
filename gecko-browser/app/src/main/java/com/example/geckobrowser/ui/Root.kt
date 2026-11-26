@@ -1037,13 +1037,14 @@ private fun ChromeOverlay(
                 .align(Alignment.BottomEnd)
                 .padding(end = 6.dp, bottom = 24.dp),
         )
-        // Extensions mirror the downloads chip, opposite edge: icon-only, menu only.
-        val extensionsChipVisible = overlay == Overlay.Menu
+        // Mozilla account chip mirrors the downloads chip. Extensions are
+        // already reachable from the menu pill, so this slot is the account.
+        val accountChipVisible = overlay == Overlay.Menu
         ExtensionChip(
-            visible = extensionsChipVisible,
-            onClick = { vm.openExtensionMenu() },
-            avatarUrl = null,
-            name = "Extensions",
+            visible = accountChipVisible,
+            onClick = { vm.openAccount() },
+            avatarUrl = vm.fxaAvatar,
+            name = vm.fxaDisplayName ?: vm.fxaEmail ?: "Mozilla account",
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 6.dp, bottom = 24.dp),
