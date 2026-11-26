@@ -1573,6 +1573,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         settings.setEnhancedTrackingProtectionLevel(
             if (strict) ContentBlocking.EtpLevel.STRICT else ContentBlocking.EtpLevel.DEFAULT,
         )
+        settings.setEnhancedTrackingProtectionCategory(
+            if (customTracking) ContentBlocking.EtpCategory.CUSTOM
+            else if (strict) ContentBlocking.EtpCategory.STRICT
+            else ContentBlocking.EtpCategory.STANDARD,
+        )
         settings.setStrictSocialTrackingProtection(strict)
         // Set the explicit categories last: Gecko's ETP level presets do not
         // include cryptomining or fingerprinting on Standard, and setting the
@@ -1580,7 +1585,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         val flags = if (customTracking) trackingFlags else {
             (if (strict) ContentBlocking.AntiTracking.STRICT else ContentBlocking.AntiTracking.DEFAULT) or
                 ContentBlocking.AntiTracking.CRYPTOMINING or
-                ContentBlocking.AntiTracking.FINGERPRINTING
+                ContentBlocking.AntiTracking.FINGERPRINTING or
+                ContentBlocking.AntiTracking.STP
         }
         settings.setAntiTracking(flags)
         settings.setBounceTrackingProtectionMode(
@@ -1594,9 +1600,12 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         settings.setQueryParameterStrippingPrivateBrowsingEnabled(queryStripping)
         settings.setSafeBrowsingV5Enabled(safeBrowsingV5)
         settings.setSafeBrowsingRealTimeEnabled(safeBrowsingV5)
-        // Third-party cookies are blocked globally, in normal and private tabs.
-        settings.setCookieBehavior(ContentBlocking.CookieBehavior.ACCEPT_FIRST_PARTY)
-        settings.setCookieBehaviorPrivateMode(ContentBlocking.CookieBehavior.ACCEPT_FIRST_PARTY)
+        // Total Cookie Protection: third-party cookies are isolated/blocked for
+        // tracking, and ETP levels actually take effect with this behavior.
+        val cookieBehavior = ContentBlocking.CookieBehavior.ACCEPT_FIRST_PARTY_AND_ISOLATE_OTHERS
+        settings.setCookieBehavior(cookieBehavior)
+        settings.setCookieBehaviorPrivateMode(cookieBehavior)
+        settings.setCookiePurging(strict || customTracking)
         // GV 161 removed the cookie-banner API (Firefox retired the built-in
         // banner handler). The preference is still parsed at startup for
         // backwards compatibility; real banner hiding comes from uBlock
@@ -2557,8 +2566,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
      * must survive this sweep.
      */
     private fun clearShownPrompt(exceptId: Long? = null) {
-        // Never sweep a pending add-on install prompt: a denial here is what
-        // Gecko reports as -100 (user cancelled).
+        // An add-on install result lives in extensionInstallResults, never in
+        // promptObjects/promptResults. It must stay pending until the user answers
+        // it: denying it from a sweep is exactly what Gecko reported as -100.
+        // Only the explicit cancel path below may complete it with a denial.
         val ids = (promptObjects.keys + promptResults.keys).distinct()
         ids.forEach { id ->
             if (id != exceptId) cancelPromptById(id)
@@ -2568,12 +2579,21 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private fun cancelPromptById(id: Long) {
         answeringPromptIds.add(id)
         try {
+            // Capture this before completePrompt(), which clears browserPrompt.
+            val cancellingVisibleInstall =
+                browserPrompt?.id == id && browserPrompt is BrowserPromptState.ExtensionInstall
             val prompt = promptObjects[id]
             val response = prompt?.let { runCatching { it.dismiss() }.getOrNull() }
             completePrompt(id, response)
-            val ext = extensionInstallResults.remove(id)
-            ext?.let { runCatching { it.complete(WebExtension.PermissionPromptResponse(false, false, false)) } }
-            if (browserPrompt?.id == id) browserPrompt = null
+            // Defence in depth: only an explicit cancel of the visible install
+            // question denies the result. A sweep never passes such an id here.
+            if (cancellingVisibleInstall) {
+                extensionInstallResults.remove(id)?.let { result ->
+                    runCatching {
+                        result.complete(WebExtension.PermissionPromptResponse(false, false, false))
+                    }
+                }
+            }
             if (filePickerRequest?.id == id) filePickerRequest = null
         } finally {
             answeringPromptIds.remove(id)
@@ -3320,16 +3340,22 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         android.util.Log.d("HZ-Ext", "answer id=$id allow=$allow private=$useInPrivate name=$name")
         if (browserPrompt?.id == id) browserPrompt = null
         val result = extensionInstallResults.remove(id) ?: return
+
+        // Persist the choice BEFORE completing Gecko's result: the install
+        // callback reads this pref as soon as the add-on is installed, and
+        // GeckoResult.complete() can dispatch that callback immediately.
+        if (allow && name.isNotBlank()) setExtensionPrivate(name, useInPrivate, notify = false)
+
         runCatching {
-            // Gecko treats privateModeGranted=false as a cancelled install
-            // (-100) even when permissions are granted. Grant it here and set
-            // the real private-tab choice through setAllowedInPrivateBrowsing.
+            // GeckoView 161: PermissionPromptResponse(permissionsGranted,
+            // privateModeGranted, technicalDataGranted). Keep privateModeGranted
+            // true so Gecko does not cancel the install (-100); the user's real
+            // private-tab choice is applied with setAllowedInPrivateBrowsing.
             result.complete(WebExtension.PermissionPromptResponse(allow, true, false))
         }
         if (allow) {
             extensionBadge = true
             showToast("Installing add-on…")
-            if (name.isNotBlank()) setExtensionPrivate(name, useInPrivate, notify = false)
         }
     }
 
@@ -3338,6 +3364,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setExtensionPrivate(name: String, value: Boolean, notify: Boolean = true) {
         prefs.edit().putBoolean("ext_private_$name", value).apply()
+        // During a fresh install the add-on is not in `extensions` yet; the
+        // install callback reads the pref above and applies it once it exists.
         extensions.firstOrNull { it.name == name }?.let { item ->
             extensionObjects[item.id]?.let { ext ->
                 runCatching {
@@ -3926,6 +3954,16 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 origins: Array<String>,
                 dataCollectionPermissions: Array<String>,
             ): GeckoResult<WebExtension.PermissionPromptResponse>? {
+                // Only one install question fits in browserPrompt. If another
+                // install arrives while one is pending, deny the newcomer at
+                // once instead of replacing the first prompt's UI and leaving
+                // its GeckoResult stranded (nor its -100 from a sweep).
+                if (extensionInstallResults.isNotEmpty()) {
+                    showToast("Another add-on install is waiting — try again shortly")
+                    return GeckoResult.fromValue(
+                        WebExtension.PermissionPromptResponse(false, false, false),
+                    )
+                }
                 clearShownPrompt()
                 val id = nextPromptId++
                 val result = GeckoResult<WebExtension.PermissionPromptResponse>()
@@ -3969,6 +4007,17 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 dataCollectionPermissions: Array<String>,
             ): GeckoResult<AllowOrDeny>? = GeckoResult.deny()
         }
+        // GeckoView 161 only fills baseUrl/optionsPageUrl once an add-on has
+        // fully started. Re-list on readiness so the Options action appears
+        // without an app restart (otherwise its URL stays blank and the page
+        // cannot be opened at all).
+        controller.setAddonManagerDelegate(object : WebExtensionController.AddonManagerDelegate {
+            override fun onReady(extension: WebExtension) = refreshExtensions()
+            override fun onInstalled(extension: WebExtension) = refreshExtensions()
+            override fun onUninstalled(extension: WebExtension) = refreshExtensions()
+            override fun onEnabled(extension: WebExtension) = refreshExtensions()
+            override fun onDisabled(extension: WebExtension) = refreshExtensions()
+        })
     }
 
     private val extensionActionDelegate = object : WebExtension.ActionDelegate {
@@ -4252,14 +4301,21 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Opens the add-on's own options page inside a new tab, if it has one. */
+    /**
+     * Opens the add-on's own options page in a tab. moz-extension:// is an
+     * internal scheme (see INTERNAL_SCHEMES), so Gecko actually loads the page
+     * instead of treating it as an external link and leaving a blank tab.
+     * Add-ons that only declare an AMO listing fall back to that URL.
+     */
     fun openExtensionOptions(item: ExtensionItem) {
         val url = item.optionsPageUrl.ifBlank { item.amoListingUrl }
         if (url.isBlank()) {
             showToast("This add-on has no options page")
             return
         }
-        val id = addTab(url = url, title = hostOf(url))
+        // An options document belongs to the add-on, not to a private session;
+        // extensions that opted out of private browsing cannot load there.
+        addTab(url = url, title = item.name.ifBlank { hostOf(url) }, privateTab = false)
         closeOverlay()
         expandPill()
     }
@@ -5458,6 +5514,14 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     override fun onCleared() {
         browserPrompt?.let { cancelPromptById(it.id) }
         browserPrompt = null
+        // clearShownPrompt() deliberately leaves install results alone, so
+        // deny them explicitly here to avoid stranding Gecko results.
+        extensionInstallResults.values.forEach { result ->
+            runCatching {
+                result.complete(WebExtension.PermissionPromptResponse(false, false, false))
+            }
+        }
+        extensionInstallResults.clear()
         popupBlocked?.let { answerPopup(it.id, allow = false) }
         popupBlocked = null
         popupDismissJobs.values.forEach { it.cancel() }
@@ -5559,7 +5623,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
         private val INTERNAL_SCHEMES = setOf(
             "http", "https", "about", "file", "data", "blob", "javascript",
-            "resource", "wyciwyg", "view-source",
+            // Add-on options/config pages are moz-extension:// documents. Without
+            // this they fall through to askExternalLink() and onLoadRequest denies
+            // the navigation, leaving a blank tab.
+            "moz-extension", "resource", "wyciwyg", "view-source",
         )
 
         /** Packages that are browsers; those never count as "the app for this link". */

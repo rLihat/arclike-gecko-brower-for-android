@@ -127,7 +127,9 @@ private fun ExtensionMenuRow(vm: BrowserViewModel, item: ExtensionItem) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(c.menuCard),
+            // A solid themed tile keeps the icon legible over the frosted sheet
+            // (menuCard turns transparent when frost is on).
+            Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(c.surface),
             contentAlignment = Alignment.Center,
         ) {
             if (item.icon != null) {

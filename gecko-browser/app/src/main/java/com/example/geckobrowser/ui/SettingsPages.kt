@@ -1177,8 +1177,8 @@ private fun GlobalSiteSettingsPage(vm: BrowserViewModel) {
             SettingsRow(
                 "Third-party cookies",
                 icon = { Glyph(Ico.lock, c.text, size = 20.dp, strokeWidth = 1.8f) },
-                value = "Blocked",
-                onClick = { vm.showToast("Third-party cookies are blocked by default") },
+                value = "Isolated",
+                onClick = { vm.showToast("Third-party cookies are partitioned by default") },
             )
             SettingsRow(
                 "DNS over HTTPS",
@@ -1332,7 +1332,7 @@ private fun AlwaysOnProtectionsPage(vm: BrowserViewModel) {
                 "Bounce tracking protection",
                 if (vm.etpStrict || vm.customTracking) "On in Strict and Custom" else "Off in Standard",
             )
-            ProtectionInfo("Third-party cookies", "Blocked in normal and private tabs")
+            ProtectionInfo("Third-party cookies", "Partitioned in normal and private tabs")
             ProtectionInfo("Query parameters", "Tracking parameters stripped from links")
             ProtectionInfo("Safe Browsing", "v5 and real-time checks")
             SettingsRow(

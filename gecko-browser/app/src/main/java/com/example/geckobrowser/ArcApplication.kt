@@ -44,8 +44,6 @@ class ArcApplication : Application() {
               toolkit.telemetry.geckoview: false
               datareporting.healthreport.uploadEnabled: false
               datareporting.policy.dataSubmissionEnabled: false
-              privacy.trackingprotection.fingerprinting.enabled: true
-              privacy.trackingprotection.cryptomining.enabled: true
               privacy.fingerprintingProtection: true
               privacy.fingerprintingProtection.pbmode: true
               privacy.resistFingerprinting: $resist

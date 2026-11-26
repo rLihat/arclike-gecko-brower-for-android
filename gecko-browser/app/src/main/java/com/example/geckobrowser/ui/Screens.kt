@@ -1031,18 +1031,19 @@ private fun ExtensionRow(vm: BrowserViewModel, item: ExtensionItem) {
                     .clickable { vm.updateExtension(item) }
                     .padding(horizontal = 6.dp, vertical = 4.dp),
             )
-            if (item.optionsPageUrl.isNotBlank()) {
-                Text(
-                    "Options",
-                    color = c.accent,
-                    fontSize = 11.5.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable { vm.openExtensionOptions(item) }
-                        .padding(horizontal = 6.dp, vertical = 4.dp),
-                )
-            }
+            // Always offer Options: GeckoView 161 fills optionsPageUrl only once
+            // the add-on is ready, and the VM falls back to the AMO listing (or a
+            // toast) when there is genuinely no page to open.
+            Text(
+                "Options",
+                color = c.accent,
+                fontSize = 11.5.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { vm.openExtensionOptions(item) }
+                    .padding(horizontal = 6.dp, vertical = 4.dp),
+            )
             Text(
                 "Permissions",
                 color = c.accent,

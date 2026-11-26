@@ -1041,9 +1041,9 @@ private fun ChromeOverlay(
         val extensionsChipVisible = overlay == Overlay.Menu
         ExtensionChip(
             visible = extensionsChipVisible,
-            onClick = { vm.openAccount() },
-            avatarUrl = vm.fxaAvatar,
-            name = vm.fxaDisplayName ?: vm.fxaEmail,
+            onClick = { vm.openExtensionMenu() },
+            avatarUrl = null,
+            name = "Extensions",
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 6.dp, bottom = 24.dp),
@@ -1671,6 +1671,7 @@ private fun BoxScope.PermissionPromptHost(vm: BrowserViewModel) {
 private fun BoxScope.BrowserPromptHost(vm: BrowserViewModel) {
     val prompt = vm.browserPrompt ?: return
     val c = LocalArc.current
+    val frostOn = LocalFrost.current
 
     // Field state is keyed to the prompt id so a new question starts clean.
     var textValue by remember(prompt.id) {
@@ -1697,8 +1698,11 @@ private fun BoxScope.BrowserPromptHost(vm: BrowserViewModel) {
                 .fillMaxWidth(0.86f)
                 .shadow(22.dp, RoundedCornerShape(26.dp))
                 .clip(RoundedCornerShape(26.dp))
-                .background(c.menuCard)
-                .then(rememberGlass(c.navSurface, fps = 15, maxEdge = 140, radius = 6))
+                // Frost off: a solid, theme-matched card. Frost on: the
+                // translucent menuCard lets the snapshot through, with a
+                // matching surface tint so text stays readable in both themes.
+                .background(if (frostOn) c.menuCard else c.surface)
+                .then(rememberGlass(c.surface, fps = 15, maxEdge = 140, radius = 6))
                 .border(1.dp, c.stroke, RoundedCornerShape(26.dp))
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },

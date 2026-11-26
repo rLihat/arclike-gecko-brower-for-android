@@ -147,40 +147,74 @@ class FxaSync(private val context: Context) {
         return completeSignIn(code, state)
     }
 
+    private data class SyncCredentials(val scopedKey: String, val tokens: JSONObject)
+
     /** Pull the remote record, merge it locally, then push the merged result. */
     fun syncNow(snapshot: SpaceSyncSnapshot): SpaceSyncSnapshot? {
         if (!isSignedIn) return null
         return try {
-            val info = account().getAccessToken(SCOPE_OLDSYNC, false)
-            val scopedKey = info.key?.k ?: run {
-                val message = "No sync key for this account"
-                lastError = message
-                android.util.Log.e("HZ-FxA", message)
-                return null
-            }
+            // getTokenServerEndpointUrl() is only the base URL published in
+            // FxA's .well-known/fxa-client-configuration (in production
+            // https://token.services.mozilla.com/). The tokenserver exposes a
+            // single API, GET /1.0/sync/1.5; requesting the bare base URL
+            // returns its text/html documentation page instead of JSON.
+            val tokenBase = account().getTokenServerEndpointUrl().trimEnd('/')
+            val tokenPath = "/1.0/sync/1.5"
+            val tokenUrl = URL(if (tokenBase.endsWith(tokenPath)) tokenBase else tokenBase + tokenPath)
 
-            // The FxA token server hands out the storage node plus the Hawk
-            // credentials for it. Its own URL is not a storage endpoint, and
-            // the storage node does not accept the OAuth Bearer token.
-            val tokenUrl = URL(account().getTokenServerEndpointUrl())
-            val tokenConn = tokenUrl.openConnection() as HttpURLConnection
-            tokenConn.connectTimeout = 15000
-            tokenConn.readTimeout = 15000
-            tokenConn.setRequestProperty("Authorization", "Bearer ${info.token}")
-            tokenConn.setRequestProperty("Accept", "application/json")
-            val tokenCode = tokenConn.responseCode
-            if (tokenCode != 200) {
-                lastError = "Token server HTTP $tokenCode"
-                tokenConn.disconnect()
-                return null
+            var credentials: SyncCredentials? = null
+            for (attempt in 0..1) {
+                // `false` asks for a fresh token. OAuth tokenserver requests
+                // must also carry the scoped key's `kid` in X-KeyID.
+                val info = account().getAccessToken(SCOPE_OLDSYNC, false)
+                val scoped = info.key ?: run {
+                    val message = "No sync key for this account"
+                    lastError = message
+                    android.util.Log.e("HZ-FxA", message)
+                    return null
+                }
+                val tokenConn = tokenUrl.openConnection() as HttpURLConnection
+                tokenConn.connectTimeout = 15000
+                tokenConn.readTimeout = 15000
+                tokenConn.setRequestProperty("Authorization", "Bearer ${info.token}")
+                tokenConn.setRequestProperty("X-KeyID", scoped.kid)
+                tokenConn.setRequestProperty("Accept", "application/json")
+                val tokenCode = tokenConn.responseCode
+                if (tokenCode == 401 && attempt == 0) {
+                    tokenConn.disconnect()
+                    account().clearAccessTokenCache()
+                    continue
+                }
+                if (tokenCode != 200) {
+                    lastError = "Token server HTTP $tokenCode: ${responseBody(tokenConn).take(160)}"
+                    android.util.Log.e("HZ-FxA", lastError ?: "unknown")
+                    tokenConn.disconnect()
+                    return null
+                }
+                val tokens = try {
+                    readJson(tokenConn, "Token server")
+                } finally {
+                    tokenConn.disconnect()
+                }
+                credentials = SyncCredentials(scoped.k, tokens)
+                break
             }
-            val tokens = readJson(tokenConn, "Token server")
-            tokenConn.disconnect()
-            val node = tokens.getString("node").trimEnd('/')
+            val (scopedKey, tokens) = credentials ?: return null
+
+            // The storage node is api_endpoint (which already includes the
+            // /1.5/<uid> prefix). The tokenserver host is not a storage
+            // endpoint, and current tokenservers do not return a `node` field.
+            val apiEndpoint = tokens.optString("api_endpoint").trimEnd('/').ifBlank {
+                val node = tokens.optString("node").trimEnd('/')
+                val uid = tokens.optLong("uid", -1L)
+                if (node.isBlank() || uid < 0L) {
+                    throw IllegalStateException("Token server returned no api_endpoint")
+                }
+                "$node/1.5/$uid"
+            }
+            val endpoint = "$apiEndpoint/storage/$COLLECTION_NAME/$RECORD_ID"
             val syncId = tokens.getString("id")
             val hawkKey = decodeHawkKey(tokens.getString("key"))
-
-            val endpoint = "$node/storage/$COLLECTION_NAME/$RECORD_ID"
 
             // Pull first, merge, then push the merged record. Pushing our local
             // snapshot first would overwrite anything another device wrote.
@@ -256,9 +290,16 @@ class FxaSync(private val context: Context) {
         }
     }
 
+    /** Reads a response body, including error responses, for diagnostics. */
+    private fun responseBody(conn: HttpURLConnection): String = try {
+        (conn.errorStream ?: conn.inputStream).bufferedReader().use { it.readText() }
+    } catch (_: Throwable) {
+        ""
+    }
+
     /** Reads a JSON response, with a useful error when a server returns HTML. */
     private fun readJson(conn: HttpURLConnection, label: String): JSONObject {
-        val body = conn.inputStream.bufferedReader().use { it.readText() }
+        val body = responseBody(conn)
         val type = conn.contentType.orEmpty()
         if (!type.contains("json", ignoreCase = true)) {
             throw IllegalStateException("$label returned $type: ${body.take(140)}")
