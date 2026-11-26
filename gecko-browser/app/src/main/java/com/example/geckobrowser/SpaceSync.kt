@@ -9,10 +9,20 @@ import java.util.UUID
  * Zen's "Workspaces & Tabs" engine: last-writer-wins on [updatedAt], with soft
  * delete tombstones winning over missing rows. No passwords/logins are included.
  */
+/** One open (non-private) tab. Private tabs and their history are never synced. */
+data class TabSyncRecord(
+    val id: Long,
+    val url: String,
+    val title: String,
+    val spaceId: UUID = Space.PERSONAL_ID,
+    val updatedAt: Long = System.currentTimeMillis(),
+)
+
 data class SpaceSyncSnapshot(
     val spaces: List<Space> = emptyList(),
     val essentials: List<Essential> = emptyList(),
     val pinNodes: List<PinNode> = emptyList(),
+    val tabs: List<TabSyncRecord> = emptyList(),
     val updatedAt: Long = System.currentTimeMillis(),
 ) {
     fun toJson(): String = JSONObject().apply {
@@ -64,6 +74,17 @@ data class SpaceSyncSnapshot(
                     put("depth", n.depth)
                     put("updatedAt", n.updatedAt)
                     put("deletedAt", n.deletedAt ?: JSONObject.NULL)
+                })
+            }
+        })
+        put("tabs", JSONArray().apply {
+            tabs.forEach { t ->
+                put(JSONObject().apply {
+                    put("id", t.id)
+                    put("url", t.url)
+                    put("title", t.title)
+                    put("spaceId", t.spaceId.toString())
+                    put("updatedAt", t.updatedAt)
                 })
             }
         })
@@ -135,7 +156,24 @@ data class SpaceSyncSnapshot(
                     deletedAt = tombstone(o),
                 )
             }
-            SpaceSyncSnapshot(spaces, essentials, pins, root.optLong("updatedAt", System.currentTimeMillis()))
+            val syncedTabs = mutableListOf<TabSyncRecord>()
+            val tabArr = root.optJSONArray("tabs") ?: JSONArray()
+            for (i in 0 until tabArr.length()) {
+                val o = tabArr.optJSONObject(i) ?: continue
+                val url = o.optString("url")
+                if (url.isBlank()) continue // never restore blank/home tabs
+                syncedTabs += TabSyncRecord(
+                    id = o.optLong("id", 0L),
+                    url = url,
+                    title = o.optString("title"),
+                    spaceId = optUuid(o, "spaceId") ?: Space.PERSONAL_ID,
+                    updatedAt = o.optLong("updatedAt", System.currentTimeMillis()),
+                )
+            }
+            SpaceSyncSnapshot(
+                spaces, essentials, pins, syncedTabs,
+                root.optLong("updatedAt", System.currentTimeMillis()),
+            )
           } catch (_: Throwable) {
             null
           }
@@ -154,7 +192,11 @@ data class SpaceSyncSnapshot(
                 idOf = { it.id }, pick = { a, b -> if (a.updatedAt >= b.updatedAt) a else b })
             val pins = mergeById(local.pinNodes, remote.pinNodes,
                 idOf = { it.id }, pick = { a, b -> if (a.updatedAt >= b.updatedAt) a else b })
-            return SpaceSyncSnapshot(spaces, essentials, pins, maxOf(local.updatedAt, remote.updatedAt))
+            val tabs = mergeById(local.tabs, remote.tabs,
+                idOf = { it.id }, pick = { a, b -> if (a.updatedAt >= b.updatedAt) a else b })
+            return SpaceSyncSnapshot(
+                spaces, essentials, pins, tabs, maxOf(local.updatedAt, remote.updatedAt),
+            )
         }
 
         private fun <T> mergeById(

@@ -337,6 +337,25 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Opens tabs another device synced that we don't already have open. */
+    private fun applySyncedTabs(records: List<TabSyncRecord>) {
+        if (records.isEmpty()) return
+        val openIds = tabs.map { it.id }.toSet()
+        val openUrls = tabs.map { pinKeyOf(it.url) }.toSet()
+        records.forEach { record ->
+            if (record.url.isBlank()) return@forEach
+            if (record.id in openIds || pinKeyOf(record.url) in openUrls) return@forEach
+            val spaceId = if (spaces.any { it.id == record.spaceId }) record.spaceId else Space.PERSONAL_ID
+            addTab(
+                url = record.url,
+                title = record.title.ifBlank { hostOf(record.url) },
+                spaceId = spaceId,
+                makeActive = false,
+            )
+            openUrls.add(pinKeyOf(record.url))
+        }
+    }
+
     /** Shown in Settings → Diagnostics when logcat isn't available. */
     fun diagnosticsReport(): String = buildString {
         appendLine("Active space: $activeSpaceId (${activeSpace?.name ?: "missing"})")
@@ -359,7 +378,17 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         syncError = null
         syncStatus = "Syncing…"
         scope.launch(Dispatchers.IO) {
-            val snapshot = SpaceSyncSnapshot(spaces, essentials, pinNodes)
+            val now = System.currentTimeMillis()
+            val snapshot = SpaceSyncSnapshot(
+                spaces = spaces,
+                essentials = essentials,
+                pinNodes = pinNodes,
+                // Private tabs are deliberately excluded — never sync them.
+                tabs = tabs.filter { !it.isPrivate && it.url.isNotBlank() }.map {
+                    TabSyncRecord(it.id, it.url, it.title, it.spaceId, now)
+                },
+                updatedAt = now,
+            )
             val merged = fxaSync.syncNow(snapshot)
             withContext(Dispatchers.Main) {
                 if (merged != null) {
@@ -367,6 +396,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                     essentials = merged.essentials
                     pinNodes = merged.pinNodes
                     persistSpaces(); persistEssentials(); persistPinNodes()
+                    applySyncedTabs(merged.tabs)
                     syncStatus = "Synced just now"
                     showToast("Spaces synced")
                 } else {
@@ -4219,8 +4249,21 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         extension: WebExtension,
         action: WebExtension.Action,
     ): GeckoResult<GeckoSession> {
+        // A popup is a new, topmost surface: tear down the mini menu and the
+        // search sheet first so they can't sit behind or steal focus from it.
+        val returnTo: Overlay
+        if (overlay == Overlay.ExtensionMenu) {
+            closeExtensionMenu()
+            returnTo = Overlay.None
+        } else if (overlay == Overlay.Search) {
+            closeOverlay()
+            searchExpanded = false
+            returnTo = Overlay.None
+        } else {
+            returnTo = overlay
+        }
         closeExtensionPopup(returnToPrevious = false)
-        popupReturn = overlay
+        popupReturn = returnTo
         val session = GeckoSession(
             GeckoSessionSettings.Builder().usePrivateMode(activeTabIsPrivate).build(),
         )
