@@ -36,14 +36,25 @@ class FxaSync(private val context: Context) {
     /** device_config is not persisted, so track the exact object we initialized. */
     private var initializedAccount: FirefoxAccount? = null
 
-    /** NSS + the Rust HTTP client are only needed once an account is used. */
+    /**
+     * NSS + the Rust HTTP client are only needed once an account is used.
+     * AppServicesInitializer is the same bootstrap Fenix uses: it calls
+     * RustComponentsInitializer.init() and enables Rust error logging, which is
+     * the ONLY way to see why begin_oauth_flow falls back to Disconnected.
+     */
     @Synchronized
     private fun ensureRust() {
         if (rustReady) return
-        mozilla.appservices.init_rust_components.initialize()
+        mozilla.components.support.AppServicesInitializer.init(
+            mozilla.components.support.AppServicesInitializer.Config(
+                crashReporting = null,
+                logLevel = mozilla.components.support.base.log.Log.Priority.DEBUG,
+            ),
+        )
         mozilla.appservices.viaduct.RustHttpConfig.setClient(lazy {
             mozilla.components.lib.fetch.httpurlconnection.HttpURLConnectionClient()
         })
+        android.util.Log.i("HZ-FxA", "AppServices 161 initialised; Rust log enabled")
         rustReady = true
     }
 

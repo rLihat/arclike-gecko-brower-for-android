@@ -225,6 +225,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private var extensionPopupSession: GeckoSession? = null
     /** Toolbar actions reported by installed add-ons, keyed by extension id. */
     private val extensionActions = HashMap<String, WebExtension.Action>()
+    /** Default (non-tab) actions — Fenix clicks these, not a guessed popup URL. */
+    private val defaultBrowserActions = HashMap<String, WebExtension.Action>()
+    private val defaultPageActions = HashMap<String, WebExtension.Action>()
+    private var popupExtensionId: String? = null
     /** Firefox-style Managed Extension detail screen. */
     var extensionDetailsId by mutableStateOf<String?>(null)
         private set
@@ -4111,7 +4115,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             session: GeckoSession?,
             action: WebExtension.Action,
         ) {
-            extensionActions[extension.id] = action
+            if (session == null) defaultBrowserActions[extension.id] = action
+            val default = defaultBrowserActions[extension.id]
+            extensionActions[extension.id] =
+                if (session != null && default != null) action.withDefault(default) else action
         }
 
         override fun onPageAction(
@@ -4119,7 +4126,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             session: GeckoSession?,
             action: WebExtension.Action,
         ) {
-            extensionActions[extension.id] = action
+            if (session == null) defaultPageActions[extension.id] = action
+            val default = defaultPageActions[extension.id]
+            extensionActions[extension.id] =
+                if (session != null && default != null) action.withDefault(default) else action
         }
 
         override fun onOpenPopup(
@@ -4127,18 +4137,39 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             action: WebExtension.Action,
         ): GeckoResult<GeckoSession> {
             extensionActions[extension.id] = action
+            // GV tracks one popup at a time; reusing it avoids stacking sessions.
+            val existing = extensionPopupSession
+            if (popupExtensionId == extension.id && existing != null) {
+                return GeckoResult.fromValue(existing)
+            }
             return openExtensionPopup(extension, action)
         }
 
         override fun onTogglePopup(
             extension: WebExtension,
             action: WebExtension.Action,
-        ): GeckoResult<GeckoSession> {
+        ): GeckoResult<GeckoSession>? {
             extensionActions[extension.id] = action
+            if (popupExtensionId == extension.id && extensionPopupSession != null) {
+                closeExtensionPopup()
+                return null // @Nullable in GV 161: closing the popup means no session
+            }
             return openExtensionPopup(extension, action)
         }
     }
 
+    /** An add-on popup can call window.close(); dismiss our host with it. */
+    private val extensionPopupContentDelegate = object : GeckoSession.ContentDelegate {
+        override fun onCloseRequest(session: GeckoSession) {
+            if (session === extensionPopupSession) closeExtensionPopup()
+        }
+    }
+
+    /**
+     * The app's entire contract with Gecko: hand it a fresh session. Gecko sets
+     * the isExtensionPopup flag and loads the add-on's popup URI itself —
+     * WebExtension.Action exposes no popupUri to us.
+     */
     private fun openExtensionPopup(
         extension: WebExtension,
         action: WebExtension.Action,
@@ -4147,16 +4178,20 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         popupReturn = overlay
         val session = GeckoSession()
         session.open(runtime)
+        session.contentDelegate = extensionPopupContentDelegate
         extensionPopupSession = session
+        popupExtensionId = extension.id
         extensionPopupTitle = action.title ?: extension.metaData?.name ?: "Extension"
         overlay = Overlay.ExtensionPopup
         compactPill = false
+        android.util.Log.i("HZ-Ext", "openPopup ${extension.id} ${extension.metaData?.name}")
         return GeckoResult.fromValue(session)
     }
 
     fun closeExtensionPopup(returnToPrevious: Boolean = true) {
         extensionPopupSession?.close()
         extensionPopupSession = null
+        popupExtensionId = null
         extensionPopupTitle = ""
         if (overlay == Overlay.ExtensionPopup) {
             overlay = if (returnToPrevious) popupReturn else Overlay.None
@@ -4399,24 +4434,29 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         compactPill = false
     }
 
-    /** Simulates a toolbar-button click: add-ons with a popup open it, others react. */
+    /**
+     * Same as Fenix: clicking the add-on's action is ALL we do. Gecko decides
+     * whether to call onTogglePopup (popup) or fire onClicked (no popup). We
+     * must not guess a popup URL or run a timer that opens options and tears
+     * down the popup Gecko is creating.
+     */
     fun clickExtension(item: ExtensionItem) {
+        if (activeTabIsPrivate &&
+            extensionObjects[item.id]?.metaData?.allowedInPrivateBrowsing != true
+        ) {
+            showToast("${item.name} is not allowed in private tabs")
+            return
+        }
         val action = extensionActions[item.id]
+            ?: defaultBrowserActions[item.id]
+            ?: defaultPageActions[item.id]
         if (action == null || action.enabled == false) {
-            openExtensionOptions(item)
+            showToast("${item.name} isn't ready yet")
+            refreshExtensions()
             return
         }
-        runCatching { action.click() }.onFailure {
-            openExtensionOptions(item)
-            return
-        }
-        // Actions without a popup only fire onClicked in the background. If
-        // Gecko never asks us for a popup session, fall back to options.
-        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            if (extensionPopupSession == null && overlay != Overlay.ExtensionPopup) {
-                openExtensionOptions(item)
-            }
-        }, 350L)
+        runCatching { action.click() }
+            .onFailure { showToast("Could not open ${item.name}") }
     }
 
     /**

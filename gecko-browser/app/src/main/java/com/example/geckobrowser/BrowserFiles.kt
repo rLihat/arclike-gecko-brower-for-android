@@ -266,41 +266,49 @@ object BrowserFiles {
         android.util.Log.i("HZ-Pins", "saved ${nodes.size} nodes")
     }
 
-    fun loadPinNodes(context: Context): List<PinNode> = (
-        readText(pinNodesFile(context))
-            ?: context.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
-                .getString("pin_nodes_backup", null)
-        )?.let { raw ->
-        try {
-            val arr = JSONArray(raw)
-            val result = buildList {
-                for (i in 0 until arr.length()) {
-                    val o = arr.optJSONObject(i) ?: continue
-                    val id = optUuid(o, "id") ?: continue
-                    add(
-                        PinNode(
-                            id = id,
-                            spaceId = optUuid(o, "spaceId") ?: Space.PERSONAL_ID,
-                            parentId = optUuid(o, "parentId"),
-                            type = PinType.valueOf(o.optString("type").ifBlank { "PIN" }),
-                            url = o.optString("url"),
-                            title = o.optString("title"),
-                            faviconUrl = o.optString("faviconUrl").takeUnless { it.isBlank() || it == "null" },
-                            sortIndex = o.optInt("sortIndex", 0),
-                            collapsed = o.optBoolean("collapsed", false),
-                            depth = o.optInt("depth", 0),
-                            updatedAt = o.optLong("updatedAt", System.currentTimeMillis()),
-                            deletedAt = o.optLong("deletedAt", 0L).takeIf { it > 0 },
-                        )
-                    )
-                }
+    /**
+     * Try the file first, then the prefs copy — including when the file exists
+     * but is truncated/corrupt. A valid empty array is a valid (empty) tree.
+     */
+    fun loadPinNodes(context: Context): List<PinNode> {
+        val backup = context.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
+            .getString("pin_nodes_backup", null)
+        for (raw in listOfNotNull(readText(pinNodesFile(context)), backup)) {
+            val parsed = runCatching { parsePinNodes(raw) }.getOrNull()
+            if (parsed != null) {
+                android.util.Log.i("HZ-Pins", "loaded ${parsed.size} nodes")
+                return parsed
             }
-            android.util.Log.i("HZ-Pins", "loaded ${result.size} nodes")
-            result
-        } catch (_: Throwable) {
-            emptyList()
         }
-    } ?: emptyList()
+        android.util.Log.w("HZ-Pins", "no readable pin tree")
+        return emptyList()
+    }
+
+    private fun parsePinNodes(raw: String): List<PinNode> {
+        val arr = JSONArray(raw)
+        return buildList {
+            for (i in 0 until arr.length()) {
+                val o = arr.optJSONObject(i) ?: continue
+                val id = optUuid(o, "id") ?: continue
+                add(
+                    PinNode(
+                        id = id,
+                        spaceId = optUuid(o, "spaceId") ?: Space.PERSONAL_ID,
+                        parentId = optUuid(o, "parentId"),
+                        type = PinType.valueOf(o.optString("type").ifBlank { "PIN" }),
+                        url = o.optString("url"),
+                        title = o.optString("title"),
+                        faviconUrl = o.optString("faviconUrl").takeUnless { it.isBlank() || it == "null" },
+                        sortIndex = o.optInt("sortIndex", 0),
+                        collapsed = o.optBoolean("collapsed", false),
+                        depth = o.optInt("depth", 0),
+                        updatedAt = o.optLong("updatedAt", System.currentTimeMillis()),
+                        deletedAt = o.optLong("deletedAt", 0L).takeIf { it > 0 },
+                    )
+                )
+            }
+        }
+    }
 
     /** A [org.mozilla.geckoview.GeckoSession.SessionState] serialized with toString(). */
     fun saveSession(context: Context, id: Long, serialized: String) {

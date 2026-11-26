@@ -590,7 +590,7 @@ private val sheetOverlays = setOf(
 
 /** Bottom sheets whose background is frosted from the live page. */
 private val frostedSheets = setOf(
-    Overlay.Search, Overlay.Menu, Overlay.ExtensionMenu, Overlay.ExtensionPopup,
+    Overlay.Search, Overlay.Menu, Overlay.ExtensionMenu,
 )
 
 @Composable
@@ -620,7 +620,8 @@ private fun ChromeOverlay(
         val sheetLift = if (overlay == Overlay.Search) imeDp else 0.dp
         val fullHeight = overlay == Overlay.Settings || overlay == Overlay.SiteSettings ||
             overlay == Overlay.Account || overlay == Overlay.Downloads ||
-            overlay == Overlay.Extensions || overlay == Overlay.ExtensionDetails || overlay == Overlay.History ||
+            overlay == Overlay.Extensions || overlay == Overlay.ExtensionDetails ||
+            overlay == Overlay.ExtensionPopup || overlay == Overlay.History ||
             overlay == Overlay.Translate || overlay == Overlay.Passwords ||
             overlay == Overlay.About || overlay == Overlay.ReleaseNotes ||
             // v5: expanding the space card grows the sheet to fill the screen.
@@ -845,7 +846,9 @@ private fun ChromeOverlay(
                     Modifier
                         .fillMaxSize()
                         .graphicsLayer {
-                            alpha = contentAlpha
+                            // A live GeckoView popup must not be composited with
+                            // alpha/translation — Fenix shows it as a flat fragment.
+                            alpha = if (lastSheet == Overlay.ExtensionPopup) 1f else contentAlpha
                             translationY = if (rises) contentRise.toPx() else 0f
                         },
                 ) {
@@ -2070,13 +2073,19 @@ private fun ExtensionPopupSheet(vm: BrowserViewModel) {
         AndroidView(
             factory = { ctx ->
                 GeckoView(ctx).apply {
+                    // SurfaceView cannot be animated or layered over the page's
+                    // GeckoView; GV's own popup example uses a texture-backed view.
+                    setViewBackend(GeckoView.BACKEND_TEXTURE_VIEW)
                     setBackgroundColor(c.sheet.toArgb())
                     vm.extensionPopup?.let { setSession(it) }
                 }
             },
             update = { view ->
                 val session = vm.extensionPopup
-                if (session != null && view.session !== session) view.setSession(session)
+                if (view.session !== session) {
+                    view.releaseSession()
+                    if (session != null) view.setSession(session)
+                }
             },
             modifier = Modifier.fillMaxSize(),
         )

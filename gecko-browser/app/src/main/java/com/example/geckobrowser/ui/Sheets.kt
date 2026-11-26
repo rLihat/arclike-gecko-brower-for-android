@@ -1085,13 +1085,15 @@ private fun SpaceManager(
 ) {
     val c = LocalArc.current
     var selectedId by remember { mutableStateOf(initialId) }
-    val selected = spaces.firstOrNull { it.id == selectedId } ?: spaces.firstOrNull()
-    var name by remember(selectedId) { mutableStateOf(selected?.name.orEmpty()) }
-    var icon by remember(selectedId) { mutableStateOf(selected?.icon ?: "plus") }
-    var container by remember(selectedId) { mutableStateOf(selected?.container ?: "none") }
-    var containerExpanded by remember(selectedId) { mutableStateOf(false) }
-    var cA by remember(selectedId) { mutableLongStateOf(selected?.colorA ?: DEFAULT_SPACE_C1) }
-    var cB by remember(selectedId) { mutableLongStateOf(selected?.colorB ?: DEFAULT_SPACE_C2) }
+    // A null selection is the "create new" draft. Never fall back to another
+    // space here: Save would then overwrite that space instead of creating one.
+    val selected = spaces.firstOrNull { it.id == selectedId }
+    var name by remember { mutableStateOf(selected?.name.orEmpty()) }
+    var icon by remember { mutableStateOf(selected?.icon ?: "plus") }
+    var container by remember { mutableStateOf(selected?.container ?: "none") }
+    var containerExpanded by remember { mutableStateOf(false) }
+    var cA by remember { mutableLongStateOf(selected?.colorA ?: DEFAULT_SPACE_C1) }
+    var cB by remember { mutableLongStateOf(selected?.colorB ?: DEFAULT_SPACE_C2) }
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
