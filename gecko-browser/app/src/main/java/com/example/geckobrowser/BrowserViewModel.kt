@@ -4020,6 +4020,29 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         })
     }
 
+    /** GV 161 routes runtime.openOptionsPage()/tabs.create here. */
+    private val extensionTabDelegate = object : WebExtension.TabDelegate {
+        override fun onNewTab(
+            extension: WebExtension,
+            details: WebExtension.CreateTabDetails,
+        ): GeckoResult<GeckoSession> {
+            val url = details.url.orEmpty()
+            val id = addTab(url = url, title = hostOf(url))
+            return GeckoResult.fromValue(tabsManager.session(id))
+        }
+
+        override fun onOpenOptionsPage(extension: WebExtension) {
+            val item = extensions.firstOrNull { it.id == extension.id }
+            if (item != null) {
+                openExtensionOptions(item)
+            } else {
+                val url = runCatching { extension.metaData?.optionsPageUrl }.getOrNull().orEmpty()
+                if (url.isBlank()) showToast("This add-on has no options page")
+                else addTab(url = url, title = extension.metaData?.name ?: "Add-on")
+            }
+        }
+    }
+
     private val extensionActionDelegate = object : WebExtension.ActionDelegate {
         override fun onBrowserAction(
             extension: WebExtension,
@@ -4111,6 +4134,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                     list.orEmpty().forEach { extension ->
                         extensionObjects[extension.id] = extension
                         runCatching { extension.setActionDelegate(extensionActionDelegate) }
+                        runCatching { extension.setTabDelegate(extensionTabDelegate) }
                         val meta = extension.metaData
                         val base = meta?.baseUrl.orEmpty()
                         val rawOptions = meta?.optionsPageUrl.orEmpty()

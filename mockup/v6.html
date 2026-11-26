@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>horiZen v6 — merged mockup</title>
+<style>
+  :root {
+    --accent: #2f5c69;
+    --text: #101314;
+    --muted: #7d858b;
+    --bg: #f4f4f2;
+    --surface: #f3f3f1;
+    --card: #ffffff;
+    --chip: #e9e9e6;
+    --hair: rgba(0,0,0,.10);
+    --stroke: rgba(0,0,0,.08);
+    --page: #f6f7f6;
+    --blur: rgba(246,246,244,.78);
+  }
+  body[data-theme="dark"] {
+    --accent: #4f93a8;
+    --text: #eef3f2;
+    --muted: #a8b4b8;
+    --bg: #1e2325;
+    --surface: #222729;
+    --card: #2a3033;
+    --chip: #232a2c;
+    --hair: rgba(255,255,255,.16);
+    --stroke: rgba(255,255,255,.10);
+    --page: #12171a;
+    --blur: rgba(34,39,41,.82);
+  }
+  body[data-theme="oled"] {
+    --accent: #4f93a8;
+    --text: #eef3f2;
+    --muted: #a8b4b8;
+    --bg: #000;
+    --surface: #000;
+    --card: #101010;
+    --chip: #000;
+    --hair: rgba(255,255,255,.18);
+    --stroke: rgba(255,255,255,.10);
+    --page: #000;
+    --blur: rgba(0,0,0,.86);
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 Inter,Roboto,system-ui,sans-serif; background:var(--page); color:var(--text); padding:28px; }
+  h1 { font-size:20px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin:0 0 18px; font-size:12px; }
+  .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; }
+  button { font:inherit; color:var(--text); background:var(--card); border:1px solid var(--hair); border-radius:10px; padding:7px 12px; cursor:pointer; }
+  button.on { background:var(--accent); color:#fff; border-color:transparent; }
+  .board { display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start; }
+  .phone { width:390px; height:844px; border-radius:30px; border:1px solid var(--hair); background:var(--bg); overflow:hidden; position:relative; box-shadow:0 18px 40px rgba(0,0,0,.12); }
+  .screen { display:none; height:100%; padding:22px 20px 96px; position:relative; }
+  .screen.active { display:block; }
+  .sheet { position:absolute; left:0; right:0; bottom:0; height:72%; background:var(--surface); border-top:1px solid var(--hair); border-radius:28px 28px 0 0; padding:18px 20px 90px; backdrop-filter: blur(18px) saturate(140%); }
+  .field { height:54px; border-radius:16px; border:1px solid var(--hair); background:var(--card); display:flex; align-items:center; gap:10px; padding:0 10px; }
+  .badge { width:34px; height:34px; flex:0 0 34px; border-radius:10px; border:1px solid var(--hair); background:var(--chip); display:grid; place-items:center; font-weight:700; color:var(--accent); }
+  .badge.round { border-radius:50%; }
+  .field .ph { flex:1; text-align:center; color:var(--muted); }
+  .row { height:46px; display:flex; align-items:center; gap:10px; padding:0 12px; border-radius:12px; border:1px solid transparent; }
+  .row.glass { background:var(--card); border-color:var(--hair); }
+  .grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:12px; }
+  .tile { height:78px; border-radius:20px; background:var(--card); border:1px solid var(--hair); display:grid; place-items:center; font-size:22px; color:var(--accent); }
+  .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin:18px 0 6px; }
+  .pill { position:absolute; left:50%; transform:translateX(-50%); bottom:18px; width:216px; height:58px; border-radius:29px; background:var(--surface); border:1px solid var(--hair); display:flex; align-items:center; justify-content:space-around; backdrop-filter:blur(16px); }
+  .pill span { width:46px; height:46px; display:grid; place-items:center; border-radius:50%; }
+  .disc { width:46px; height:46px; border-radius:14px; background:linear-gradient(135deg,#2f5c69,#7aa2b8); }
+  .disc.lg { width:38px; height:38px; }
+  .name-input { flex:1; height:44px; border-radius:12px; border:1px solid var(--hair); background:var(--card); display:flex; align-items:center; padding:0 14px; }
+  .swatches { display:flex; gap:8px; }
+  .sw { width:44px; height:44px; border-radius:12px; border:1px solid var(--hair); }
+  .buttons { display:flex; gap:10px; position:absolute; left:20px; right:20px; bottom:100px; }
+  .buttons div { flex:1; height:46px; border-radius:23px; display:grid; place-items:center; background:var(--chip); }
+  .buttons div.primary { background:var(--accent); color:#fff; }
+  .tiny { font-size:11.5px; color:var(--muted); }
+  .footer { margin-top:22px; color:var(--muted); font-size:12px; max-width:760px; }
+  code { background:var(--chip); padding:2px 6px; border-radius:6px; }
+</style>
+</head>
+<body data-theme="light">
+  <h1>horiZen v6</h1>
+  <p class="sub">Merged spec: v4's full screen set + v5's Spaces sheet, updated for the shipped app — flat dark/OLED, popup-style hairlines, no handle, no pin counter, no resting suggestions.</p>
+  <div class="toolbar">
+    <button id="t-light" class="on" onclick="theme('light')">Light</button>
+    <button id="t-dark" onclick="theme('dark')">Dark</button>
+    <button id="t-oled" onclick="theme('oled')">OLED</button>
+    <button onclick="screen('home')">Home</button>
+    <button onclick="screen('search')">Search sheet</button>
+    <button onclick="screen('editor')">Space editor</button>
+    <button onclick="screen('downloads')">Downloads</button>
+    <button onclick="screen('history')">History</button>
+    <button onclick="screen('settings')">Settings</button>
+    <button onclick="screen('tabs')">Tabs</button>
+    <button onclick="screen('menu')">Menu</button>
+  </div>
+
+  <div class="board">
+    <div class="phone">
+      <!-- HOME -->
+      <div class="screen active" id="home">
+        <div style="font-size:26px;font-weight:750;margin-top:30px">horiZen</div>
+        <p class="sub">Search-first, edge to edge. No persistent address bar.</p>
+        <div class="field"><div class="badge">+</div><div class="ph">Search or enter a site</div><div class="badge round">☾</div></div>
+        <div class="label">Essentials</div>
+        <div class="grid" id="essentials"></div>
+        <div class="label">Space</div>
+        <div class="row glass"><div class="disc"></div><b>Personal</b><span style="margin-left:auto">⌄</span></div>
+        <div class="label">Recent</div>
+        <div class="row glass">GitHub <span class="tiny" style="margin-left:auto">github.com</span></div>
+        <div class="row glass">DuckDuckGo — cats <span class="tiny" style="margin-left:auto">duckduckgo.com</span></div>
+        <div class="pill"><span>◷</span><span style="font-size:24px">+</span><span>⌃</span></div>
+      </div>
+
+      <!-- SEARCH SHEET -->
+      <div class="screen" id="search">
+        <div class="sheet">
+          <div class="field"><div class="badge">D</div><div class="ph" style="color:var(--text)">cats</div><div class="badge round">☾</div></div>
+          <div class="row glass" style="margin-top:10px"><div class="disc lg"></div><b>Personal</b><span style="margin-left:auto">⌃</span></div>
+          <div class="label">Pins <span class="tiny" style="margin-left:8px;text-transform:none">tap to collapse</span></div>
+          <div class="row glass"><span style="width:18px;text-align:center">▤</span> Research <span class="tiny" style="margin-left:auto">1 pin</span></div>
+          <div class="row"><span style="width:18px"></span> cats at DuckDuckGo</div>
+          <div class="label">Open tabs</div>
+          <div class="row glass">cats at DuckDuckGo <span class="tiny" style="margin-left:auto">Clear</span></div>
+          <div class="label">Activity</div>
+          <div class="tiny">Trackers blocked: 12 · Data sent: IP · user agent</div>
+        </div>
+      </div>
+
+      <!-- SPACE EDITOR -->
+      <div class="screen" id="editor">
+        <div class="sheet">
+          <div style="display:flex;align-items:center;gap:12px"><div class="disc"></div><div class="name-input">Personal</div></div>
+          <div class="label">Icon</div>
+          <div class="swatches"><div class="badge">🌐</div><div class="badge">▦</div><div class="badge">▤</div><div class="badge">✦</div><div class="badge">☂</div></div>
+          <div class="label">Container</div>
+          <div class="row glass">No container <span class="tiny" style="margin-left:auto">Manage containers ›</span></div>
+          <div class="label">Colour</div>
+          <div class="swatches">
+            <div class="sw" style="background:#2f5c69"></div><div class="sw" style="background:#7bc96f"></div>
+            <div class="sw" style="background:#f6a04d"></div><div class="sw" style="background:#e66a8b"></div>
+            <div class="sw" style="background:#9059ff"></div><div class="sw" style="background:#24292f"></div>
+          </div>
+          <div class="buttons"><div>Cancel</div><div class="primary">Save</div></div>
+        </div>
+      </div>
+
+      <!-- v4 SCREENS -->
+      <div class="screen" id="downloads">
+        <h2 style="margin-top:30px">Downloads</h2>
+        <div class="tiny">Live transfers, done items and a clear-all confirmation. Swipe a row to delete.</div>
+        <div class="label">Today</div>
+        <div class="row glass">horiZen beta-build-300.apk <span class="tiny" style="margin-left:auto">Done</span></div>
+        <div class="row glass">uBlock filters.txt <span class="tiny" style="margin-left:auto">Done</span></div>
+      </div>
+      <div class="screen" id="history">
+        <h2 style="margin-top:30px">History</h2>
+        <div class="field"><div class="ph" style="text-align:left">Search history</div></div>
+        <div class="label">Today</div>
+        <div class="row glass">cats at DuckDuckGo</div>
+        <div class="row glass">GitHub — rLihat</div>
+      </div>
+      <div class="screen" id="settings">
+        <h2 style="margin-top:30px">Settings</h2>
+        <div class="field"><div class="ph" style="text-align:left">Search settings</div></div>
+        <div class="label">Categories</div>
+        <div class="row glass">Look and feel</div>
+        <div class="row glass">Search and preferences</div>
+        <div class="row glass">Privacy and security</div>
+        <div class="row glass">Always-on protections · no telemetry</div>
+        <div class="row glass">Extensions</div>
+        <div class="row glass">About · GeckoView 161.0</div>
+      </div>
+      <div class="screen" id="tabs">
+        <h2 style="margin-top:30px">Tabs</h2>
+        <div class="row glass">cats at DuckDuckGo <span class="tiny" style="margin-left:auto">Personal</span></div>
+        <div class="row glass">GitHub <span class="tiny" style="margin-left:auto">Personal</span></div>
+        <div class="tiny" style="margin-top:12px">Swipe a row to close it. Long-press for the context menu.</div>
+      </div>
+      <div class="screen" id="menu">
+        <div class="field" style="margin-top:30px"><span>←</span><span>→</span><b>cats.com</b><span>↻</span></div>
+        <div class="grid" style="grid-template-columns:repeat(4,1fr)">
+          <div class="badge">译</div><div class="badge">⌕</div><div class="badge">↗</div><div class="badge">✦</div>
+        </div>
+        <div class="label">Page</div>
+        <div class="row glass">Zoom <span class="tiny" style="margin-left:auto">100%</span></div>
+        <div class="row glass">Immersive view</div>
+        <div class="row glass">Site settings ›</div>
+        <div class="label">Browser</div>
+        <div class="row glass">Extensions</div>
+        <div class="row glass">Private tabs</div>
+        <div class="row glass">Star horiZen on GitHub</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Editable design source: <code>mockup/horizen-v6.figcraft</code> (FigCraft — zip of <code>document.json</code>).
+    v4's full screen set is represented as the alternate screens; v5's Spaces sheet is the base interaction.
+    Faded glass is produced by the live page snapshot, not a third-party blur layer.
+  </div>
+
+<script>
+  const letters = ['▶','G','M','C','N','♫'];
+  document.getElementById('essentials').innerHTML = letters.map(l =>
+    `<div class="tile">${l}</div>`).join('');
+  function theme(t) {
+    document.body.dataset.theme = t;
+    ['light','dark','oled'].forEach(x =>
+      document.getElementById('t-'+x).classList.toggle('on', x === t));
+  }
+  function screen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
+  }
+</script>
+</body>
+</html>
