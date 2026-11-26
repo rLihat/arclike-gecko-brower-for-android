@@ -135,9 +135,36 @@ fun BrowserApp(
     val liveHost = BrowserViewModel.hostOf(vm.activeTab?.url.orEmpty())
     val liveAccent = if (liveHost.isNotBlank()) faviconAccent(liveHost) else null
     ArcTheme(vm.darkMode, vm.accentKey, liveAccent, vm.oledMode) {
+        // Frosted mode: cards/chips return to translucent glass like before.
+        // Frost off: keep the solid, slightly opaque surfaces from the last fix.
+        val baseColors = LocalArc.current
+        val adaptedColors = if (vm.frostedGlass && baseColors.dark) {
+            if (baseColors.oled) {
+                baseColors.copy(
+                    navSoft = Color(0x59000000),
+                    menuCard = Color(0x00000000),
+                    chip = Color(0x00000000),
+                    chipStrong = Color(0x14000000),
+                    sheetSoft = Color(0x80000000),
+                    sheetFrost = Color(0x80000000),
+                    navFrost = Color(0x66000000),
+                )
+            } else {
+                baseColors.copy(
+                    navSoft = Color(0x59222729),
+                    menuCard = Color(0x00222729),
+                    chip = Color(0x00222729),
+                    chipStrong = Color(0x1A222729),
+                    sheetSoft = Color(0x99222729),
+                    sheetFrost = Color(0x99222729),
+                    navFrost = Color(0x80222729),
+                )
+            }
+        } else baseColors
         CompositionLocalProvider(
             LocalFrost provides vm.frostedGlass,
             LocalNewGlass provides (!vm.glassV1 && vm.frostedGlass),
+            LocalArc provides adaptedColors,
         ) {
         val systemDark = isSystemInDarkTheme()
         LaunchedEffect(systemDark) { vm.updateSystemDark(systemDark) }
