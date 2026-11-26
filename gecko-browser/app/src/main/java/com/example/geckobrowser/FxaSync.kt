@@ -33,7 +33,8 @@ class FxaSync(private val context: Context) {
 
     private var account: FirefoxAccount? = null
     private var rustReady = false
-    private var initializeSent = false
+    /** device_config is not persisted, so track the exact object we initialized. */
+    private var initializedAccount: FirefoxAccount? = null
 
     /** NSS + the Rust HTTP client are only needed once an account is used. */
     @Synchronized
@@ -83,20 +84,33 @@ class FxaSync(private val context: Context) {
         return restored
     }
 
+    private fun stateName(s: FxaState): String = when (s) {
+        is FxaState.Authenticating ->
+            "Authenticating(initial=${s.initialState}, url=${s.oauthUrl.substringBefore('?')})"
+        else -> s::class.simpleName ?: "Unknown"
+    }
+
+    private fun logState(event: String, before: FxaState, after: FxaState) {
+        android.util.Log.i("HZ-FxA", "$event: ${stateName(before)} -> ${stateName(after)}")
+    }
+
     /**
-     * FxA 161 gates every processEvent on an Initialize event, including on
-     * every restart after restoring state from JSON.
+     * FxA 161 gates every processEvent on an Initialize event. device_config is
+     * not persisted, so exactly one Initialize per FirefoxAccount instance is
+     * required, even after fromJson() on a fresh process.
      */
     @Synchronized
     private fun ensureInitialized(): FirefoxAccount {
         val a = account()
-        if (!initializeSent) {
+        if (initializedAccount !== a) {
+            val before = a.getState()
             a.processEvent(
                 FxaEvent.Initialize(
                     DeviceConfig("horiZen on Android", DeviceType.MOBILE, emptyList()),
                 ),
             )
-            initializeSent = true
+            logState("Initialize", before, a.getState())
+            initializedAccount = a
         }
         return a
     }
@@ -105,29 +119,58 @@ class FxaSync(private val context: Context) {
     fun beginSignIn(): String? {
         lastError = null
         return try {
-            val state = ensureInitialized().processEvent(
+            val a = ensureInitialized()
+            val before = a.getState()
+            val after = a.processEvent(
                 FxaEvent.BeginOAuthFlow("sync", listOf(SCOPE_PROFILE, SCOPE_OLDSYNC), "browser"),
             )
-            val url = (state as? FxaState.Authenticating)?.oauthUrl
-                ?: throw IllegalStateException("OAuth start returned ${state.javaClass.simpleName}")
-            saveState()
-            android.util.Log.i("HZ-FxA", "BeginOAuthFlow ok")
-            url
+            logState("BeginOAuthFlow", before, after)
+            when (after) {
+                is FxaState.Authenticating -> {
+                    saveState()
+                    after.oauthUrl
+                }
+                is FxaState.Disconnected -> {
+                    lastError = "OAuth start failed: begin_oauth_flow returned Disconnected " +
+                        "(config/network/crypto error; check Rust log 'handling error')"
+                    android.util.Log.e("HZ-FxA", lastError ?: "unknown")
+                    null
+                }
+                else -> {
+                    lastError = "OAuth start returned ${stateName(after)}"
+                    android.util.Log.e("HZ-FxA", lastError ?: "unknown")
+                    null
+                }
+            }
         } catch (e: Throwable) {
             lastError = e.message ?: e.javaClass.simpleName
-            android.util.Log.e("HZ-FxA", "beginOauthFlow failed: $lastError", e)
+            android.util.Log.e("HZ-FxA", "beginSignIn failed: $lastError", e.cause ?: e)
             null
         }
     }
 
     fun completeSignIn(code: String, state: String): Boolean = try {
-        ensureInitialized().processEvent(FxaEvent.CompleteOAuthFlow(code, state))
+        val a = ensureInitialized()
+        val before = a.getState()
+        if (before !is FxaState.Authenticating) {
+            lastError = "OAuth completion needs Authenticating, got ${stateName(before)} " +
+                "(flow lost after restart; restart sign-in)"
+            android.util.Log.e("HZ-FxA", lastError ?: "unknown")
+            return false
+        }
+        val after = a.processEvent(FxaEvent.CompleteOAuthFlow(code, state))
+        logState("CompleteOAuthFlow", before, after)
+        if (after !is FxaState.Connected) {
+            lastError = "OAuth completion returned ${stateName(after)}"
+            android.util.Log.e("HZ-FxA", lastError ?: "unknown")
+            return false
+        }
         saveState()
         refreshProfile()
         true
     } catch (e: Throwable) {
         lastError = e.message ?: e.javaClass.simpleName
-        android.util.Log.e("HZ-FxA", "completeOauthFlow failed: $lastError", e)
+        android.util.Log.e("HZ-FxA", "completeSignIn failed: $lastError", e.cause ?: e)
         false
     }
 
@@ -153,7 +196,7 @@ class FxaSync(private val context: Context) {
         try { account?.disconnect() } catch (_: Throwable) {}
         account?.close()
         account = null
-        initializeSent = false
+        initializedAccount = null
         prefs.edit().remove(KEY_STATE).remove(KEY_EMAIL).remove(KEY_AVATAR)
             .remove(KEY_DISPLAY_NAME).remove(KEY_LAST_SYNC).apply()
     }

@@ -225,6 +225,9 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     private var extensionPopupSession: GeckoSession? = null
     /** Toolbar actions reported by installed add-ons, keyed by extension id. */
     private val extensionActions = HashMap<String, WebExtension.Action>()
+    /** Per-site rules: key "host|extensionId", true = allowed, false = blocked. */
+    var extensionSiteRules by mutableStateOf(loadExtensionSiteRules())
+        private set
 
     /* ------------------------------------------------------------- public state */
 
@@ -248,7 +251,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     var pinNodes by mutableStateOf<List<PinNode>>(emptyList())
         private set
 
-    var activeSpaceId by mutableStateOf(Space.PERSONAL_ID)
+    var activeSpaceId by mutableStateOf(
+        runCatching {
+            prefs.getString("active_space_id", null)?.let { UUID.fromString(it) }
+        }.getOrNull() ?: Space.PERSONAL_ID
+    )
         private set
 
     /** Space glass tokens (gradient A→B), animatable when switching spaces. */
@@ -431,6 +438,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun switchSpace(id: UUID) {
         val target = spaces.firstOrNull { it.id == id } ?: return
         activeSpaceId = id
+        prefs.edit().putString("active_space_id", id.toString()).apply()
         spaceC1 = target.colorA.takeIf { it != 0L } ?: DEFAULT_SPACE_C1
         spaceC2 = target.colorB.takeIf { it != 0L } ?: DEFAULT_SPACE_C2
         // Show a tab from the space we just entered, not the previous space's tab.
@@ -515,6 +523,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         }
         if (activeSpaceId == id) {
             activeSpaceId = spacesSorted.firstOrNull()?.id ?: Space.PERSONAL_ID
+            prefs.edit().putString("active_space_id", activeSpaceId.toString()).apply()
         }
         persistSpaces()
         persistPinNodes()
@@ -1631,8 +1640,15 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             spaces = spaces + personal
             persistSpaces()
         }
-        val active = spacesSorted.firstOrNull()
-        if (active != null) activeSpaceId = active.id
+        // Keep the space the user was in; only fall back when it no longer exists.
+        val saved = runCatching {
+            prefs.getString("active_space_id", null)?.let { UUID.fromString(it) }
+        }.getOrNull()
+        activeSpaceId = if (saved != null && spaces.any { it.id == saved && it.deletedAt == null }) {
+            saved
+        } else {
+            spacesSorted.firstOrNull()?.id ?: Space.PERSONAL_ID
+        }
     }
 
     private fun restoreTabs() {
@@ -4343,6 +4359,30 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 openExtensionOptions(item)
             }
         }, 350L)
+    }
+
+    private fun loadExtensionSiteRules(): Map<String, Boolean> {
+        val raw = prefs.getString("extension_site_rules", null).orEmpty()
+        if (raw.isBlank()) return emptyMap()
+        return runCatching {
+            val obj = JSONObject(raw)
+            buildMap {
+                obj.keys().forEach { key -> put(key, obj.getBoolean(key)) }
+            }
+        }.getOrDefault(emptyMap())
+    }
+
+    fun extensionSiteRule(extensionId: String, host: String): Boolean? =
+        extensionSiteRules["$host|$extensionId"]
+
+    fun setExtensionSiteRule(extensionId: String, host: String, allowed: Boolean?) {
+        val key = "$host|$extensionId"
+        val next = extensionSiteRules.toMutableMap()
+        if (allowed == null) next.remove(key) else next[key] = allowed
+        extensionSiteRules = next
+        val obj = JSONObject()
+        next.forEach { (k, v) -> obj.put(k, v) }
+        prefs.edit().putString("extension_site_rules", obj.toString()).apply()
     }
 
     /**
