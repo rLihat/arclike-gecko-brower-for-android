@@ -199,13 +199,13 @@ data class SpaceSyncSnapshot(
             )
         }
 
-        private fun <T> mergeById(
+        private fun <K, T> mergeById(
             local: List<T>,
             remote: List<T>,
-            idOf: (T) -> UUID,
+            idOf: (T) -> K,
             pick: (T, T) -> T,
         ): List<T> {
-            val byId = LinkedHashMap<UUID, T>()
+            val byId = LinkedHashMap<K, T>()
             local.forEach { byId[idOf(it)] = it }
             remote.forEach { item ->
                 val id = idOf(item)

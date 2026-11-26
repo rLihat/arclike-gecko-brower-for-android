@@ -340,8 +340,8 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     /** Opens tabs another device synced that we don't already have open. */
     private fun applySyncedTabs(records: List<TabSyncRecord>) {
         if (records.isEmpty()) return
-        val openIds = tabs.map { it.id }.toSet()
-        val openUrls = tabs.map { pinKeyOf(it.url) }.toSet()
+        val openIds = tabs.map { it.id }.toMutableSet()
+        val openUrls = tabs.map { pinKeyOf(it.url) }.toMutableSet()
         records.forEach { record ->
             if (record.url.isBlank()) return@forEach
             if (record.id in openIds || pinKeyOf(record.url) in openUrls) return@forEach
