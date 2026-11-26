@@ -246,6 +246,24 @@ object BrowserFiles {
     } ?: emptyList()
 
     fun savePinNodes(context: Context, nodes: List<PinNode>, source: String = "mutation") {
+        if (nodes.isEmpty()) {
+            // Deleting pins writes tombstones, never an empty list. An empty
+            // write is therefore always accidental (stale sync/boot state).
+            // Preserve the last good tree instead of truncating the file to [].
+            val existing = readText(pinNodesFile(context))
+                ?: context.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
+                    .getString("pin_nodes_backup", null)
+            val preserved = existing?.let { runCatching { parsePinNodes(it) }.getOrNull() }
+            if (!preserved.isNullOrEmpty()) {
+                val stamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+                    .format(java.util.Date())
+                pinWriteHistory.addLast("$stamp [$source] BLOCKED empty overwrite (${preserved.size} kept)")
+                while (pinWriteHistory.size > 10) pinWriteHistory.removeFirst()
+                lastPinSave = "blocked empty write from $source; ${preserved.size} nodes kept"
+                android.util.Log.w("HZ-Pins", lastPinSave)
+                return
+            }
+        }
         val json = JSONArray().apply {
             nodes.forEach { n ->
                 put(JSONObject().apply {
