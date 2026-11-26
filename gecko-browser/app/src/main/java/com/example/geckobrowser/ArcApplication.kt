@@ -32,7 +32,6 @@ class ArcApplication : Application() {
      */
     private fun writeGeckoConfig(): String {
         val prefs = getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
-        val doh = prefs.getBoolean("doh_enabled", true)
         val resist = prefs.getBoolean("resist_fingerprinting", false)
         val file = File(filesDir, "geckoview-config.yaml")
         file.writeText(
@@ -45,8 +44,6 @@ class ArcApplication : Application() {
               toolkit.telemetry.geckoview: false
               datareporting.healthreport.uploadEnabled: false
               datareporting.policy.dataSubmissionEnabled: false
-              network.trr.mode: ${if (doh) 2 else 0}
-              network.trr.uri: "https://mozilla.cloudflare-dns.com/dns-query"
               privacy.trackingprotection.fingerprinting.enabled: true
               privacy.trackingprotection.cryptomining.enabled: true
               privacy.fingerprintingProtection: true
@@ -59,6 +56,9 @@ class ArcApplication : Application() {
     }
 
     val runtime: GeckoRuntime by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        val prefs = getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
+        val doh = prefs.getBoolean("doh_enabled", true)
+        val isolated = prefs.getBoolean("process_isolation", false)
         GeckoRuntime.create(
             this,
             GeckoRuntimeSettings.Builder()
@@ -68,6 +68,13 @@ class ArcApplication : Application() {
                 .consoleOutput(false)
                 .debugLogging(false)
                 .globalPrivacyControlEnabled(true)
+                // Native DoH API in GV 161; FIRST keeps a fallback if the resolver fails.
+                .trustedRecursiveResolverMode(
+                    if (doh) GeckoRuntimeSettings.TRR_MODE_FIRST else GeckoRuntimeSettings.TRR_MODE_OFF,
+                )
+                .trustedRecursiveResolverUri("https://mozilla.cloudflare-dns.com/dns-query")
+                .extensionsProcessEnabled(isolated)
+                .isolatedProcessEnabled(isolated)
                 .configFilePath(geckoConfigPath)
                 .build(),
         )

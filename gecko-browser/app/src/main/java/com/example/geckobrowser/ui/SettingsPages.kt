@@ -808,42 +808,54 @@ private fun EngineList(
         all.forEach { e ->
             val enabled = vm.isEngineEnabled(e.id)
             val selected = enabled && e.id == vm.defaultSearchEngineId
-            Row(
+            Column(
                 Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(11.dp))
                     .background(if (selected) c.menuCard else Color.Transparent)
-                    .padding(horizontal = 12.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
             ) {
-                SiteFavicon(e.host, e.name, 21.dp)
-                Spacer(Modifier.width(11.dp))
-                Text(
-                    e.name,
-                    color = if (enabled) c.text else c.muted,
-                    fontSize = 13.5.sp,
-                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f),
-                )
-                if (e.custom) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SiteFavicon(e.host, e.name, 18.dp)
+                    Spacer(Modifier.width(9.dp))
                     Text(
-                        "Custom",
-                        color = c.muted,
-                        fontSize = 10.sp,
-                        modifier = Modifier
-                            .border(1.dp, c.stroke, RoundedCornerShape(6.dp))
-                            .padding(horizontal = 5.dp, vertical = 1.dp),
+                        e.name,
+                        color = if (enabled) c.text else c.muted,
+                        fontSize = 13.sp,
+                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
                     )
-                    Spacer(Modifier.width(8.dp))
+                    ArcSwitch(enabled) { vm.setEngineEnabled(e.id, it) }
                 }
-                IconBtn(Ico.chevronUp) { vm.moveEngine(e.id, up = true) }
-                IconBtn(Ico.chevronDown) { vm.moveEngine(e.id, up = false) }
-                ArcSwitch(enabled) { vm.setEngineEnabled(e.id, it) }
-                if (e.custom) {
-                    Spacer(Modifier.width(6.dp))
-                    IconBtn(Ico.trash) { vm.removeEngine(e.id) }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 2.dp),
+                    horizontalArrangement = Arrangement.End,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (e.custom) {
+                        Text(
+                            "Custom",
+                            color = c.muted,
+                            fontSize = 10.sp,
+                            modifier = Modifier
+                                .border(1.dp, c.stroke, RoundedCornerShape(6.dp))
+                                .padding(horizontal = 5.dp, vertical = 1.dp),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    }
+                    IconBtn(Ico.chevronUp) { vm.moveEngine(e.id, up = true) }
+                    IconBtn(Ico.chevronDown) { vm.moveEngine(e.id, up = false) }
+                    if (e.custom) {
+                        Spacer(Modifier.width(6.dp))
+                        IconBtn(Ico.trash) { vm.removeEngine(e.id) }
+                    }
                 }
             }
         }
@@ -1016,6 +1028,47 @@ private fun PrivacyAndSecurityPage(vm: BrowserViewModel) {
                 value = if (vm.resistFingerprinting) "On" else "Off",
                 onClick = { vm.updateResistFingerprinting(!vm.resistFingerprinting) },
                 trailing = { ArcSwitch(vm.resistFingerprinting) { vm.updateResistFingerprinting(it) } },
+            )
+            SettingsRow(
+                "Bounce tracking protection",
+                icon = { Glyph(Ico.diagramFlow, c.text, size = 19.dp, strokeWidth = 1.8f) },
+                value = if (vm.etpStrict || vm.customTracking) "On" else "Standard only",
+                onClick = {
+                    vm.showToast("Bounce tracking protection is on in Strict and Custom modes")
+                },
+            )
+            SettingsRow(
+                "Strip tracking parameters",
+                icon = { Glyph(Ico.link, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                trailing = { ArcSwitch(vm.queryStripping) { vm.updateQueryStripping(it) } },
+                onClick = { vm.updateQueryStripping(!vm.queryStripping) },
+            )
+            SettingsRow(
+                "Safe Browsing v5 + real-time",
+                icon = { Glyph(Ico.shieldCheck, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                trailing = { ArcSwitch(vm.safeBrowsingV5) { vm.updateSafeBrowsingV5(it) } },
+                onClick = { vm.updateSafeBrowsingV5(!vm.safeBrowsingV5) },
+            )
+            SettingsRow(
+                "Local network access",
+                icon = { Glyph(Ico.globe, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                value = if (vm.lnaBlocking) "Blocked" else "Allowed",
+                trailing = { ArcSwitch(vm.lnaBlocking) { vm.updateLnaBlocking(it) } },
+                onClick = { vm.updateLnaBlocking(!vm.lnaBlocking) },
+            )
+            SettingsRow(
+                "Process isolation",
+                icon = { Glyph(Ico.shield, c.text, size = 20.dp, strokeWidth = 1.8f) },
+                value = if (vm.processIsolation) "On" else "Off",
+                trailing = { ArcSwitch(vm.processIsolation) { vm.updateProcessIsolation(it) } },
+                onClick = { vm.updateProcessIsolation(!vm.processIsolation) },
+            )
+            Text(
+                "Process isolation runs tabs and extensions in separate processes. "
+                    + "It hardens the browser but can use more memory and needs a restart. "
+                    + "Turn it off if a site or add-on stops working.",
+                color = c.muted, fontSize = 11.5.sp, lineHeight = 16.sp,
+                modifier = Modifier.padding(start = 6.dp, top = 4.dp, bottom = 8.dp),
             )
             SettingsRow(
                 "Private tabs",
@@ -1363,7 +1416,7 @@ private fun AboutPage(vm: BrowserViewModel, onBack: () -> Unit) {
 
         SettingsGroup {
             SettingsRow("Version", icon = { Glyph(Ico.packageIcon, c.text, size = 19.dp, strokeWidth = 1.7f) }, value = com.example.geckobrowser.BuildConfig.VERSION_NAME, onClick = null)
-            SettingsRow("GeckoView", icon = { Glyph(Ico.squareCode, c.text, size = 19.dp, strokeWidth = 1.7f) }, value = "138", onClick = null)
+            SettingsRow("GeckoView", icon = { Glyph(Ico.squareCode, c.text, size = 19.dp, strokeWidth = 1.7f) }, value = "161.0", onClick = null)
         }
 
         SectionLabel("Updates")

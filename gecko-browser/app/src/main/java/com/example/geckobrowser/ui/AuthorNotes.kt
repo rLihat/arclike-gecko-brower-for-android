@@ -94,6 +94,7 @@ fun AuthorNotesScreen(vm: BrowserViewModel, onBack: () -> Unit) {
                 Spacer(Modifier.height(12.dp))
                 Text("rLihat", color = c.text, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                 Text("Developer by interest.", color = c.muted, fontSize = 13.sp)
+                Text("horiZen now runs on GeckoView 161.", color = c.muted, fontSize = 12.sp)
                 Spacer(Modifier.height(6.dp))
                 Text(
                     "horiZen is built in the open. A star helps others find it, "

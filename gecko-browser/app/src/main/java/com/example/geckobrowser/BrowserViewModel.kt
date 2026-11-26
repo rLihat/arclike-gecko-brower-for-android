@@ -37,6 +37,7 @@ import org.mozilla.geckoview.AllowOrDeny
 import org.mozilla.geckoview.ContentBlocking
 import org.mozilla.geckoview.GeckoResult
 import org.mozilla.geckoview.GeckoRuntime
+import org.mozilla.geckoview.GeckoRuntimeSettings
 import org.mozilla.geckoview.GeckoSession
 import org.mozilla.geckoview.GeckoSessionSettings
 import org.mozilla.geckoview.GeckoView
@@ -853,7 +854,20 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     val darkMode: Boolean get() = appearanceMode == "dark" || oledMode ||
         (appearanceMode == "system" && systemDark)
 
-    fun updateSystemDark(dark: Boolean) { systemDark = dark }
+    fun updateSystemDark(dark: Boolean) {
+        systemDark = dark
+        syncWebColorScheme()
+    }
+
+    /** GeckoView 161: web content follows the app's light/dark choice. */
+    private fun syncWebColorScheme() {
+        runCatching {
+            runtime.settings.setPreferredColorScheme(
+                if (darkMode) GeckoRuntimeSettings.COLOR_SCHEME_DARK
+                else GeckoRuntimeSettings.COLOR_SCHEME_LIGHT,
+            )
+        }
+    }
 
     /** Frosted glass mode: auto | on | off | v1 (previous design). */
     var frostedGlassMode by mutableStateOf(
@@ -928,6 +942,44 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         resistFingerprinting = value
         prefs.edit().putBoolean("resist_fingerprinting", value).apply()
         showToast("Fingerprint resistance will apply after a restart")
+    }
+
+    /** GeckoView 161 privacy controls. */
+    var queryStripping by mutableStateOf(prefs.getBoolean("query_stripping", true))
+        private set
+    var safeBrowsingV5 by mutableStateOf(prefs.getBoolean("safe_browsing_v5", true))
+        private set
+    var lnaBlocking by mutableStateOf(prefs.getBoolean("lna_blocking", false))
+        private set
+    var processIsolation by mutableStateOf(prefs.getBoolean("process_isolation", false))
+        private set
+
+    fun updateQueryStripping(value: Boolean) {
+        queryStripping = value
+        prefs.edit().putBoolean("query_stripping", value).apply()
+        applyContentBlocking()
+    }
+
+    fun updateSafeBrowsingV5(value: Boolean) {
+        safeBrowsingV5 = value
+        prefs.edit().putBoolean("safe_browsing_v5", value).apply()
+        applyContentBlocking()
+    }
+
+    fun updateLnaBlocking(value: Boolean) {
+        lnaBlocking = value
+        prefs.edit().putBoolean("lna_blocking", value).apply()
+        runCatching {
+            runtime.settings.setLnaEnabled(value)
+            runtime.settings.setLnaBlocking(value)
+            runtime.settings.setLnaBlockTrackers(value)
+        }
+    }
+
+    fun updateProcessIsolation(value: Boolean) {
+        processIsolation = value
+        prefs.edit().putBoolean("process_isolation", value).apply()
+        showToast("Process isolation applies after a restart")
     }
 
     fun updateAppLocale(tag: String) {
@@ -1402,6 +1454,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
             trackingFlags = migrated
         }
         runCatching { runtime.settings.locales = arrayOf(appLocale) }
+        runCatching {
+            runtime.settings.setLnaEnabled(lnaBlocking)
+            runtime.settings.setLnaBlocking(lnaBlocking)
+            runtime.settings.setLnaBlockTrackers(lnaBlocking)
+        }
         com.example.geckobrowser.ui.initFaviconCache(application)
         scope.launch {
             var previousDownloads = emptyList<com.example.geckobrowser.DownloadItem>()
@@ -1472,6 +1529,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun applySnapshot(snapshot: SettingsSnapshot) {
         appearanceMode = snapshot.appearance
+        syncWebColorScheme()
         frostedGlassMode = snapshot.frostedGlassMode
         reduceTransparency = snapshot.reduceTransparency
         openLinksMode = snapshot.openLinksMode
@@ -1527,6 +1585,17 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 ContentBlocking.AntiTracking.FINGERPRINTING
         }
         settings.setAntiTracking(flags)
+        settings.setBounceTrackingProtectionMode(
+            if (strict || customTracking) {
+                ContentBlocking.BounceTrackingProtectionMode.BOUNCE_TRACKING_PROTECTION_MODE_ENABLED
+            } else {
+                ContentBlocking.BounceTrackingProtectionMode.BOUNCE_TRACKING_PROTECTION_MODE_DISABLED
+            },
+        )
+        settings.setQueryParameterStrippingEnabled(queryStripping)
+        settings.setQueryParameterStrippingPrivateBrowsingEnabled(queryStripping)
+        settings.setSafeBrowsingV5Enabled(safeBrowsingV5)
+        settings.setSafeBrowsingRealTimeEnabled(safeBrowsingV5)
         settings.setCookieBehavior(ContentBlocking.CookieBehavior.ACCEPT_NON_TRACKERS)
         // GV 161 removed the cookie-banner API (Firefox retired the built-in
         // banner handler). The preference is still parsed at startup for
@@ -5030,6 +5099,7 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     fun updateAppearanceMode(mode: String) {
         appearanceMode = mode
         prefs.edit().putString("appearance_mode", mode).apply()
+        syncWebColorScheme()
         scope.launch { withContext(Dispatchers.IO) { settingsStore.setAppearance(mode) } }
     }
 
