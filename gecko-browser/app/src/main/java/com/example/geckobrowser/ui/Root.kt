@@ -785,7 +785,7 @@ private fun ChromeOverlay(
                             closing -> Color.Transparent
                             c.oled && !frostOn && !fullHeight -> Color.Black
                             lastSheet in frostedSheets && frostOn -> Color.Transparent
-                            lastSheet in frostedSheets -> c.sheetFrost
+                            lastSheet in frostedSheets -> c.sheet
                             lastSheet == Overlay.ExtensionMenu -> c.sheetSoft
                             lastSheet == Overlay.Downloads || lastSheet == Overlay.History ||
                                 lastSheet == Overlay.Translate || lastSheet == Overlay.Passwords ||
@@ -2734,7 +2734,7 @@ private fun BoxScope.NavPill(
         label = "pillBg",
     )
     val capsuleStroke by animateColorAsState(
-        if (searchMode) Color.Transparent else c.stroke,
+        if (searchMode || menuMode) Color.Transparent else c.stroke,
         tween(if (reduceMotion) 0 else 420, easing = morphEasing),
         label = "pillStroke",
     )

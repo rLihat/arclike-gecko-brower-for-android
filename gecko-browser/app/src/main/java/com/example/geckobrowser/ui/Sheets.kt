@@ -258,6 +258,7 @@ fun SearchSheet(
                     Modifier
                         .size(34.dp)
                         .clip(RoundedCornerShape(10.dp))
+                        .border(1.dp, c.hairline, RoundedCornerShape(10.dp))
                         .clickable {
                             engineMenu = !engineMenu
                         },
@@ -311,6 +312,7 @@ fun SearchSheet(
                             Modifier
                                 .size(32.dp)
                                 .clip(CircleShape)
+                                .border(1.dp, c.hairline, CircleShape)
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
