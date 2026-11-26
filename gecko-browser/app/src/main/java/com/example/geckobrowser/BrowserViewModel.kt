@@ -1771,6 +1771,11 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     /* ---------------------------------------------------------------- delegates */
 
     private fun attachDelegates(id: Long, session: GeckoSession) {
+        // GV 161 routes per-tab browser/page action updates through the session's
+        // controller; without this the popup/page-action path never fires.
+        extensionObjects.values.forEach { ext ->
+            runCatching { session.webExtensionController.setActionDelegate(ext, extensionActionDelegate) }
+        }
         session.navigationDelegate = object : GeckoSession.NavigationDelegate {
             override fun onLocationChange(
                 session: GeckoSession,
@@ -4135,6 +4140,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                         extensionObjects[extension.id] = extension
                         runCatching { extension.setActionDelegate(extensionActionDelegate) }
                         runCatching { extension.setTabDelegate(extensionTabDelegate) }
+                        tabsManager.all.values.forEach { session ->
+                            runCatching {
+                                session.webExtensionController.setActionDelegate(
+                                    extension, extensionActionDelegate,
+                                )
+                            }
+                        }
                         val meta = extension.metaData
                         val base = meta?.baseUrl.orEmpty()
                         val rawOptions = meta?.optionsPageUrl.orEmpty()
@@ -4316,13 +4328,21 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     /** Simulates a toolbar-button click: add-ons with a popup open it, others react. */
     fun clickExtension(item: ExtensionItem) {
         val action = extensionActions[item.id]
-        if (action == null) {
+        if (action == null || action.enabled == false) {
             openExtensionOptions(item)
             return
         }
         runCatching { action.click() }.onFailure {
             openExtensionOptions(item)
+            return
         }
+        // Actions without a popup only fire onClicked in the background. If
+        // Gecko never asks us for a popup session, fall back to options.
+        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+            if (extensionPopupSession == null && overlay != Overlay.ExtensionPopup) {
+                openExtensionOptions(item)
+            }
+        }, 350L)
     }
 
     /**

@@ -40,7 +40,9 @@ import com.example.geckobrowser.ExtensionItem
 fun ExtensionMenuSheet(vm: BrowserViewModel) {
     val c = LocalArc.current
     val frostOn = LocalFrost.current
-    val enabled = vm.extensions.filter { it.enabled }
+    // GV 161 can report enabled=false before onReady; keep add-ons visible so
+    // their popup/options remain reachable.
+    val enabled = vm.extensions.filter { it.enabled || it.optionsPageUrl.isNotBlank() }
 
     Column(
         Modifier
@@ -159,16 +161,16 @@ private fun ExtensionMenuRow(vm: BrowserViewModel, item: ExtensionItem) {
                 fontSize = 11.sp,
             )
         }
-        if (item.optionsPageUrl.isNotBlank()) {
-            Box(
-                Modifier
-                    .size(34.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable { vm.openExtensionOptions(item) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Glyph(Ico.gear, c.muted, size = 17.dp, strokeWidth = 1.8f)
-            }
+        // Always offer the gear: GV 161 may not fill optionsPageUrl until later,
+        // and openExtensionOptions() has derived URL fallbacks.
+        Box(
+            Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { vm.openExtensionOptions(item) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Glyph(Ico.gear, c.muted, size = 17.dp, strokeWidth = 1.8f)
         }
         Glyph(Ico.chevronRight, c.muted, size = 16.dp, strokeWidth = 1.9f)
     }

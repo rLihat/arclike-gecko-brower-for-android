@@ -2,12 +2,14 @@ package com.example.geckobrowser
 
 import android.content.Context
 import android.content.SharedPreferences
+import mozilla.appservices.fxaclient.DeviceConfig
 import mozilla.appservices.fxaclient.FxaConfig
 import mozilla.appservices.fxaclient.FxaServer
 import mozilla.appservices.fxaclient.FxaEvent
 import mozilla.appservices.fxaclient.FxaException
 import mozilla.appservices.fxaclient.FxaState
 import mozilla.appservices.fxaclient.FirefoxAccount
+import mozilla.appservices.sync15.DeviceType
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.HttpURLConnection
@@ -31,6 +33,7 @@ class FxaSync(private val context: Context) {
 
     private var account: FirefoxAccount? = null
     private var rustReady = false
+    private var initializeSent = false
 
     /** NSS + the Rust HTTP client are only needed once an account is used. */
     @Synchronized
@@ -80,11 +83,29 @@ class FxaSync(private val context: Context) {
         return restored
     }
 
+    /**
+     * FxA 161 gates every processEvent on an Initialize event, including on
+     * every restart after restoring state from JSON.
+     */
+    @Synchronized
+    private fun ensureInitialized(): FirefoxAccount {
+        val a = account()
+        if (!initializeSent) {
+            a.processEvent(
+                FxaEvent.Initialize(
+                    DeviceConfig("horiZen on Android", DeviceType.MOBILE, emptyList()),
+                ),
+            )
+            initializeSent = true
+        }
+        return a
+    }
+
     /** URL to open in the in-app sign-in WebView. */
     fun beginSignIn(): String? {
         lastError = null
         return try {
-            val state = account().processEvent(
+            val state = ensureInitialized().processEvent(
                 FxaEvent.BeginOAuthFlow("sync", listOf(SCOPE_PROFILE, SCOPE_OLDSYNC), "browser"),
             )
             val url = (state as? FxaState.Authenticating)?.oauthUrl
@@ -100,7 +121,7 @@ class FxaSync(private val context: Context) {
     }
 
     fun completeSignIn(code: String, state: String): Boolean = try {
-        account().processEvent(FxaEvent.CompleteOAuthFlow(code, state))
+        ensureInitialized().processEvent(FxaEvent.CompleteOAuthFlow(code, state))
         saveState()
         refreshProfile()
         true
@@ -127,16 +148,19 @@ class FxaSync(private val context: Context) {
     }
 
     fun signOut() {
-        try { account()?.disconnect() } catch (_: Throwable) {}
+        // Never call account() here: it would create/restore an account just
+        // to log out and could trigger ensure_capabilities network calls.
+        try { account?.disconnect() } catch (_: Throwable) {}
         account?.close()
         account = null
+        initializeSent = false
         prefs.edit().remove(KEY_STATE).remove(KEY_EMAIL).remove(KEY_AVATAR)
             .remove(KEY_DISPLAY_NAME).remove(KEY_LAST_SYNC).apply()
     }
 
     private fun saveState() {
         try {
-            prefs.edit().putString(KEY_STATE, account()?.toJson()).apply()
+            prefs.edit().putString(KEY_STATE, account?.toJson()).apply()
         } catch (_: FxaException) {}
     }
 
