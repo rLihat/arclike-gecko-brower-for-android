@@ -294,6 +294,7 @@ fun BrowserApp(
                     },
                     onTap = { x, y -> vm.recordPageTap(x, y) },
                     onViewReady = { vm.onGeckoViewReady(it) },
+                    onRefresh = { vm.reload() },
                 )
                 if (tab == null || tab.isHome) {
                     Box(
@@ -380,6 +381,7 @@ fun BrowserApp(
                         }
                         .clip(RoundedCornerShape(29.dp))
                         .background(c.navSoft)
+                        .then(rememberGlass(c.navSurface, fps = 15))
                         .border(1.dp, c.stroke, RoundedCornerShape(29.dp)),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -476,6 +478,7 @@ private fun WebHost(
     onPinchIn: () -> Unit,
     onTap: (Float, Float) -> Unit,
     onViewReady: (GeckoView) -> Unit,
+    onRefresh: () -> Unit,
 ) {
     // The factory lambda only runs once, so read live values through state.
     val zoomState = rememberUpdatedState(zoom)
@@ -483,6 +486,7 @@ private fun WebHost(
     val pinchEnabledState = rememberUpdatedState(pinchEnabled)
     val pinchState = rememberUpdatedState(onPinchIn)
     val readyState = rememberUpdatedState(onViewReady)
+    val refreshState = rememberUpdatedState(onRefresh)
     AndroidView(
         factory = { ctx ->
             val density = ctx.resources.displayMetrics.density.coerceAtLeast(0.1f)
@@ -528,6 +532,8 @@ private fun WebHost(
                 readyState.value(this)
                 setBackgroundColor(background.toArgb())
                 session?.let { setSession(it) }
+                var pullStartY = -1f
+                var pullDy = 0f
                 setOnTouchListener { view, event ->
                     scaleDetector.onTouchEvent(event)
                     // A one-finger pan means the page is still moving; don't let a
@@ -537,14 +543,27 @@ private fun WebHost(
                     ) {
                         pinchListener.notePan()
                     }
+                    val density = view.resources.displayMetrics.density.coerceAtLeast(0.1f)
                     if (event.actionMasked == MotionEvent.ACTION_DOWN) {
-                        val density = view.resources.displayMetrics.density.coerceAtLeast(0.1f)
                         val width = view.width.toFloat().coerceAtLeast(1f)
                         val z = zoomState.value.coerceAtLeast(0.2f)
                         // Undo the top-center zoom, then convert px to dp for Compose.
                         val x = ((event.x - width / 2f) / z + width / 2f) / density
                         val y = (event.y / z) / density
                         tapState.value(x, y)
+                        // Pull-to-refresh only triggers from the top edge.
+                        if (event.y < 28f * density) { pullStartY = event.y; pullDy = 0f }
+                    } else if (event.actionMasked == MotionEvent.ACTION_MOVE &&
+                        pullStartY >= 0f && event.pointerCount == 1
+                    ) {
+                        pullDy = event.y - pullStartY
+                    } else if (event.actionMasked == MotionEvent.ACTION_UP) {
+                        if (pullStartY >= 0f && pullDy > 110f * density) {
+                            refreshState.value()
+                        }
+                        pullStartY = -1f; pullDy = 0f
+                    } else if (event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                        pullStartY = -1f; pullDy = 0f
                     }
                     false
                 }
@@ -656,7 +675,10 @@ private fun ChromeOverlay(
         // A real page is on screen (not the new-tab page), which is the only
         // case where a SurfaceView readback can produce usable frost.
         val pageLive = vm.activeTab?.let { !it.isHome && it.url.isNotBlank() } == true
-        LaunchedEffect(open, overlay) {
+        // Only capture frost once the page has finished loading, otherwise the
+        // snapshot is a blank/partial frame and the blur is inconsistent.
+        val pageReady = pageLive && vm.activeTab?.isLoading != true
+        LaunchedEffect(open, overlay, pageReady) {
             if (!open) {
                 delay(470)
                 panelVisible = false
@@ -672,7 +694,8 @@ private fun ChromeOverlay(
             // Page-surface captures are safe even while another panel is up:
             // they read the page layer, not the window. Home uses a window
             // capture, so it still waits for the panel to be gone.
-            val needCapture = frost && stale && (pageLive || !panelVisible)
+            val needCapture = frost && stale && (pageReady || !pageLive || !panelVisible) &&
+                !(pageLive && !pageReady) // don't snapshot a still-loading page
             if (needCapture) {
                 val window = context.findActivity()?.window
                 if (window != null) {
