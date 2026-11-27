@@ -1107,14 +1107,9 @@ private fun ChromeOverlay(
             exit = popupExit(reduceMotionClear),
             modifier = Modifier.fillMaxSize(),
         ) {
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                    ) { vm.dismissClearAllPrompt() },
-            ) {
+            // This prompt can ONLY be dismissed by its close X (or acting on it):
+            // swiping/tapping tabs behind it must not clear the popup.
+            Box(Modifier.fillMaxSize()) {
                 Row(
                     Modifier
                         .align(Alignment.BottomCenter)
