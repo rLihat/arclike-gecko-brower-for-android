@@ -275,15 +275,29 @@ object BrowserFiles {
         android.util.Log.i("HZ-Pins", "saved $lastPinSave")
     }
 
-    /** Same plain file read as [loadEssentials]. */
+    /** Same plain file read as [loadEssentials], plus a one-time legacy repair. */
     fun loadPinNodes(context: Context): List<PinNode> {
         val raw = readText(pinNodesFile(context))
-        val result = if (raw == null) {
+        var result = if (raw == null) {
             emptyList()
         } else try {
             parsePinNodes(raw)
         } catch (_: Throwable) {
             emptyList()
+        }
+        if (result.isEmpty()) {
+            // Older builds kept a prefs copy. Recover it once, then rely on
+            // the plain file like Essentials do from that point on.
+            val legacy = context.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
+                .getString("pin_nodes_backup", null)
+            val recovered = legacy?.let { runCatching { parsePinNodes(it) }.getOrNull() }
+            if (!recovered.isNullOrEmpty() && legacy != null) {
+                writeText(pinNodesFile(context), legacy)
+                result = recovered
+                lastPinLoad = "recovered ${recovered.size} nodes from legacy prefs copy"
+                android.util.Log.i("HZ-Pins", lastPinLoad)
+                return result
+            }
         }
         lastPinLoad = "result=${result.size}; " +
             "fileBytes=${runCatching { pinNodesFile(context).length() }.getOrDefault(-1L)}"
