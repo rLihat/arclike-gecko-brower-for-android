@@ -54,6 +54,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
@@ -487,6 +488,34 @@ private fun WebHost(
     val pinchState = rememberUpdatedState(onPinchIn)
     val readyState = rememberUpdatedState(onViewReady)
     val refreshState = rememberUpdatedState(onRefresh)
+
+    // Live "page scrolled to the very top" from Gecko, NOT the screen edge.
+    // Separate compositor slot so it doesn't clobber session.scrollDelegate.
+    val atTop = remember { mutableStateOf(true) }
+    DisposableEffect(session) {
+        atTop.value = true
+        val s = session
+        if (s == null) {
+            onDispose { }
+        } else {
+            val previous = s.compositorScrollDelegate
+            val tracker = object : GeckoSession.CompositorScrollDelegate {
+                override fun onScrollChanged(
+                    session: GeckoSession,
+                    update: GeckoSession.ScrollPositionUpdate,
+                ) {
+                    atTop.value = update.scrollY <= 0f
+                    previous?.onScrollChanged(session, update)
+                }
+            }
+            s.compositorScrollDelegate = tracker
+            onDispose {
+                if (s.compositorScrollDelegate === tracker) s.compositorScrollDelegate = previous
+                atTop.value = true
+            }
+        }
+    }
+
     AndroidView(
         factory = { ctx ->
             val density = ctx.resources.displayMetrics.density.coerceAtLeast(0.1f)
@@ -532,7 +561,10 @@ private fun WebHost(
                 readyState.value(this)
                 setBackgroundColor(background.toArgb())
                 session?.let { setSession(it) }
+                var pullStartX = -1f
                 var pullStartY = -1f
+                var pullStartedAtTop = false
+                var pullDx = 0f
                 var pullDy = 0f
                 setOnTouchListener { view, event ->
                     scaleDetector.onTouchEvent(event)
@@ -551,19 +583,37 @@ private fun WebHost(
                         val x = ((event.x - width / 2f) / z + width / 2f) / density
                         val y = (event.y / z) / density
                         tapState.value(x, y)
-                        // Pull-to-refresh only triggers from the top edge.
-                        if (event.y < 28f * density) { pullStartY = event.y; pullDy = 0f }
-                    } else if (event.actionMasked == MotionEvent.ACTION_MOVE &&
-                        pullStartY >= 0f && event.pointerCount == 1
-                    ) {
-                        pullDy = event.y - pullStartY
-                    } else if (event.actionMasked == MotionEvent.ACTION_UP) {
-                        if (pullStartY >= 0f && pullDy > 110f * density) {
-                            refreshState.value()
+                    }
+                    // Pull-to-refresh: only when the PAGE is at scroll top and
+                    // the user makes a mostly-vertical downward swipe. NOT
+                    // restricted to the top screen edge (common browser UX).
+                    val pullThreshold = 110f * density
+                    val singleFinger = event.pointerCount == 1
+                    when {
+                        event.actionMasked == MotionEvent.ACTION_DOWN && singleFinger -> {
+                            pullStartX = event.x
+                            pullStartY = event.y
+                            pullStartedAtTop = atTop.value
+                            pullDx = 0f; pullDy = 0f
                         }
-                        pullStartY = -1f; pullDy = 0f
-                    } else if (event.actionMasked == MotionEvent.ACTION_CANCEL) {
-                        pullStartY = -1f; pullDy = 0f
+                        event.actionMasked == MotionEvent.ACTION_POINTER_DOWN -> {
+                            pullStartY = -1f; pullStartedAtTop = false; pullDx = 0f; pullDy = 0f
+                        }
+                        event.actionMasked == MotionEvent.ACTION_MOVE && pullStartY >= 0f && singleFinger -> {
+                            pullDx = event.x - pullStartX
+                            pullDy = event.y - pullStartY
+                        }
+                        event.actionMasked == MotionEvent.ACTION_UP && singleFinger -> {
+                            val shouldRefresh = pullStartY >= 0f &&
+                                pullStartedAtTop && atTop.value &&
+                                pullDy > pullThreshold &&
+                                pullDy > kotlin.math.abs(pullDx) * 1.5f
+                            if (shouldRefresh) refreshState.value()
+                            pullStartY = -1f; pullStartedAtTop = false; pullDx = 0f; pullDy = 0f
+                        }
+                        event.actionMasked == MotionEvent.ACTION_CANCEL -> {
+                            pullStartY = -1f; pullStartedAtTop = false; pullDx = 0f; pullDy = 0f
+                        }
                     }
                     false
                 }
