@@ -366,7 +366,6 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         appendLine("Pin writes (newest last):")
         BrowserFiles.pinWriteLog().forEach { appendLine("  $it") }
         appendLine("active_space_id pref: ${prefs.getString("active_space_id", null)}")
-        appendLine("pin_nodes_backup: ${prefs.getString("pin_nodes_backup", null)?.length ?: 0} chars")
         appendLine("Signed in: ${fxaSync.isSignedIn}")
         appendLine("Sync status: $syncStatus")
         appendLine("Sync error: ${syncError ?: fxaSync.lastError ?: "none"}")
@@ -747,11 +746,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Small file, write synchronously so a quick kill can't lose folders. */
+    /** Same fire-and-forget IO write as persistEssentials(). */
     fun persistPinNodes(source: String = "mutation") {
         val snapshot = pinNodes
-        runCatching {
-            runBlocking(Dispatchers.IO) { BrowserFiles.savePinNodes(application, snapshot, source) }
-        }
+        scope.launch(Dispatchers.IO) { BrowserFiles.savePinNodes(application, snapshot, source) }
     }
 
     /* ------------------------------------------------------------ pins */

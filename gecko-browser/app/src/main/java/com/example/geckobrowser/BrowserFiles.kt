@@ -245,25 +245,8 @@ object BrowserFiles {
         }
     } ?: emptyList()
 
+    /** Same plain file write as [saveEssentials] — no special-case logic. */
     fun savePinNodes(context: Context, nodes: List<PinNode>, source: String = "mutation") {
-        if (nodes.isEmpty()) {
-            // Deleting pins writes tombstones, never an empty list. An empty
-            // write is therefore always accidental (stale sync/boot state).
-            // Preserve the last good tree instead of truncating the file to [].
-            val existing = readText(pinNodesFile(context))
-                ?: context.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
-                    .getString("pin_nodes_backup", null)
-            val preserved = existing?.let { runCatching { parsePinNodes(it) }.getOrNull() }
-            if (!preserved.isNullOrEmpty()) {
-                val stamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
-                    .format(java.util.Date())
-                pinWriteHistory.addLast("$stamp [$source] BLOCKED empty overwrite (${preserved.size} kept)")
-                while (pinWriteHistory.size > 10) pinWriteHistory.removeFirst()
-                lastPinSave = "blocked empty write from $source; ${preserved.size} nodes kept"
-                android.util.Log.w("HZ-Pins", lastPinSave)
-                return
-            }
-        }
         val json = JSONArray().apply {
             nodes.forEach { n ->
                 put(JSONObject().apply {
@@ -283,41 +266,26 @@ object BrowserFiles {
             }
         }.toString()
         writeText(pinNodesFile(context), json)
-        // Keep a prefs copy too: a failed file write must never lose folders.
-        runCatching {
-            context.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
-                .edit().putString("pin_nodes_backup", json).apply()
-        }
         val fileLen = runCatching { pinNodesFile(context).length() }.getOrDefault(-1L)
         val stamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
             .format(java.util.Date())
         pinWriteHistory.addLast("$stamp [$source] ${nodes.size} nodes; file=$fileLen bytes")
         while (pinWriteHistory.size > 10) pinWriteHistory.removeFirst()
-        lastPinSave = "$stamp [$source] ${nodes.size} nodes; file=$fileLen bytes; backup=${json.length} chars"
+        lastPinSave = "$stamp [$source] ${nodes.size} nodes; file=$fileLen bytes"
         android.util.Log.i("HZ-Pins", "saved $lastPinSave")
     }
 
-    /**
-     * Try the file first, then the prefs copy — including when the file exists
-     * but is truncated/corrupt. A valid empty array is a valid (empty) tree.
-     */
+    /** Same plain file read as [loadEssentials]. */
     fun loadPinNodes(context: Context): List<PinNode> {
-        val backup = context.getSharedPreferences("arc_browser", Context.MODE_PRIVATE)
-            .getString("pin_nodes_backup", null)
-        val fromFile = readText(pinNodesFile(context))?.let {
-            runCatching { parsePinNodes(it) }.getOrNull()
+        val raw = readText(pinNodesFile(context))
+        val result = if (raw == null) {
+            emptyList()
+        } else try {
+            parsePinNodes(raw)
+        } catch (_: Throwable) {
+            emptyList()
         }
-        val fromBackup = backup?.let { runCatching { parsePinNodes(it) }.getOrNull() }
-        // An empty/truncated file must not win over a good prefs copy.
-        val result = when {
-            !fromFile.isNullOrEmpty() -> fromFile
-            !fromBackup.isNullOrEmpty() -> fromBackup
-            fromFile != null -> fromFile
-            fromBackup != null -> fromBackup
-            else -> emptyList()
-        }
-        lastPinLoad = "result=${result.size}; file=${fromFile?.size?.toString() ?: "unreadable"}; " +
-            "backup=${fromBackup?.size?.toString() ?: "none"}; " +
+        lastPinLoad = "result=${result.size}; " +
             "fileBytes=${runCatching { pinNodesFile(context).length() }.getOrDefault(-1L)}"
         android.util.Log.i("HZ-Pins", "loaded $lastPinLoad")
         return result
