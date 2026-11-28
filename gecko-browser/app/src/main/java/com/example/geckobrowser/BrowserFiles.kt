@@ -152,8 +152,13 @@ object BrowserFiles {
 
     /* -------------------------- spaces, essentials, pin nodes */
 
-    private fun optUuid(o: JSONObject, key: String): UUID? =
-        o.optString(key).takeUnless { it.isBlank() }?.let(UUID::fromString)
+    private fun optUuid(o: JSONObject, key: String): UUID? {
+        val value = o.opt(key) ?: return null
+        if (value === JSONObject.NULL) return null
+        val raw = value.toString().trim()
+        if (raw.isEmpty() || raw.equals("null", ignoreCase = true)) return null
+        return runCatching { UUID.fromString(raw) }.getOrNull()
+    }
 
     fun saveSpaces(context: Context, spaces: List<Space>) {
         writeText(spacesFile(context), JSONArray().apply {
@@ -245,8 +250,23 @@ object BrowserFiles {
         }
     } ?: emptyList()
 
-    /** Same plain file write as [saveEssentials] — no special-case logic. */
+    /** Same plain file write as [saveEssentials], plus never truncate a real tree. */
     fun savePinNodes(context: Context, nodes: List<PinNode>, source: String = "mutation") {
+        if (nodes.isEmpty()) {
+            // Deletions write tombstones, never an empty list. Block accidental
+            // empty writes (stale sync/boot) from truncating the file to [].
+            val existing = readText(pinNodesFile(context))
+            val preserved = existing?.let { runCatching { parsePinNodes(it) }.getOrNull() }
+            if (!preserved.isNullOrEmpty()) {
+                val stamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US)
+                    .format(java.util.Date())
+                pinWriteHistory.addLast("$stamp [$source] BLOCKED empty overwrite (${preserved.size} kept)")
+                while (pinWriteHistory.size > 10) pinWriteHistory.removeFirst()
+                lastPinSave = "blocked empty write from $source; ${preserved.size} nodes kept"
+                android.util.Log.w("HZ-Pins", lastPinSave)
+                return
+            }
+        }
         val json = JSONArray().apply {
             nodes.forEach { n ->
                 put(JSONObject().apply {
@@ -305,7 +325,7 @@ object BrowserFiles {
         return result
     }
 
-    private fun parsePinNodes(raw: String): List<PinNode> {
+    internal fun parsePinNodes(raw: String): List<PinNode> {
         val arr = JSONArray(raw)
         return buildList {
             for (i in 0 until arr.length()) {
@@ -316,7 +336,8 @@ object BrowserFiles {
                         id = id,
                         spaceId = optUuid(o, "spaceId") ?: Space.PERSONAL_ID,
                         parentId = optUuid(o, "parentId"),
-                        type = PinType.valueOf(o.optString("type").ifBlank { "PIN" }),
+                        type = runCatching { PinType.valueOf(o.optString("type").ifBlank { "PIN" }) }
+                            .getOrDefault(PinType.PIN),
                         url = o.optString("url"),
                         title = o.optString("title"),
                         faviconUrl = o.optString("faviconUrl").takeUnless { it.isBlank() || it == "null" },

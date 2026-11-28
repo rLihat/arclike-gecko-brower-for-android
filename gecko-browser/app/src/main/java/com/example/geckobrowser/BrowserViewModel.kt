@@ -342,9 +342,13 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
         if (records.isEmpty()) return
         val openIds = tabs.map { it.id }.toMutableSet()
         val openUrls = tabs.map { pinKeyOf(it.url) }.toMutableSet()
+        // Pinned tabs/folders are not "open tabs"; sync must not re-add them.
+        val pinnedUrls = pinNodes.filter { it.deletedAt == null && it.type == PinType.PIN }
+            .map { pinKeyOf(it.url) }.toSet()
         records.forEach { record ->
             if (record.url.isBlank()) return@forEach
             if (record.id in openIds || pinKeyOf(record.url) in openUrls) return@forEach
+            if (pinKeyOf(record.url) in pinnedUrls) return@forEach
             val spaceId = if (spaces.any { it.id == record.spaceId }) record.spaceId else Space.PERSONAL_ID
             addTab(
                 url = record.url,
@@ -395,15 +399,10 @@ class BrowserViewModel(app: Application) : AndroidViewModel(app) {
                 if (merged != null) {
                     spaces = merged.spaces
                     essentials = merged.essentials
-                    // Extra guard: a remote record with no pin rows must never
-                    // wipe a tree we already have locally.
-                    val pinResult = if (merged.pinNodes.isEmpty() && pinNodes.isNotEmpty()) {
-                        android.util.Log.w("HZ-Pins", "sync returned no pins; keeping local tree")
-                        pinNodes
-                    } else merged.pinNodes
-                    pinNodes = pinResult
+                    // Pins/folders are a LOCAL, proven store. Sync currently
+                    // only exchanges spaces/essentials/tabs; it must never
+                    // overwrite or persist an empty `pinNodes` tree here.
                     persistSpaces(); persistEssentials()
-                    persistPinNodes("sync")
                     applySyncedTabs(merged.tabs)
                     syncStatus = "Synced just now"
                     showToast("Spaces synced")
